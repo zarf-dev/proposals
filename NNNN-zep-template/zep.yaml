@@ -1,5 +1,6 @@
+schema-version: 1.0.0
+
 title: ZEP Template
-version: 1.0.0
 zep-number: NNNN
 authors:
   - "@jane.doe"
