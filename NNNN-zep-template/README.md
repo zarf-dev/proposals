@@ -186,6 +186,48 @@ when drafting this test plan.
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
+##### Prerequisite testing updates
+
+<!--
+Based on reviewers feedback describe what additional tests need to be added prior
+implementing this enhancement to ensure the enhancements have also solid foundations.
+-->
+
+##### Unit tests
+
+<!--
+In principle every added code should have complete unit test coverage, so providing
+the exact set of tests will not bring additional value.
+However, if complete unit test coverage is not possible, explain the reason of it
+together with explanation why this is acceptable.
+-->
+
+<!--
+Additionally, for Alpha try to enumerate the core package you will be touching
+to implement this enhancement and provide the current unit coverage for those
+in the form of:
+- <package>: <date> - <current test coverage>
+The data can be easily read from:
+https://app.codecov.io/gh/zarf-dev/zarf
+
+
+This can inform certain test coverage improvements that we want to do before
+extending the production code to implement this enhancement.
+-->
+
+- `<package>`: `<date>` - `<test coverage>`
+
+##### e2e tests
+
+<!--
+This question should be filled when targeting a release.
+For Alpha, describe what tests will be added to ensure proper quality of the enhancement.
+
+For Beta and GA, add links to the created E2E test(s) if applicable
+
+We expect no non-infra related flakes in the last month as a GA graduation criteria.
+-->
+
 ### Graduation Criteria
 
 <!--
