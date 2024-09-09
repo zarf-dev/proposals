@@ -10,12 +10,12 @@ To get started with this template:
 - [X] **Make a copy of this template directory.**
   Name it `NNNN-short-descriptive-title`, where `NNNN` is the issue number
   (with no leading zeroes).
-- [ ] **Fill out as much of the zep.yaml file as you can.**
+- [X] **Fill out as much of the zep.yaml file as you can.**
   At minimum, complete the "Title", "Authors", "Status", and date-related fields.
-- [ ] **Fill out this file as best you can.**
+- [X] **Fill out this file as best you can.**
   Focus on the "Summary" and "Motivation" sections first. If you've already discussed
   the idea with the Technical Steering Committee, this part should be easier.
-- [ ] **Create a PR for this ZEP.**
+- [X] **Create a PR for this ZEP.**
   Assign it to members of the Technical Steering Committee who are sponsoring this process.
 - [ ] **Merge early and iterate.**
   Don’t get bogged down in the details—focus on getting the goals clarified and the
