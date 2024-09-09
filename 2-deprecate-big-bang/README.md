@@ -192,7 +192,7 @@ metadata:
   namespace: bigbang
 stringData:
   values.yaml: |
-	neuvector:
+  neuvector:
   	values:
     	k3s:
        enabled: true
