@@ -71,7 +71,7 @@ longer appropriate, updates to the list must be approved by the remaining approv
 
 ## Summary
 
-This ZEP proposes deprecating the Big Bang extension in Zarf with the release of v1. The Big Bang extension simplifies deploying the [Big Bang platform](https://p1.dso.mil/services/big-bang), but it adds complexity to the codebase. Zarf will focus on the general air-gap Kubernetes problem rather than a Department of Defense (DoD) platform specific use case. The proposal introduces a new command, `zarf dev generate big-bang`, which generates a zarf.yaml file with the necessary components for Big Bang deployment. This command will released before or alongside the Big Bang extension deprecation in Zarf v1 to allow users to transition.
+This ZEP proposes deprecating the Big Bang extension in Zarf with the release of v1. The Big Bang extension simplifies deploying the [Big Bang platform](https://p1.dso.mil/services/big-bang), but it adds complexity to the codebase. Zarf will focus on the general air-gap Kubernetes problem rather than a Department of Defense (DoD) platform specific use case. The proposal introduces a new command, `zarf dev generate big-bang`, which generates a zarf.yaml file with the necessary components for Big Bang deployment. This command will be released before or alongside the Big Bang extension deprecation in Zarf v1 to allow users to transition.
 
 ## Motivation
 
@@ -160,7 +160,7 @@ A user wants to deploy Big Bang with Zarf. They run `zarf dev generate big-bang 
 
 #### Story 2
 
-An existing deployer of Big Bang with Zarf wants to update to a new version of Big Bang. They already have a `zarf.yaml` that deploys Big Bang alongside other components - shown below. They run `zarf dev generate big-bang 2.34.0` which creates a `bigbang-zarf.yaml` so that their existing `zarf.yaml` is not overridden. The user then copies and and pastes the images and repos from the `bigbang-zarf.yaml` to their existing `zarf.yaml`.
+An existing deployer of Big Bang with Zarf wants to update to a new version of Big Bang. They already have a `zarf.yaml` that deploys Big Bang alongside other components - shown below. They run `zarf dev generate big-bang 2.34.0` which creates a `bigbang-zarf.yaml` so that their existing `zarf.yaml` is not overridden. The user then copies and pastes the images and repos from the `bigbang-zarf.yaml` to their existing `zarf.yaml`.
 
 ```yaml
 - name: BigBang
@@ -175,7 +175,7 @@ An existing deployer of Big Bang with Zarf wants to update to a new version of B
 
 ### Risks and Mitigations
 
-This deprecation removes simplifies the Zarf package create flow by removing extensions. There are no security implications.
+This deprecation removes and simplifies the Zarf package create flow by removing extensions. There are no security implications.
 
 The proposed UX will be reviewed and tested by real users of the Big Bang extension to ensure it provides a suitable replacement.
 
