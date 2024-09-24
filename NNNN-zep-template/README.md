@@ -246,8 +246,8 @@ Major milestones might include:
 - the `Summary` and `Motivation` sections being merged, signaling acceptance of the ZEP
 - the `Proposal` section being merged, signaling agreement on a proposed design
 - the date implementation started
-- the first Kubernetes release where an initial version of the ZEP was available
-- the version of Kubernetes where the ZEP graduated to general availability
+- the first Zarf release where an initial version of the ZEP was available
+- the version of Zarf where the ZEP graduated to general availability
 - when the ZEP was retired or superseded
 -->
 
