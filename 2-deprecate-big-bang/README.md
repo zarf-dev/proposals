@@ -3,7 +3,7 @@
 
 To get started with this template:
 
-- [ ] **Create an issue in zarf-dev/proposals.**
+- [X] **Create an issue in zarf-dev/proposals.**
   When creating a proposal issue, complete all fields in that template. One of
   the fields asks for a link to the ZEP, which you can leave blank until the ZEP
   is filed. Then, go back and add the link.
