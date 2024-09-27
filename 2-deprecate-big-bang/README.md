@@ -71,7 +71,7 @@ longer appropriate, updates to the list must be approved by the remaining approv
 
 ## Summary
 
-This ZEP proposes deprecating the Big Bang extension in Zarf with the release of v1. The Big Bang extension simplifies deploying the [Big Bang platform](https://p1.dso.mil/services/big-bang), but it adds complexity to the codebase. Zarf will focus on the general air-gap Kubernetes problem rather than a Department of Defense (DoD) platform specific use case. The proposal introduces a new command, `generate-big-bang-zarf-package`, which generates a zarf.yaml file with the necessary components for Big Bang deployment. This command will be released before or alongside the Big Bang extension deprecation in Zarf v1 to allow users to transition.
+This ZEP proposes removing the Big Bang extension in Zarf. The Big Bang extension simplifies deploying the [Big Bang platform](https://p1.dso.mil/services/big-bang), but it adds complexity to the codebase. Zarf will focus on solving the general air-gap Kubernetes problem rather than a Department of Defense (DoD) platform specific use case. The proposal introduces a new repo, `generate-big-bang-zarf-package`, which will contain a tool that generates a zarf.yaml file with the necessary components for Big Bang deployment.
 
 ## Motivation
 
@@ -79,7 +79,7 @@ This ZEP proposes deprecating the Big Bang extension in Zarf with the release of
 
 Zarf simplifies Kubernetes deployments in the air-gap. The initial Zarf use cases targeted air-gapped environments within the DoD. The creators of Zarf were heavily involved in creating the DoD platform, Big Bang. 
 
-Big Bang is a helm chart of helm charts. The default Big Bang deployment contains forty different images across fourteen different repositories. A user of Zarf creating a package to deploy Big Bang without the Big Bang extension needs to include every image and git repository within Big Bang. Each image and repo has a version that changes with each Big Bang release. Manually finding these versions every release is time-consuming and arduous.
+Big Bang is a helm chart of helm charts. The default Big Bang deployment contains forty different images across fourteen different repositories. A user of Zarf creating a package to deploy Big Bang without the Big Bang extension needs to include every image and git repository within Big Bang. Each image and repo has a version that changes with each Big Bang release, and images & repos change depending on the helm values. Manually finding these versions every release is time-consuming and arduous.
 
 To simplify the deployment of Big Bang within Zarf the Big Bang extension was created. This allowed users to create their Big Bang component in as little as three lines of code - version is the only required field. Below is the extensions key with a value for every sub-key.
 
@@ -125,9 +125,9 @@ Examples:
 zarf dev generate big bang --version 2.3.4 –skip-flux=false --values-file-manifests =istio-values.yaml
 
 Flags:
-  --skip-flux bool  Whether or not to create a flux component (default false)
-  --repo string   	Override repo to pull Big Bang from instead of Repo One.
-  --values-file-manifests    A comma separated list of values files to pass to the Big Bang component
+  --skip-flux bool           Whether or not to create a flux component (default false)
+  --repo string   	         Override repo to pull Big Bang from instead of Repo One.
+  --values-file-manifests    A comma separated list of configmap or secret manifests to pass to the Big Bang Helm Release
 
 ```
 
