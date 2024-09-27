@@ -121,7 +121,7 @@ Usage:
   generate-big-bang-zarf-package [ Version ] [flags]
 
 Examples:
-zarf dev generate big bang --version 2.3.4 –skip-flux=false --values-file-manifests =istio-values.yaml
+generate-big-bang-zarf-package 2.3.4 –skip-flux=false --values-file-manifests =istio-values.yaml
 
 Flags:
   --skip-flux bool           Whether or not to create a flux component (default false)
