@@ -50,7 +50,6 @@ longer appropriate, updates to the list must be approved by the remaining approv
 - [Summary](#summary)
 - [Motivation](#motivation)
   - [Goals](#goals)
-  - [Non-Goals](#non-goals)
 - [Proposal](#proposal)
   - [User Stories (Optional)](#user-stories-optional)
     - [Story 1](#story-1)
@@ -217,6 +216,14 @@ NA
 
 There must be unit tests to ensure the command generates the expected Zarf package. These tests must be run with and without values files to confirm the generated package reflects the requested Big Bang release. 
 
+##### e2e tests
+
+NA
+
+### Graduation Criteria
+
+As this feature is being moved into it's own repository it will not have a typical graduation criteria. The release process will be as simple as possible. There will be no tags created on the repository. The tool is intended to be installed with `go install github.com/defenseunicorns-partnerships/generate-big-bang-zarf-package@latest`. Since `go install @latest` grabs the default branch, a new release occurs every time a PR is merged to main.
+
 ### Upgrade / Downgrade Strategy
 
 NA
@@ -237,6 +244,10 @@ Major milestones might include:
 - the version of Kubernetes where the ZEP graduated to general availability
 - when the ZEP was retired or superseded
 -->
+
+## Drawbacks
+
+A separate git repository increases administrative burden such as upgrading dependencies, creating the CI and release process, and managing permissions. This is somewhat mitigated by the simple release process we planned in [Graduation Criteria](#Graduation-Criteria). Additionally, as this functionality is moved out of Zarf organization, we expect new feature work to be driven by the community. 
 
 ## Alternatives
 
