@@ -45,7 +45,7 @@ The latest instructions for this template can be found in [this repo](/NNNN-zep-
 longer appropriate, updates to the list must be approved by the remaining approvers.
 -->
 
-# ZEP-1: Deprecate Big Bang Extension
+# ZEP-2: Remove Big Bang Extension
 
 - [Summary](#summary)
 - [Motivation](#motivation)
@@ -171,9 +171,9 @@ An existing deployer of Big Bang with Zarf wants to update to a new version of B
 
 ### Risks and Mitigations
 
-This deprecation removes and simplifies the Zarf package create flow by removing extensions. There are no security implications.
+This removal simplifies the Zarf package create flow by removing extensions. There are no security implications.
 
-The proposed UX will be reviewed and tested by real users of the Big Bang extension to ensure it provides a suitable replacement.
+The proposed UX will be reviewed and tested by users of the Big Bang extension to ensure it provides a suitable replacement.
 
 ## Design Details
 
@@ -273,7 +273,7 @@ spec:
    	name: my-git-repo
 ```
 
-### Deprecate the Big Bang extension without an alternative
+### Remove the Big Bang extension without an alternative
 
 While the Big Bang extension is not part of the core functionality of Zarf we wanted to avoid alienating users by not providing an alternative. Given the low level of effort expected to maintain the `generate-big-bang-zarf-package` repository, we believe the proposed solution to be a good compromise. 
 
