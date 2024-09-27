@@ -113,7 +113,7 @@ A notable reason to move away from offering Big Bang support in Zarf is to focus
 
 ## Proposal
 
-The proposed solution is to create a new go project, [defenseunicorns/generate-big-bang-zarf-package](https://github.com/defenseunicorns/generate-big-bang-zarf-package), focused solely on generating a big bang package. The command `generate-big-bang-zarf-package` will accept have one argument, version, and accept the following command line flags: `values-file-manifests`, `skipFlux`, and `repo`. The `fluxPatchFiles` flag will not have an equivalent, however, users will be able to edit their Flux component to deploy it with patch files after the generate command has run. Below is the helper text for the command: 
+The proposed solution is to create a new go project, [github.com/defenseunicorns-partnerships/generate-big-bang-zarf-package](https://github.com/defenseunicorns-partnerships/generate-big-bang-zarf-package), focused solely on generating a big bang package. The command `generate-big-bang-zarf-package` will accept have one argument, version, and accept the following command line flags: `values-file-manifests`, `skipFlux`, and `repo`. The `fluxPatchFiles` flag will not have an equivalent, however, users will be able to edit their Flux component to deploy it with patch files after the generate command has run. Below is the helper text for the command: 
 
 ```bash
 Generates a zarf.yaml file and the associated manifests necessary to create a Zarf package that deploys Big Bang 
