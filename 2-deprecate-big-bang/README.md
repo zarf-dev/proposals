@@ -71,7 +71,7 @@ longer appropriate, updates to the list must be approved by the remaining approv
 
 ## Summary
 
-This ZEP proposes deprecating the Big Bang extension in Zarf with the release of v1. The Big Bang extension simplifies deploying the [Big Bang platform](https://p1.dso.mil/services/big-bang), but it adds complexity to the codebase. Zarf will focus on the general air-gap Kubernetes problem rather than a Department of Defense (DoD) platform specific use case. The proposal introduces a new command, `zarf dev generate big-bang`, which generates a zarf.yaml file with the necessary components for Big Bang deployment. This command will be released before or alongside the Big Bang extension deprecation in Zarf v1 to allow users to transition.
+This ZEP proposes deprecating the Big Bang extension in Zarf with the release of v1. The Big Bang extension simplifies deploying the [Big Bang platform](https://p1.dso.mil/services/big-bang), but it adds complexity to the codebase. Zarf will focus on the general air-gap Kubernetes problem rather than a Department of Defense (DoD) platform specific use case. The proposal introduces a new command, `generate-big-bang-zarf-package`, which generates a zarf.yaml file with the necessary components for Big Bang deployment. This command will be released before or alongside the Big Bang extension deprecation in Zarf v1 to allow users to transition.
 
 ## Motivation
 
@@ -105,34 +105,33 @@ The extension does simplify deploying Big Bang in Zarf, but this comes with down
 - Zarf performs implicit actions that are not visible to the user, such as adding a custom values file with Kyverno policies.
 - Big Bang relies on images stored in [Iron Bank](https://p1.dso.mil/services/iron-bank), a container registry run by the DoD. Unfortunately, Iron Bank has frequent outages which causes flakes in Zarf’s test suite.
 
-A notable reason to move away from offering first class support for Big Bang is to help Zarf focus on being an air-gap Kubernetes tool, rather than a DoD deployment tool. The Big Bang support exists because Zarf was created by the DoD contractor Defense Unicorns. Now Zarf has been donated to Open SSF and it should focus on what is best for the community at large.
+A notable reason to move away from offering Big Bang support in Zarf is to focus on being an air-gap Kubernetes tool, rather than a DoD deployment tool. The Big Bang support exists because Zarf was created by the DoD contractor Defense Unicorns. Now Zarf has been donated to Open SSF and it should focus on what is best for the community at large.
 
 
 ### Goals
 
-- Remove all references to Big Bang besides the code paths following `zarf dev generate big-bang`.
-- Workflows on Pull Requests (PRs) should not pull from Iron Bank.
+- Remove all references to Big Bang within Zarf.
 
 ## Proposal
 
-The proposed solution is creating a new Zarf Command Line interface (CLI) command `zarf dev generate big-bang`. The keys `valuesFiles`, `skipFlux`, and `repo` will become CLI arguments to the command. The `fluxPatchFiles` key will not have an equivalent, however, users will be able to edit their Flux component to deploy with patch files after the generate command has run. Below is the helper text for the command: 
+The proposed solution is to create a new go project, [defenseunicorns/generate-big-bang-zarf-package](https://github.com/defenseunicorns/generate-big-bang-zarf-package), focused solely on generating a big bang package. The command `generate-big-bang-zarf-package` will accept have one argument, version, and accept the following command line flags: `values-file-manifests`, `skipFlux`, and `repo`. The `fluxPatchFiles` flag will not have an equivalent, however, users will be able to edit their Flux component to deploy it with patch files after the generate command has run. Below is the helper text for the command: 
 
 ```bash
 Generates a zarf.yaml file and the associated manifests necessary to create a Zarf package that deploys Big Bang 
 Usage:
-  zarf dev generate big-bang [ Version ] [flags]
+  generate-big-bang-zarf-package [ Version ] [flags]
 
 Examples:
-zarf dev generate big bang --version 2.3.4 –skip-flux=false --values-file=istio-values.yaml,
+zarf dev generate big bang --version 2.3.4 –skip-flux=false --values-file-manifests =istio-values.yaml
 
 Flags:
   --skip-flux bool  Whether or not to create a flux component (default false)
   --repo string   	Override repo to pull Big Bang from instead of Repo One.
-  --values-files    A comma separated list of values files to pass to the Big Bang component
+  --values-file-manifests    A comma separated list of values files to pass to the Big Bang component
 
 ```
 
-This command will create a zarf.yaml file with a component that fully deploys Big Bang for the provided version. Zarf will generate manifests and place them in a manifests folder. Any files submitted with the `valuesFiles` flag will be added to the manifests as well. The component will follow the following structure: 
+This command will create a zarf.yaml file with a component that fully deploys Big Bang for the provided version. Zarf will generate manifests and place them in a manifests folder. Any files submitted with the `values-files-manifests` flag will be added to the manifests list as well. The component will follow the following structure: 
 
 ```
 - Manifests
@@ -146,21 +145,19 @@ This command will create a zarf.yaml file with a component that fully deploys Bi
   - All the Big Bang repos
 - Health checks
   - A health check for each Helm Release
-- OnRemove actions
-  - Removing each Helm Release
 ```
 
-If a zarf.yaml file already exists `zarf dev generate big-bang` will instead generate a file called `bigbang-zarf.yaml`. This will prevent Zarf from overwriting any existing Zarf files while providing a convenient way to copy and paste images and repos from one file to the other.
+If a zarf.yaml file already exists `generate-big-bang-zarf-package` will instead generate a file called `zarf-<uid>.yaml`. This will prevent Zarf from overwriting any existing Zarf files while providing a convenient way to copy and paste images and repos from one file to the other.
 
 ### User Stories (Optional)
 
 #### Story 1
 
-A user wants to deploy Big Bang with Zarf. They run `zarf dev generate big-bang 2.34.0` without an existing `zarf.yaml` and get the necessary manifests and zarf.yaml so that they are ready to run `zarf package create`.
+A user wants to deploy Big Bang with Zarf. They run `generate-big-bang-zarf-package 2.34.0` without an existing `zarf.yaml` and get the necessary manifests and zarf.yaml so that they are ready to run `zarf package create`.
 
 #### Story 2
 
-An existing deployer of Big Bang with Zarf wants to update to a new version of Big Bang. They already have a `zarf.yaml` that deploys Big Bang alongside other components - shown below. They run `zarf dev generate big-bang 2.34.0` which creates a `bigbang-zarf.yaml` so that their existing `zarf.yaml` is not overridden. The user then copies and pastes the images and repos from the `bigbang-zarf.yaml` to their existing `zarf.yaml`.
+An existing deployer of Big Bang with Zarf wants to update to a new version of Big Bang. They already have a `zarf.yaml` that deploys Big Bang alongside other components - shown below. They run `generate-big-bang-zarf-package 2.34.0` which creates a `bigbang-zarf.yaml` so that their existing `zarf.yaml` is not overridden. The user then copies and pastes the images and repos from the `bigbang-zarf.yaml` to their existing `zarf.yaml`.
 
 ```yaml
 - name: BigBang
@@ -182,7 +179,7 @@ The proposed UX will be reviewed and tested by real users of the Big Bang extens
 ## Design Details
 
 ### User Values File Changes
-When a user runs `zarf dev generate big-bang 2.34.0 –values-files=my-values-file.yaml` the values files are expected to be Kubernetes secrets manifests to work with Flux Helm Releases. These manifests will both be added to the Zarf Package and referenced in the generated Helm Release under the [valuesFrom](https://fluxcd.io/flux/components/helm/helmreleases/#values-references) key. This differs from the Big Bang extension which expects traditional Helm values files and converts them to Kubernetes secret manifests during zarf package create. If a user submits a values file that is not in the below format, the generate command will fail and they will be prompted to fix. 
+When a user runs `generate-big-bang-zarf-package 2.34.0 –values-file-manifests=my-values-file.yaml` the values files are expected to be Kubernetes secrets manifests to work with Flux Helm Releases. These manifests will both be added to the Zarf Package and referenced in the generated Helm Release under the [valuesFrom](https://fluxcd.io/flux/components/helm/helmreleases/#values-references) key. This differs from the Big Bang extension which expects traditional Helm values files and converts them to Kubernetes secret manifests during zarf package create. If a user submits a values file that is not in the below format, the generate command will fail and they will be prompted to fix. 
 
 ```yaml
 apiVersion: v1
@@ -204,7 +201,7 @@ The Big Bang extension deploys Flux within the bigbang component. The generate c
 
 ### Subsequent Generate Big Bang runs 
 
-When a `zarf.yaml` file already exists in the current working directory `zarf dev generate bigbang 2.34.0` will create a new `bigbang-zarf.yaml` to not delete user configuration on their `zarf.yaml` file. Existing manifests (Flux Git Repository, Flux Helm Repository, and Zarf credentials values manifest) will be replaced since user updates to these files are not anticipated, and were not possible with the Big Bang extension. 
+When a `zarf.yaml` file already exists in the current working directory `zarf dev generate bigbang 2.34.0` will create a file called `zarf-<uid>.yaml` to not delete user configuration on their `zarf.yaml` file. Existing manifests (Flux Git Repository, Flux Helm Repository, and Zarf credentials values manifest) will be replaced since user updates to these files are not anticipated, and were not possible with the Big Bang extension. 
 
 ### Test Plan
 
@@ -219,15 +216,6 @@ NA
 ##### Unit tests
 
 There must be unit tests to ensure the command generates the expected Zarf package. These tests must be run with and without values files to confirm the generated package reflects the requested Big Bang release. 
-
-##### e2e tests
-
-The end to end test of the Big Bang extension should ensure that a zarf.yaml file generated with the latest release of Big Bang deploys successfully. This test should run nightly on main and not run on pull requests (PRs). This way developers will not be affected by workflows flaking from downtime on registry1. 
-
-### Graduation Criteria
-
-- Alpha, the command will exist in Zarf, but will not be documented. This will be pre-v1.
-- GA, feedback has been gathered and breaking changes are not anticipated. GA should be reached before or simultaneously with v1.
 
 ### Upgrade / Downgrade Strategy
 
@@ -249,10 +237,6 @@ Major milestones might include:
 - the version of Kubernetes where the ZEP graduated to general availability
 - when the ZEP was retired or superseded
 -->
-
-## Drawbacks
-
-One could argue that Big Bang should be referenced by Zarf at all since it's become an Open SSF project, these concerns are discussed in [Alternatives](#Deprecate-the-Big-Bang-extension-without-an-alternative).
 
 ## Alternatives
 
@@ -280,6 +264,6 @@ spec:
 
 ### Deprecate the Big Bang extension without an alternative
 
-While the Big Bang extension is not part of the core functionality of Zarf we wanted to avoid alienating users by not providing an alternative. Given that we can cordon off the references to Big Bang entirely with the `zarf dev generate big-bang` and the low level of effort we anticipate from this feature, we believe the proposed solution to be a good compromise. 
+While the Big Bang extension is not part of the core functionality of Zarf we wanted to avoid alienating users by not providing an alternative. Given the low level of effort expected to maintain the `generate-big-bang-zarf-package` repository, we believe the proposed solution to be a good compromise. 
 
 We estimated a low level of effort based on the relative infrequency and size of changes throughout the history of the [src/extensions/bigbang](https://github.com/zarf-dev/zarf/commits/main/src/extensions/bigbang) folder. The proposed changes will make maintenance easier still. 
