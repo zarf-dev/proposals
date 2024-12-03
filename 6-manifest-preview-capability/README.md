@@ -216,7 +216,7 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic. This means the `ZARF_REGISTRY` variable will become `127.0.0.1:31999`, while secrets like the `GIT_AUTH_PUSH` variable will become a random string. This will follow the same logic as `zarf dev find-images`.  
+[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic besides sensitive values which will be set to "PLACEHOLDER". This means the `ZARF_REGISTRY` variable will become `127.0.0.1:31999`, while secrets like the `GIT_AUTH_PUSH` will be set to "PLACEHOLDER".  
 
 ### Test Plan
 
