@@ -97,9 +97,9 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Users need an easier way to view what their zarf.yaml will look like after templating, imports, and flavors are applied. 
+Both creators and deployers need a way to view their manifests and values files after Zarf variables are applied.
 
-This will be accomplished through a new CLI command `zarf package preview`
+This will be accomplished through new CLI commands `zarf dev show-manifests`, `zarf dev show-values-fils`, `zarf package show-manifests`, and `zarf package show-values-files`
 
 ## Motivation
 
@@ -114,9 +114,14 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-Forcing users to use the the print before the (y/n) prompt in `zarf package create` to view their zarf.yaml after templating, imports, and flavors are applied is not ideal. Having a separate command will improve the UX, and an alternate path to this information will open up the possibility of `zarf package create` proceeding without prompting the user. 
+Viewing manifests and values files after templating would be useful for both creators and deployers. Catching a mistake in templating early can reduce cycle time. A Helm template is almost instant, whereas create + deploy could take several minutes or even an hour+.
 
-This following issues requests a feature similar to `zarf package preview` - https://github.com/zarf-dev/zarf/issues/2631
+A user could achieve a similar effect to this command by unarchiving a package and running `helm template` on their chart. This is a poor UX, and the `helm template` may fail depending on where variable templating is used within the chart.
+
+This feature has been highly requested in recent months:
+- request in Kubernetes slack - https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1730229638367829
+- An issue has been created for this - https://github.com/zarf-dev/zarf/issues/2631
+- Defense Unicorns, an organization that relies heavily on Zarf for their deployments, have received requests for this feature in a feedback session with their partners.
 
 ### Goals
 
@@ -125,7 +130,9 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-We know we are successful if package creators have a convenient way to view their zarf.yaml after templating, imports, and flavors are applied.
+This is successful for creators when they can view manifests or values files prior to building their package to gain confidence that their templating is working correctly before creating their packages.
+
+This is successful for deployers when they are able to view their templated manifests and values files before deploying.
 
 ### Non-Goals
 
@@ -133,6 +140,8 @@ We know we are successful if package creators have a convenient way to view thei
 What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
+
+We do not want to show the manifests of a package that is already deployed. Users can use the [helm get manifest](https://helm.sh/docs/helm/helm_get_manifest/) command to see what Zarf has deployed to the cluster.
 
 ## Proposal
 
@@ -144,18 +153,31 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Introduce a new command called `zarf package preview`. This command will print a zarf.yaml after templates, imports, and flavors are applied.
+Introduce four new commands. `zarf package show-manifests`, `zarf package show-values-files`, `zarf dev show-manifests`, and `zarf dev show-values-files`. The `package` commands will an already built package, local or OCI, while the `dev` commands will take a package directory.
 
-Example help text: 
+The help text for `zarf package show-manifests` will look like below. `zarf package show-values-files` will include the same flags.
 ```
 Usage:
-  zarf package preview [ PACKAGE ] [flags]
+  zarf package show-manifests [ PACKAGE_SOURCE ] [flags]
 
 Flags:
-      --set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
-  -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
+      --set stringToString          Specify deployment variables to set on the command line (KEY=value) (default [])
+      --kube-version                Override the default helm template KubeVersion when performing a package chart template
+      --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported
+      --confirm                     Confirms package deployment without prompting. Skips prompts to configure variables and select optional components
 ```
 
+```
+Usage:
+  zarf dev show-manifests [ PACKAGE_SOURCE ] [flags]
+
+Flags:
+      --create-set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
+      --deploy-set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
+  -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
+      --kube-version                Override the default helm template KubeVersion when performing a package chart template
+      Confirms package deployment without prompting. Skips prompts to configure variables and select optional components
+```
 
 ### User Stories (Optional)
 
@@ -168,7 +190,11 @@ bogged down.
 
 #### Story 1
 
-As a creator of Zarf packages I want to see what my zarf.yaml will look like after templates, imports, and flavors are applied so I run `zarf package preview -f my-flavor --set=MY_TEMPLATE=my-val`
+As a creator of Zarf packages I want to make sure the variables in my package can get templated properly for the expected values of the deployers. I want to check this for both manifests and values files so I run `zarf dev show-manifests path/to/package-dir --deploy-set=MY_VAR=my-val` and `zarf dev show-values-files path/to/package-dir --deploy-set=MY_VAR=my-val`
+
+#### Story 2
+
+As a deployer of Zarf packages, I want to check that the variables I intend to deploy my package with are getting properly templated for both manifests and values files so I run `zarf package show-manifests zarf-package-podinfo-amd64.tar.zst --deploy-set=MY_VAR=my-val` and `zarf package show-values-files zarf-package-podinfo-amd64.tar.zst --deploy-set=MY_VAR=my-val`
 
 ### Risks and Mitigations
 
@@ -182,6 +208,8 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
+Security risks are minimal. This command could print Zarf variables with the `sensitive` value set to true. These variables would be set using values that a user already has access to: user input, configuration files, or the default key in the zarf.yaml file. Given that these commands are expected to be run by a user developing a package or actively managing a cluster or  and not in an automated system we deem these risks acceptable.
+
 ## Design Details
 
 <!--
@@ -191,7 +219,9 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-The zarf.yaml in this command will be printed to stdout. 
+[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic besides sensitive values which will be set to "PLACEHOLDER". For example, the `ZARF_REGISTRY` variable  become `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER".
+
+Manifests and values files will be printed to standard out.
 
 ### Test Plan
 
@@ -206,53 +236,9 @@ when drafting this test plan.
 [testing-guidelines]: https://docs.zarf.dev/contribute/testing/
 -->
 
-[X] I/we understand the owners of the involved components may require updates to
+[ ] I/we understand the owners of the involved components may require updates to
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
-
-##### Prerequisite testing updates
-
-<!--
-Based on reviewers feedback describe what additional tests need to be added prior
-implementing this enhancement to ensure the enhancements have also solid foundations.
--->
-
-N/A
-
-##### Unit tests
-
-<!--
-In principle every added code should have complete unit test coverage, so providing
-the exact set of tests will not bring additional value.
-However, if complete unit test coverage is not possible, explain the reason of it
-together with explanation why this is acceptable.
--->
-
-<!--
-Additionally, for Alpha try to enumerate the core package you will be touching
-to implement this enhancement and provide the current unit coverage for those
-in the form of:
-- <package>: <date> - <current test coverage>
-The data can be easily read from:
-https://app.codecov.io/gh/zarf-dev/zarf
-
-
-This can inform certain test coverage improvements that we want to do before
-extending the production code to implement this enhancement.
--->
-
-##### e2e tests
-
-<!--
-This question should be filled when targeting a release.
-For Alpha, describe what tests will be added to ensure proper quality of the enhancement.
-
-For Beta and GA, add links to the created E2E test(s) if applicable
-
-We expect no non-infra related flakes in the last month as a GA graduation criteria.
--->
-
-Given the simplicity of this feature, unit tests will be adequate. 
 
 ### Graduation Criteria
 
@@ -277,6 +263,8 @@ If this feature will eventually be deprecated, plan for it:
 - Announce deprecation and support policy.
 - Wait at least two versions before fully removing it.
 -->
+
+Given the simplicity of this feature, unit tests will be adequate. 
 
 ### Upgrade / Downgrade Strategy
 
@@ -308,8 +296,6 @@ proposal:
   - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
 -->
 
-N/A
-
 ## Implementation History
 
 <!--
@@ -318,8 +304,8 @@ Major milestones might include:
 - the `Summary` and `Motivation` sections being merged, signaling acceptance of the ZEP
 - the `Proposal` section being merged, signaling agreement on a proposed design
 - the date implementation started
-- the first Kubernetes release where an initial version of the ZEP was available
-- the version of Kubernetes where the ZEP graduated to general availability
+- the first Zarf release where an initial version of the ZEP was available
+- the version of Zarf where the ZEP graduated to general availability
 - when the ZEP was retired or superseded
 -->
 
@@ -337,7 +323,4 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-One alternative was to use `zarf dev preview`, the thought being that this command will be run by creators while developing a package. However, given the similarities between this command and `zarf package inspect` we decided that it made for a more cohesive user experience to have both commands under the same parent.
-
-
-Another alternative is to separate commands dedicated to show the different types of files. `zarf package preview` would be introduced to show the zarf.yaml file. `zarf dev show-manifests` and `zarf dev show-values-files` would show the manifests and values files respectively. The `zarf package inspect` command would be unchanged. Separating `show-manifests` and `show-values-files` would increase the surface area of the CLI, but give the commands a more distinct purpose, and more sensible flags. `show-manifests` and `show-values-files` would have the `--deploy-set` and `--create-set` flags, while `zarf package preview` would only need `--set`. `show-manifests` and `show-values-files` would need a `--kube-version` flag so they can still template charts that have a specific version requirement outside of the default. A `--components` flag could be added for to `show-manifests` and `show-values-files` for users who want to see the manifests they are deploying without optional components included, but wouldn't make sense for the `zarf package preview` command since all components are included on create regardless of if they are used or not. The `show-manifests` and `show-values-files` commands would take either a zarf.yaml or a zarf package.
+Both commands could have a `--component` flag similar to `zarf package deploy`. This would allow users to get a more accurate view of the manifests that they intend to deploy if their packages include optional components. This would introduce another situation where 
