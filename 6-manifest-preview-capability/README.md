@@ -97,7 +97,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Users need an easier way to view what their zarf.yaml will look like after templating, imports, and flavors are applied. 
+Users need an easier way to view what their zarf.yaml will look like after they're rendered by Zarf before create. A rendered zarf.yaml has had templating, imports, and flavors applied. 
 
 This will be accomplished through a new CLI command `zarf package preview`
 
@@ -114,9 +114,9 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-Forcing users to use the the print before the (y/n) prompt in `zarf package create` to view their zarf.yaml after templating, imports, and flavors are applied is not ideal. Having a separate command will improve the UX, and an alternate path to this information will open up the possibility of `zarf package create` proceeding without prompting the user. 
+Forcing users to use the the print before the (y/n) prompt in `zarf package create` to view their rendered zarf.yaml is not ideal. Having a separate command will improve the UX, and an alternate path to this information will open up the possibility of `zarf package create` proceeding without prompting the user. 
 
-This following issues requests a feature similar to `zarf package preview` - https://github.com/zarf-dev/zarf/issues/2631
+The following issues requests a feature similar to `zarf package preview` - https://github.com/zarf-dev/zarf/issues/2631
 
 ### Goals
 
@@ -125,7 +125,7 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-We know we are successful if package creators have a convenient way to view their zarf.yaml after templating, imports, and flavors are applied.
+We know we are successful if package creators have a convenient way to view their rendered zarf.yaml. 
 
 ### Non-Goals
 
@@ -133,6 +133,8 @@ We know we are successful if package creators have a convenient way to view thei
 What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
+
+This command should stay extremely simple, and only print the rendered zarf.yaml. It will not output SBOMs, or manifests. 
 
 ## Proposal
 
@@ -146,6 +148,10 @@ below is for the real nitty-gritty.
 
 Introduce a new command called `zarf package preview`. This command will print a zarf.yaml after templates, imports, and flavors are applied.
 
+This command will not support the differential flag until the differential flag is out of beta. The Zarf team is undecided on whether we will keep the differential flag or build an alternative solution. The implementation of the differential flag will be simple if/when we choose to add it. 
+
+The registry override flag will not be supported as this flag does not have an effect on the rendered zarf.yaml. 
+
 Example help text: 
 ```
 Usage:
@@ -153,9 +159,9 @@ Usage:
 
 Flags:
       --set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
-  -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
+  -f, --flavor string        The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
+      --confirm              Confirm package creation without prompting
 ```
-
 
 ### User Stories (Optional)
 
@@ -182,6 +188,10 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
+The risks are minimal, the feature is simple and easy to maintain. 
+
+The Zarf core team will review the UX
+
 ## Design Details
 
 <!--
@@ -191,7 +201,7 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-The zarf.yaml in this command will be printed to stdout. 
+This command should print the zarf.yaml to stdout 
 
 ### Test Plan
 
@@ -278,6 +288,8 @@ If this feature will eventually be deprecated, plan for it:
 - Wait at least two versions before fully removing it.
 -->
 
+This feature will be released immediately as GA given the low risk.
+
 ### Upgrade / Downgrade Strategy
 
 <!--
@@ -338,6 +350,3 @@ information to express the idea and why it was not acceptable.
 -->
 
 One alternative was to use `zarf dev preview`, the thought being that this command will be run by creators while developing a package. However, given the similarities between this command and `zarf package inspect` we decided that it made for a more cohesive user experience to have both commands under the same parent.
-
-
-Another alternative is to separate commands dedicated to show the different types of files. `zarf package preview` would be introduced to show the zarf.yaml file. `zarf dev show-manifests` and `zarf dev show-values-files` would show the manifests and values files respectively. The `zarf package inspect` command would be unchanged. Separating `show-manifests` and `show-values-files` would increase the surface area of the CLI, but give the commands a more distinct purpose, and more sensible flags. `show-manifests` and `show-values-files` would have the `--deploy-set` and `--create-set` flags, while `zarf package preview` would only need `--set`. `show-manifests` and `show-values-files` would need a `--kube-version` flag so they can still template charts that have a specific version requirement outside of the default. A `--components` flag could be added for to `show-manifests` and `show-values-files` for users who want to see the manifests they are deploying without optional components included, but wouldn't make sense for the `zarf package preview` command since all components are included on create regardless of if they are used or not. The `show-manifests` and `show-values-files` commands would take either a zarf.yaml or a zarf package.
