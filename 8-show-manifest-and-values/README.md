@@ -99,7 +99,7 @@ feedback and reduce unnecessary changes.
 
 Both creators and deployers need a way to view their manifests and values files after Zarf variables are applied.
 
-This will be accomplished through new CLI commands `zarf dev show-manifests`, `zarf dev show-values-fils`, `zarf package show-manifests`, and `zarf package show-values-files`
+This will be accomplished through new CLI commands `zarf dev show-manifests`, `zarf dev show-values-files`, `zarf package show-manifests`, and `zarf package show-values-files`
 
 ## Motivation
 
@@ -153,7 +153,7 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Introduce four new commands. `zarf dev show-manifests`, `zarf dev show-values-files`, `zarf package show-manifests`, and `zarf package show-values-files`. The `package` commands will run on an already built package, local or OCI, while the `dev` commands will take a package directory.
+Introduce four new commands. `zarf dev show-manifests`, `zarf dev show-values-files`, `zarf package show-manifests`, and `zarf package show-values-files`. The `package` commands will run on an already built package, local or remote, while the `dev` commands will take a package directory. Before printing the manifest for each chart the name and version of the chart should be printed.  
 
 The help text for `zarf dev show-manifests` will look like below. `zarf dev show-values-files` will include the same flags.
 ```
@@ -195,7 +195,7 @@ As a creator of Zarf packages I want to make sure the variables in my package ca
 
 #### Story 2
 
-As a deployer of Zarf packages, I want to check that the variables I intend to deploy my package with are getting properly templated for both manifests and values files before I deploy so I run `zarf package show-manifests zarf-package-podinfo-amd64.tar.zst --deploy-set=MY_VAR=my-val` and `zarf package show-values-files zarf-package-podinfo-amd64.tar.zst --deploy-set=MY_VAR=my-val`
+As a deployer of Zarf packages, I want to check that the variables I intend to deploy my package with are getting properly templated for both manifests and values files before I deploy so I run `zarf package show-manifests zarf-package-podinfo-amd64.tar.zst -set=MY_VAR=my-val` and `zarf package show-values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val`
 
 ### Risks and Mitigations
 
@@ -209,7 +209,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-Security risks are minimal. This command could print Zarf variables with the `sensitive` value set to true. Zarf variables are set using values that a user already has access to: user input, configuration files, or their default value in the zarf.yaml file. Given that these commands are expected to be run by a user developing a package or actively managing a cluster and not in an automated system we deem these risks acceptable.
+This command could print Zarf variables with the `sensitive` key set to true. Zarf variables are set using values that a user already has access to: user input, configuration files, or their default value in the zarf.yaml file. Given that these commands are expected to be run by a user developing a package or preparing for a deployment and not in an automated system we deem these risks acceptable.
 
 ## Design Details
 
@@ -222,7 +222,7 @@ proposal will be implemented, this is the place to discuss that.
 
 [Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic besides sensitive values which will be set to "PLACEHOLDER". For example, the `ZARF_REGISTRY` variable  become `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER".
 
-Manifests and values files will be printed to standard out.
+Manifests and values files will be printed to standard out, while all other logs and output from this command will go to stderr.
 
 ### Test Plan
 
@@ -326,4 +326,4 @@ information to express the idea and why it was not acceptable.
 
 ### Combining commands dev and package commands
 
-The `zarf package show-manifests` and `zarf dev show-manifests` commands could be combined into one command that accepts either a package directory or a built package. The advantage of this is that it lowers the surface area of the CLI, and makes the commands easier to find, the `dev` root might be less visible than package. The disadvantage of this is that certain flags will only work for built packages and vice versa. For example, `--create-set` would not be applicable with an already built package as the package templates will already be evaluated. In this case, we could error out immediately, but this combination of flags may cause confusion.
+The `zarf package show-manifests` and `zarf dev show-manifests` commands could be combined into one command that accepts either a package directory or a built package. This would lower the surface area of the CLI. The disadvantage of this is that certain flags will only work for built packages and vice versa. For example, `--create-set` would not be applicable with an already built package as the package templates will already have been evaluated. In this case, we could error out immediately. Still, having separate commands where every flag always works will result in a more clear UX. 
