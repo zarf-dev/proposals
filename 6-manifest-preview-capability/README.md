@@ -125,7 +125,7 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-We know we are successful if package creators have a convenient way to view their rendered zarf.yaml. 
+We know this is successful if package creators have a convenient way to view their rendered zarf.yaml before creating their package. 
 
 ### Non-Goals
 
@@ -148,7 +148,7 @@ below is for the real nitty-gritty.
 
 Introduce a new command called `zarf package preview`. This command will print a zarf.yaml after templates, imports, and flavors are applied.
 
-This command will not support the differential flag until the differential flag is out of beta. The Zarf team is undecided on whether we will keep the differential flag or build an alternative solution. The implementation of the differential flag will be simple if/when we choose to add it. 
+This command will not support the differential flag until the differential flag is out of beta. The Zarf team is undecided on whether we will keep the differential flag or build an alternative solution. The implementation of the differential flag will be simple if/when it is added. 
 
 The registry override flag will not be supported as this flag does not have an effect on the rendered zarf.yaml. 
 
@@ -189,8 +189,6 @@ How will UX be reviewed, and by whom?
 -->
 
 The risks are minimal, the feature is simple and easy to maintain. 
-
-The Zarf core team will review the UX
 
 ## Design Details
 
