@@ -116,7 +116,7 @@ or other references to show the community's interest in the ZEP.
 
 Forcing users to use the print before the (y/n) prompt in `zarf package create` to view their rendered zarf.yaml is not ideal. Having a separate command improves the UX by providing users with an easier way to view the rendered zarf.yaml. It also opens the possibility of allowing zarf package create to proceed without requiring user confirmation.
 
-The following issues requests a feature similar to `zarf package preview` - https://github.com/zarf-dev/zarf/issues/2631
+This issue asks for a better way to view what a zarf.yaml looks like at create time - https://github.com/zarf-dev/zarf/issues/2631
 
 ### Goals
 
@@ -146,9 +146,9 @@ below is for the real nitty-gritty.
 
 Introduce a new command called `zarf package preview`. This command will print the zarf.yaml after templates, imports, and flavors are applied.
 
-The differential flag will not be supported until it exits beta. The Zarf team is undecided on whether we will keep the differential flag or build an alternative solution. The implementation of the differential flag will be simple if/when it is added. 
+The differential flag will not be supported until it exits beta. The Zarf team is undecided on whether we will keep the differential flag or build an alternative solution. Implementing the differential flag will be simple if/when it's out of beta. 
 
-The registry override flag will not be supported as this flag does not have an effect on the rendered zarf.yaml. 
+The registry override flag will not be supported as this flag does not have an effect on the rendered zarf.yaml during `zarf package create`. 
 
 Example help text: 
 ```
@@ -345,4 +345,4 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-One alternative was to use `zarf dev preview`, since this command will be run by creators while developing a package. However, given the similarities between this command and `zarf package inspect` we decided that it made for a more cohesive user experience to have both commands under the same parent.
+One alternative was to use `zarf dev preview`, since package creators will run this command during development. However, given the similarities between this command and `zarf package inspect` we decided that having both commands under the same parent made for a more cohesive user experience.
