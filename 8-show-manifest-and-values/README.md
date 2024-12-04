@@ -121,7 +121,7 @@ A user can achieve a similar effect to `zarf package show-manifests` by unarchiv
 This feature has been highly requested in recent months:
 - request in Kubernetes slack - https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1730229638367829
 - An issue has been created for this - https://github.com/zarf-dev/zarf/issues/2631
-- Defense Unicorns, an organization that relies heavily on Zarf for their deployments, have received requests for this feature in a feedback session with their partners.
+- Defense Unicorns, an organization that relies heavily on Zarf for their deployments, has received requests for this feature in a feedback session with their partners.
 
 ### Goals
 
@@ -130,9 +130,9 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-This is successful for creators when they can view manifests or values files prior to building their package to gain confidence that their templating is working correctly before creating their packages.
+This is successful for creators when they can view manifests or values files before building their package to gain confidence that their templating is working correctly before creating their packages.
 
-This is successful for deployers when they are able to view their templated manifests and values files before deploying.
+This is successful for deployers when they can view their templated manifests and values files before deploying.
 
 ### Non-Goals
 
@@ -141,7 +141,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-We do not want to show the manifests of a package that is already deployed. Users can use the [helm get manifest](https://helm.sh/docs/helm/helm_get_manifest/) command to see what Zarf has deployed to the cluster.
+Zarf will not accept a package in the cluster as input to `zarf package show-manifests` or `zarf package show-values-files`. Certain Zarf commands allow the cluster as a package source, such as `zarf package inspect`, however, since variable templating is already complete and users can view their deployed packages with [helm get manifest](https://helm.sh/docs/helm/helm_get_manifest/) accepting cluster sources is not a priority.
 
 ## Proposal
 
@@ -155,7 +155,7 @@ below is for the real nitty-gritty.
 
 Introduce four new commands. `zarf dev show-manifests`, `zarf dev show-values-files`, `zarf package show-manifests`, and `zarf package show-values-files`. The `package` commands will run on an already built package, local or remote, while the `dev` commands will take a package directory. Before printing the manifest for each chart the name and version of the chart should be printed.  
 
-The help text for `zarf dev show-manifests` will look like below. `zarf dev show-values-files` will include the same flags.
+Below is the intended help text for `zarf dev show-manifests`. `zarf dev show-values-files` will include the same flags.
 ```
 Usage:
   zarf dev show-manifests [ PACKAGE_SOURCE ] [flags]
@@ -168,7 +168,7 @@ Flags:
       --confirm                     Confirms command without prompting. Skips prompts to configure variables.
 ```
 
-The help text for `zarf package show-manifests` will look like below. `zarf package show-values-files` will include the same flags.
+Below is the intended help text for `zarf package show-manifests`. `zarf package show-values-files` will include the same flags.
 ```
 Usage:
   zarf package show-manifests [ PACKAGE_SOURCE ] [flags]
@@ -191,7 +191,7 @@ bogged down.
 
 #### Story 1
 
-As a creator of Zarf packages I want to make sure the variables in my package can get templated properly for the expected values of the deployers. I want to check this for both manifests and values files so I run `zarf dev show-manifests path/to/package-dir --deploy-set=MY_VAR=my-val` and `zarf dev show-values-files path/to/package-dir --deploy-set=MY_VAR=my-val`
+As a creator of Zarf packages, I want to make sure the variables in my package can get templated properly for the expected values of the deployers. I want to check this for both manifests and values files so I run `zarf dev show-manifests path/to/package-dir --deploy-set=MY_VAR=my-val` and `zarf dev show-values-files path/to/package-dir --deploy-set=MY_VAR=my-val`
 
 #### Story 2
 
@@ -220,7 +220,7 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic besides sensitive values which will be set to "PLACEHOLDER". For example, the `ZARF_REGISTRY` variable  become `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER".
+[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which will be set to "PLACEHOLDER". For example, the `ZARF_REGISTRY` variable become `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure this commands can run without having to grab the real values from Zarf state in the cluster. 
 
 Manifests and values files will be printed to standard out, while all other logs and output from this command will go to stderr.
 
