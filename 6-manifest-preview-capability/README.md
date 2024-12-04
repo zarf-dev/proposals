@@ -97,9 +97,9 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Users need an easier way to view what their zarf.yaml will look like after they're rendered by Zarf before create. A rendered zarf.yaml has had templating, imports, and flavors applied. 
+Users need an easier way to view what their zarf.yaml will look like after they're rendered by Zarf before `zarf package create`. A rendered zarf.yaml has had templating, imports, and flavors applied. 
 
-This will be accomplished through a new CLI command `zarf package preview`
+This will be accomplished through a new CLI command - `zarf package preview`
 
 ## Motivation
 
@@ -114,7 +114,7 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-Forcing users to use the the print before the (y/n) prompt in `zarf package create` to view their rendered zarf.yaml is not ideal. Having a separate command will improve the UX, and an alternate path to this information will open up the possibility of `zarf package create` proceeding without prompting the user. 
+Forcing users to use the print before the (y/n) prompt in `zarf package create` to view their rendered zarf.yaml is not ideal. Having a separate command improves the UX by providing users with an easier way to view the rendered zarf.yaml. It also opens the possibility of allowing zarf package create to proceed without requiring user confirmation.
 
 The following issues requests a feature similar to `zarf package preview` - https://github.com/zarf-dev/zarf/issues/2631
 
@@ -125,7 +125,7 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-We know this is successful if package creators have a convenient way to view their rendered zarf.yaml before creating their package. 
+This ZEP is successful when package creators have a convenient way to view their rendered zarf.yaml before creating their package.
 
 ### Non-Goals
 
@@ -133,8 +133,6 @@ We know this is successful if package creators have a convenient way to view the
 What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
-
-This command should stay extremely simple, and only print the rendered zarf.yaml. It will not output SBOMs, or manifests. 
 
 ## Proposal
 
@@ -146,9 +144,9 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Introduce a new command called `zarf package preview`. This command will print a zarf.yaml after templates, imports, and flavors are applied.
+Introduce a new command called `zarf package preview`. This command will print the zarf.yaml after templates, imports, and flavors are applied.
 
-This command will not support the differential flag until the differential flag is out of beta. The Zarf team is undecided on whether we will keep the differential flag or build an alternative solution. The implementation of the differential flag will be simple if/when it is added. 
+The differential flag will not be supported until it exits beta. The Zarf team is undecided on whether we will keep the differential flag or build an alternative solution. The implementation of the differential flag will be simple if/when it is added. 
 
 The registry override flag will not be supported as this flag does not have an effect on the rendered zarf.yaml. 
 
@@ -160,7 +158,7 @@ Usage:
 Flags:
       --set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
   -f, --flavor string        The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
-      --confirm              Confirm package creation without prompting
+      --confirm              Confirm package preview without prompting
 ```
 
 ### User Stories (Optional)
@@ -199,7 +197,7 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-This command should print the zarf.yaml to stdout 
+This command should print the zarf.yaml to stdout.
 
 ### Test Plan
 
@@ -347,4 +345,4 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-One alternative was to use `zarf dev preview`, the thought being that this command will be run by creators while developing a package. However, given the similarities between this command and `zarf package inspect` we decided that it made for a more cohesive user experience to have both commands under the same parent.
+One alternative was to use `zarf dev preview`, since this command will be run by creators while developing a package. However, given the similarities between this command and `zarf package inspect` we decided that it made for a more cohesive user experience to have both commands under the same parent.
