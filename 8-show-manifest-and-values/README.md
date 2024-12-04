@@ -114,7 +114,7 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-Viewing manifests and values files after templating would be useful for both creators and deployers. Catching a mistake in templating early can reduce cycle time. A Helm template is almost instant, whereas create + deploy could take several minutes or even an hour+.
+Viewing manifests and values files after Zarf variable templating would be useful for both creators and deployers. Catching a mistake in templating early can reduce cycle time. A Helm template is almost instant, whereas create + deploy could take several minutes to hours.
 
 A user can achieve a similar effect to `zarf package show-manifests` by unarchiving a package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
 
@@ -130,7 +130,7 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-This is successful for creators when they can view manifests or values files before building their package to gain confidence that their templating is working correctly before creating their packages.
+This is successful for creators when they can view manifests or values files before building their package to gain confidence that their variables are templated as intended before creating their packages.
 
 This is successful for deployers when they can view their templated manifests and values files before deploying.
 
@@ -141,7 +141,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-Zarf will not accept a package in the cluster as input to `zarf package show-manifests` or `zarf package show-values-files`. Certain Zarf commands allow the cluster as a package source, such as `zarf package inspect`, however, since variable templating is already complete and users can view their deployed packages with [helm get manifest](https://helm.sh/docs/helm/helm_get_manifest/) accepting cluster sources is not a priority.
+Zarf will not accept a package in the cluster as input to zarf package show-manifests or zarf package show-values-files. While certain Zarf commands, such as `zarf package inspect`, do allow the cluster as a package source, accepting cluster sources offers limited value. This is because variable templating is already complete, and users can view their deployed charts using [helm get manifest](https://helm.sh/docs/helm/helm_get_manifest/)
 
 ## Proposal
 
@@ -158,7 +158,7 @@ Introduce four new commands. `zarf dev show-manifests`, `zarf dev show-values-fi
 Below is the intended help text for `zarf dev show-manifests`. `zarf dev show-values-files` will include the same flags.
 ```
 Usage:
-  zarf dev show-manifests [ PACKAGE_SOURCE ] [flags]
+  zarf dev show-manifests [ DIRECTORY ] [flags]
 
 Flags:
       --create-set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
@@ -220,7 +220,7 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which will be set to "PLACEHOLDER". For example, the `ZARF_REGISTRY` variable become `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure this commands can run without having to grab the real values from Zarf state in the cluster. 
+[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which will be set to "PLACEHOLDER". For example, the `ZARF_REGISTRY` variable become `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure these commands can run without needing a connection to a cluster with Zarf initialized.
 
 Manifests and values files will be printed to standard out, while all other logs and output from this command will go to stderr.
 
@@ -324,6 +324,6 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-### Combining commands dev and package commands
+### Combining dev and package commands
 
-The `zarf package show-manifests` and `zarf dev show-manifests` commands could be combined into one command that accepts either a package directory or a built package. This would lower the surface area of the CLI. The disadvantage of this is that certain flags will only work for built packages and vice versa. For example, `--create-set` would not be applicable with an already built package as the package templates will already have been evaluated. In this case, we could error out immediately. Still, having separate commands where every flag always works will result in a more clear UX. 
+The `zarf package show-manifests` and `zarf dev show-manifests` commands could be combined into one command that accepts either a package directory or a built package. The same is true for `show-values-files`. This would lower the surface area of the CLI. The disadvantage of this is that certain flags will only work for built packages and vice versa. For example, `--create-set` would not be applicable with an already built package as the package templates will already have been evaluated. In this case, we could error out immediately. Still, having separate commands where every flag always works will result in a more clear UX. 
