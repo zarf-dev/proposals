@@ -153,7 +153,9 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Introduce four new commands. `zarf dev show-manifests`, `zarf dev show-values-files`, `zarf package show-manifests`, and `zarf package show-values-files`. The `package` commands will run on an already built package, local or remote, while the `dev` commands will take a package directory. Before printing the manifest for each chart the name and version of the chart should be printed.  
+Introduce four new commands. `zarf dev show-manifests`, `zarf dev show-values-files`, `zarf package show-manifests`, and `zarf package show-values-files`. The `package` commands will run on an already built package, local or remote, while the `dev` commands will take a package directory. This command will print both the manifests from a helm chart and the manifests in the `.components[x].manifests` key. Component actions will not run during any of these commands.
+
+Before printing the manifest for each chart the name and version of the chart will be printed. Before printing Manifests from the `.components[x].manifests` key the name of the manifests block, `.components[x].manifests[x].name`, will be printed.
 
 Below is the intended help text for `zarf dev show-manifests`. `zarf dev show-values-files` will include the same flags.
 ```
