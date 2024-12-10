@@ -125,7 +125,7 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-- preview package contents without creating the package
+- Preview package contents without creating the package
 
 ### Non-Goals
 
