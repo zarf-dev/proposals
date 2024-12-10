@@ -97,7 +97,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Users need an easier way to view what their zarf.yaml will look like after they're rendered by Zarf before `zarf package create`. A rendered zarf.yaml has had templating, imports, and flavors applied. 
+Users need an easier way to view what their package will look like after they're rendered by Zarf before `zarf package create`. A rendered package has had templating, imports, and flavors applied. 
 
 This will be accomplished through a new CLI command - `zarf package preview`
 
@@ -114,7 +114,7 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-Forcing users to use the print before the (y/n) prompt in `zarf package create` to view their rendered zarf.yaml is not ideal. Having a separate command improves the UX by providing users with an easier way to view the rendered zarf.yaml. It also opens the possibility of allowing zarf package create to proceed without requiring user confirmation.
+Forcing users to use the print before the (y/n) prompt in `zarf package create` to view their rendered package is not ideal. Having a separate command improves the UX by providing users with an easier way to view the rendered zarf.yaml. It also opens the possibility of allowing zarf package create to proceed without requiring user confirmation.
 
 This issue asks for a better way to view what a zarf.yaml looks like at create time - https://github.com/zarf-dev/zarf/issues/2631
 
@@ -144,9 +144,9 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Introduce a new command called `zarf package preview`. This command will print the zarf.yaml after templates, imports, and flavors are applied.
+Introduce a new command called `zarf package preview`. This command will print the package after templates, imports, and flavors are applied.
 
-The differential flag will not be supported until it exits beta. The Zarf team is undecided on whether we will keep the differential flag or build an alternative solution. Implementing the differential flag will be simple if/when it's out of beta. 
+The `--differential` flag available in `zarf package create` will not be supported until it reaches stable level. The Zarf team is undecided on whether we will keep the differential flag or build an alternative solution.
 
 The registry override flag will not be supported as this flag does not have an effect on the rendered zarf.yaml during `zarf package create`. 
 
@@ -172,7 +172,7 @@ bogged down.
 
 #### Story 1
 
-As a creator of Zarf packages I want to see what my zarf.yaml will look like after templates, imports, and flavors are applied so I run `zarf package preview -f my-flavor --set=MY_TEMPLATE=my-val`
+As a creator of Zarf packages I want to see what my rendered `zarf.yaml` will look like after templates, imports, and flavors are applied, with a simple invocation: `zarf package preview -f my-flavor --set=MY_TEMPLATE=my-val`
 
 ### Risks and Mitigations
 
