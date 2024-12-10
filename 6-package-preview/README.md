@@ -125,7 +125,7 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-This ZEP is successful when package creators have a convenient way to view their rendered zarf.yaml before creating their package.
+- preview package contents without creating the package
 
 ### Non-Goals
 
@@ -133,6 +133,8 @@ This ZEP is successful when package creators have a convenient way to view their
 What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
+
+- Provide additional templating mechanism
 
 ## Proposal
 
@@ -144,11 +146,9 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Introduce a new command called `zarf package preview`. This command will print the package definition after templates, imports, and flavors are applied.
+Introduce a new command called `zarf package preview`. This command will print the package definition after templates, imports, and flavors are applied. The `--differential` flag available in `zarf package create` will not be supported until it reaches stable level. Component actions will not run during `zarf package preview`.
 
-The `--differential` flag available in `zarf package create` will not be supported until it reaches stable level. The Zarf team is undecided on whether we will keep the differential flag or build an alternative solution.
-
-The registry override flag will not be supported as this flag does not have an effect on the rendered zarf.yaml during `zarf package create`. 
+The registry override flag will not be supported as this flag does not have an effect on the package definition during `zarf package create`. 
 
 Example help text: 
 ```
