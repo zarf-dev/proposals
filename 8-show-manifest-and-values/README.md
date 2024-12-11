@@ -119,7 +119,7 @@ Viewing manifests and values files after Zarf variable templating would be usefu
 A user can achieve a similar effect to `zarf package show manifests` by unarchiving a package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
 
 This feature has been highly requested in recent months:
-- request in Kubernetes slack - https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1730229638367829
+- Request in Kubernetes Slack - https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1730229638367829
 - An issue has been created for this - https://github.com/zarf-dev/zarf/issues/2631
 - Defense Unicorns, an organization that relies heavily on Zarf for their deployments, has received requests for this feature in a feedback session with their partners.
 
@@ -196,7 +196,7 @@ As a creator of Zarf packages, I want to make sure that the variables in my pack
 
 #### Story 2
 
-As a deployer of Zarf packages, I want to make sure that the variables in my package are properly rendered for both manifests and values files before I deploy so I run `zarf package show manifests zarf-package-podinfo-amd64.tar.zst -set=MY_VAR=my-val --components=my-optional-component` and `zarf package show values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component`
+As a deployer of Zarf packages, I want to make sure that the variables in my package are properly rendered for both manifests and values files before I deploy so I run `zarf package show manifests zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component` and `zarf package show values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component`
 
 ### Risks and Mitigations
 
@@ -210,7 +210,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-This command could print Zarf variables with the `sensitive` key set to true. Zarf variables are set using values that a user already has access to: user input, configuration files, or their default value in the zarf.yaml file. Given that these commands are expected to be run by a user developing a package or preparing for a deployment and not in an automated system we deem these risks acceptable.
+This command could print Zarf variables with the `sensitive` key set to true. Zarf variables are set using values that a user already has access to: user input, configuration files, or their default value in the zarf.yaml file. Given that these commands are expected to be run by a user developing a package or preparing for a deployment and not in an automated system, we deem these risks acceptable.
 
 ## Design Details
 
@@ -221,7 +221,7 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which will be set to "PLACEHOLDER". For example, the `ZARF_REGISTRY` variable become `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure these commands can run without needing a connection to a cluster with Zarf initialized.
+[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which will be set to "PLACEHOLDER". For example, the `ZARF_REGISTRY` variable becomes `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure these commands can run without needing a connection to a cluster with Zarf initialized.
 
 Manifests and values files will be printed to standard out, while all other logs and output from this command will go to stderr.
 
@@ -336,7 +336,7 @@ There are several different ways this command could be structured differently. `
 
 - `zarf package show manifests [PACKAGE | DIRECTORY]` which would take either a package directory or an already built package. This both reads well and would maximize discoverability as the parent is `package`. The tradeoff is some confusion around command line flags. The `--create-set` and `--flavor` flags would not be applicable with an already built package. Additionally, the `--components` flag would only be applicable to already built packages, but could be made to work on package directories as a future enhancement. Clear help text for each flag and erroring out when an incorrect combination is used could mitigate user confusion here.
 
-- `zarf show manifests [DIRECTORY]` and `zarf show package manifests [PACKAGE]`. This is the most concise option and reads the best, however introducing the new root command `show` may limit discoverability. With no other commands under `show` users may not notice the new root word.
+- `zarf show manifests [DIRECTORY]` and `zarf show package manifests [PACKAGE]`. This is the most concise option and reads the best; however, introducing the new root command `show` may limit discoverability. With no other commands under `show` users may not notice the new root word.
 
 - `zarf package show manifests [PACKAGE]` and `zarf package show definition manifests [DIRECTORY]` This would have good discoverability, being under the `package` parent. However, `zarf package show definition manifests` is long at five words, and a word like `definition` may not be clearly articulate that the command is intended for package directories.
 
