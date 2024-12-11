@@ -45,7 +45,7 @@ The latest instructions for this template can be found in [this repo](/NNNN-zep-
 longer appropriate, updates to the list must be approved by the remaining approvers.
 -->
 
-# ZEP-NNNN: Your short, descriptive title
+# ZEP-6: preview rendered package definition
 
 <!--
 Keep the title short simple and descriptive. It should clearly convey what
