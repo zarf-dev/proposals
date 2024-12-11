@@ -99,7 +99,7 @@ feedback and reduce unnecessary changes.
 
 Both creators and deployers need a way to view their manifests and values files after Zarf variables are applied.
 
-This will be accomplished through new CLI commands `zarf dev show-manifests`, `zarf dev show-values-files`, `zarf package show-manifests`, and `zarf package show-values-files`
+This will be accomplished through new CLI commands `zarf dev show manifests`, `zarf dev show values-files`, `zarf package show manifests`, and `zarf package show values-files`
 
 ## Motivation
 
@@ -116,7 +116,7 @@ or other references to show the community's interest in the ZEP.
 
 Viewing manifests and values files after Zarf variable templating would be useful for both creators and deployers. Catching a mistake in templating early can reduce cycle time. A Helm template is almost instant, whereas create + deploy could take several minutes to hours.
 
-A user can achieve a similar effect to `zarf package show-manifests` by unarchiving a package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
+A user can achieve a similar effect to `zarf package show manifests` by unarchiving a package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
 
 This feature has been highly requested in recent months:
 - request in Kubernetes slack - https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1730229638367829
@@ -141,7 +141,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-Zarf will not accept a package in the cluster as input to zarf package show-manifests or zarf package show-values-files. While certain Zarf commands, such as `zarf package inspect`, do allow the cluster as a package source, accepting cluster sources offers limited value. This is because variable templating is already complete, and users can view their deployed charts using [helm get manifest](https://helm.sh/docs/helm/helm_get_manifest/)
+Zarf will not accept a package in the cluster as input to zarf package show manifests or zarf package show values-files. While certain Zarf commands, such as `zarf package inspect`, do allow the cluster as a package source, accepting cluster sources offers limited value. This is because variable templating is already complete, and users can view their deployed charts using [helm get manifest](https://helm.sh/docs/helm/helm_get_manifest/)
 
 ## Proposal
 
@@ -153,14 +153,14 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Introduce four new commands. `zarf dev show-manifests`, `zarf dev show-values-files`, `zarf package show-manifests`, and `zarf package show-values-files`. The `package` commands will run on an already built package, local or remote, while the `dev` commands will take a package directory. This command will print both the manifests from a helm chart and the manifests in the `.components[x].manifests` key. Component actions will not run during any of these commands.
+Introduce four new commands. `zarf dev show manifests`, `zarf dev show values-files`, `zarf package show manifests`, and `zarf package show values-files`. The `package` commands will run on an already built package, local or remote, while the `dev` commands will take a package directory. This command will print both the manifests from a helm chart and the manifests in the `.components[x].manifests` key. Component actions will not run during any of these commands.
 
 Before printing the manifest for each chart the name and version of the chart will be printed. Before printing Manifests from the `.components[x].manifests` key the name of the manifests block, `.components[x].manifests[x].name`, will be printed.
 
-Below is the intended help text for `zarf dev show-manifests`. `zarf dev show-values-files` will include the same flags.
+Below is the intended help text for `zarf dev show manifests`. `zarf dev show values-files` will include the same flags.
 ```
 Usage:
-  zarf dev show-manifests [ DIRECTORY ] [flags]
+  zarf dev show manifests [ DIRECTORY ] [flags]
 
 Flags:
       --create-set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
@@ -170,10 +170,10 @@ Flags:
       --confirm                     Confirms command without prompting. Skips prompts to configure variables.
 ```
 
-Below is the intended help text for `zarf package show-manifests`. `zarf package show-values-files` will include the same flags.
+Below is the intended help text for `zarf package show manifests`. `zarf package show values-files` will include the same flags.
 ```
 Usage:
-  zarf package show-manifests [ PACKAGE_SOURCE ] [flags]
+  zarf package show manifests [ PACKAGE_SOURCE ] [flags]
 
 Flags:
       --set stringToString          Specify deployment variables to set on the command line (KEY=value) (default [])
@@ -193,11 +193,11 @@ bogged down.
 
 #### Story 1
 
-As a creator of Zarf packages, I want to make sure the variables in my package can get templated properly for the expected values of the deployers. I want to check this for both manifests and values files so I run `zarf dev show-manifests path/to/package-dir --deploy-set=MY_VAR=my-val` and `zarf dev show-values-files path/to/package-dir --deploy-set=MY_VAR=my-val`
+As a creator of Zarf packages, I want to make sure the variables in my package can get templated properly for the expected values of the deployers. I want to check this for both manifests and values files so I run `zarf dev show manifests path/to/package-dir --deploy-set=MY_VAR=my-val` and `zarf dev show values-files path/to/package-dir --deploy-set=MY_VAR=my-val`
 
 #### Story 2
 
-As a deployer of Zarf packages, I want to check that the variables I intend to deploy my package with are getting properly templated for both manifests and values files before I deploy so I run `zarf package show-manifests zarf-package-podinfo-amd64.tar.zst -set=MY_VAR=my-val` and `zarf package show-values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val`
+As a deployer of Zarf packages, I want to check that the variables I intend to deploy my package with are getting properly templated for both manifests and values files before I deploy so I run `zarf package show manifests zarf-package-podinfo-amd64.tar.zst -set=MY_VAR=my-val` and `zarf package show values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val`
 
 ### Risks and Mitigations
 
@@ -320,6 +320,8 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
+This increases the surface area of the CLI with four new commands. Additionally, since `zarf dev show manifests` and `zarf package show manifests` have different parent commands they would be less discoverable than if under the same parent. It's easy to imagine a user being frustrated because they've found `package show manifests` and wished it worked on package directories, without realizing `dev show manifests` exists. 
+
 ## Alternatives
 
 <!--
@@ -328,6 +330,15 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-### Combining dev and package commands
+### Change the Command Structure
 
-The `zarf package show-manifests` and `zarf dev show-manifests` commands could be combined into one command that accepts either a package directory or a built package. The same is true for `show-values-files`. This would lower the surface area of the CLI. The disadvantage of this is that certain flags will only work for built packages and vice versa. For example, `--create-set` would not be applicable with an already built package as the package templates will already have been evaluated. In this case, we could error out immediately. Still, having separate commands where every flag always works will result in a more clear UX. 
+There are several different ways this command could be structured differently. `manifests` is used in the below examples but there would be an additional command ending with `values-files` for each of the following. 
+
+
+- `zarf package show manifests [PACKAGE | DIRECTORY]` which would take either a package directory or an already built package. This would maximize discoverability as the parent is `package`, but would lead to some confusion around command line flags. For example, `--create-set` and `--flavor` would not be applicable with an already built package. If Zarf received any of these flags with a package input it would immediately error out. Still, having separate commands where every flag always works will result in less confusion about which flags apply to which commands.
+
+- `zarf package show manifests [PACKAGE]` and `zarf package show definition manifests [DIRECTORY]` This would have good discoverability, being under the `package` parent. However, `zarf package show definition manifests` is long at five words, and a word like `definition` may not be clearly articulate that the command is intended for package directories.
+
+- `zarf show manifests [DIRECTORY]` and `zarf show package manifests [PACKAGE]`. This is the most concise option and reads the best, however introducing the new root command `show` may limit discoverability. With no other commands under `show` users may not notice the new root word.
+
+- `zarf dev show manifests [DIRECTORY]` and `zarf dev show package manifests [PACKAGE]`. This would have decent discoverability as `dev` commands like `find-images` have seen good traction. Still, it wouldn't be as discoverable as the `package` root. This may also be inconsistent with the current use of the `dev` root since all `dev` commands accept a package directory and are targeted at creators, but `dev show package manifest` command would accept a package and would be targeted at deployers. 
