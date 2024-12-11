@@ -130,9 +130,8 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-This is successful for creators when they can view manifests or values files before building their package to gain confidence that their variables are templated as intended before creating their packages.
-
-This is successful for deployers when they can view their templated manifests and values files before deploying.
+- View manifests or values files after Zarf variable templating and Helm templating have been applied.
+- Work with both package directories and already built packages.
 
 ### Non-Goals
 
@@ -141,7 +140,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-Zarf will not accept a package in the cluster as input to zarf package show manifests or zarf package show values-files. While certain Zarf commands, such as `zarf package inspect`, do allow the cluster as a package source, accepting cluster sources offers limited value. This is because variable templating is already complete, and users can view their deployed charts using [helm get manifest](https://helm.sh/docs/helm/helm_get_manifest/)
+- Accept packages pulled from a live cluster as input.
 
 ## Proposal
 
