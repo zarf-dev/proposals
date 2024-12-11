@@ -345,4 +345,10 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
+### DEV Parent command
+
 One alternative was to use `zarf dev preview`, since package creators will run this command during development. However, given the similarities between this command and `zarf package inspect` we decided that having both commands under the same parent made for a more cohesive user experience.
+
+### Build Preview Functionality Into a Flag on Package Create
+
+We could instead build the functionality here into a flag called `--dry-run` on `zarf package create`. This may lead to more discoverability of this functionality. Additionally, it may have a more natural workflow. A user would run the create command with all their usual flags and the `--dry-run` flag. Once everything looks correct, they would just remove the `--dry-run` flag. 
