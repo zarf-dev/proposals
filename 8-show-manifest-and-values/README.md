@@ -192,11 +192,11 @@ bogged down.
 
 #### Story 1
 
-As a creator of Zarf packages, I want to make sure the variables in my package can get templated properly for the expected values of the deployers. I want to check this for both manifests and values files so I run `zarf dev show manifests path/to/package-dir --deploy-set=MY_VAR=my-val` and `zarf dev show values-files path/to/package-dir --deploy-set=MY_VAR=my-val`
+As a creator of Zarf packages, I want to make sure the variables in my package are properly templated with the expected values. I want to check this for both manifests and values files so I run `zarf dev show manifests path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor` and `zarf dev show values-files path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor`
 
 #### Story 2
 
-As a deployer of Zarf packages, I want to check that the variables I intend to deploy my package with are getting properly templated for both manifests and values files before I deploy so I run `zarf package show manifests zarf-package-podinfo-amd64.tar.zst -set=MY_VAR=my-val` and `zarf package show values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val`
+As a deployer of Zarf packages, I want to check that the variables I intend to deploy my package with are getting properly templated for both manifests and values files before I deploy so I run `zarf package show manifests zarf-package-podinfo-amd64.tar.zst -set=MY_VAR=my-val --components=my-optional-component` and `zarf package show values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component`
 
 ### Risks and Mitigations
 
