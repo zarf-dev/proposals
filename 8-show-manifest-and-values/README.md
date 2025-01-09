@@ -326,8 +326,4 @@ There are several different ways this command could be structured differently.
 
 - `zarf show manifests [PACKAGE|DIRECTORY]` and `zarf show values-files [PACKAGE|DIRECTORY]`. This is the most concise option and reads well; however, introducing the new root command `show` may limit discoverability. With no other commands under `show` users may not notice the new root word.
 
-- `zarf show manifests [DIRECTORY]`, `zarf show values-files [DIRECTORY]` `zarf show package manifests [PACKAGE]`, and `zarf show package manifests [PACKAGE]`. This options is concise and reads well; however, introducing the new root command `show` may limit discoverability. With no other commands under `show` users may not notice the new root word. Additionally, four new commands may be lead to command sprawl
-
 - `zarf package show manifests [PACKAGE]` and `zarf package show definition manifests [DIRECTORY]` This would have good discoverability, being under the `package` parent. However, `zarf package show definition manifests` is long at five words, and a word like `definition` may not be clearly articulate that the command is intended for package directories.
-
-- `zarf dev show manifests [DIRECTORY]` and `zarf dev show package manifests [PACKAGE]`. This would have decent discoverability as `dev` commands like `find-images` have seen good traction. Still, it wouldn't be as discoverable as the `package` root. This may also be inconsistent with the current use of the `dev` root since all `dev` commands accept a package directory and are targeted at creators, but `dev show package manifest` command would accept a package and would be targeted at deployers. 
