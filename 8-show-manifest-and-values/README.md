@@ -99,7 +99,7 @@ feedback and reduce unnecessary changes.
 
 Both creators and deployers need a way to view their manifests and values files after Zarf variables are applied.
 
-This will be accomplished through new CLI commands `zarf dev show manifests`, `zarf dev show values-files`, `zarf package show manifests`, and `zarf package show values-files`
+This will be accomplished through new CLI commands `zarf package show manifests [PACKAGE | DIRECTORY]`, `zarf package show values-files [PACKAGE | DIRECTORY]`
 
 ## Motivation
 
@@ -116,7 +116,7 @@ or other references to show the community's interest in the ZEP.
 
 Viewing manifests and values files after Zarf variable templating would be useful for both creators and deployers. Catching a mistake in templating early can reduce cycle time. A Helm template is almost instant, whereas create + deploy could take several minutes to hours.
 
-A user can achieve a similar effect to `zarf package show manifests` by unarchiving a package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
+A user can achieve a similar effect to `zarf package show manifests` by decompressing a package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
 
 This feature has been highly requested in recent months:
 - Request in Kubernetes Slack - https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1730229638367829
@@ -152,32 +152,21 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Introduce four new commands. `zarf dev show manifests`, `zarf dev show values-files`, `zarf package show manifests`, and `zarf package show values-files`. The `package` commands will run on an already built package, local or remote, while the `dev` commands will take a package directory. This command will print both the manifests from a helm chart and the manifests in the `.components[x].manifests` key. Component actions will not run during any of these commands.
+Introduce two new commands. `zarf package show manifests [PACKAGE | DIRECTORY]`, `zarf package show values-files [PACKAGE | DIRECTORY]`. The commands will accept either an already built package, local or remote, or a directory containing a zarf.yaml file. `show manifests` will print both the manifests from a helm chart and the manifests in the `.components[x].manifests` key. Component actions will not run during any of these commands.
 
 Before printing the manifest for each chart the name and version of the chart will be printed. Before printing Manifests from the `.components[x].manifests` key the name of the manifests block, `.components[x].manifests[x].name`, will be printed.
-
-Below is the intended help text for `zarf dev show manifests`. `zarf dev show values-files` will include the same flags.
-```
-Usage:
-  zarf dev show manifests [ DIRECTORY ] [flags]
-
-Flags:
-      --create-set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
-      --deploy-set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
-  -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
-      --kube-version                Override the default helm template KubeVersion when performing a package chart template
-      --confirm                     Confirms command without prompting. Skips prompts to configure variables.
-```
 
 Below is the intended help text for `zarf package show manifests`. `zarf package show values-files` will include the same flags.
 ```
 Usage:
-  zarf package show manifests [ PACKAGE_SOURCE ] [flags]
+  zarf package show manifests [ PACKAGE | DIRECTORY ] [flags]
 
 Flags:
-      --set stringToString          Specify deployment variables to set on the command line (KEY=value) (default [])
+      --create-set stringToString   Specify package variables to set on the command line. Only applicable for package directories (KEY=value) (default [])
+      --deploy-set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
+  -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key). Only applicable for package directories
       --kube-version                Override the default helm template KubeVersion when performing a package chart template
-      --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported
+      --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported. Only applicable for already built packages
       --confirm                     Confirms command without prompting. Skips prompts to configure variables and select optional components
 ```
 
@@ -192,7 +181,7 @@ bogged down.
 
 #### Story 1
 
-As a creator of Zarf packages, I want to make sure that the variables in my package are properly rendered with the expected values. I want to check this for both manifests and values files so I run `zarf dev show manifests path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor` and `zarf dev show values-files path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor`
+As a creator of Zarf packages, I want to make sure that the variables in my package are properly rendered with the expected values. I want to check this for both manifests and values files so I run `zarf package show manifests path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor` and `zarf package show values-files path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor`
 
 #### Story 2
 
@@ -221,7 +210,7 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which will be set to "PLACEHOLDER". For example, the `ZARF_REGISTRY` variable becomes `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure these commands can run without needing a connection to a cluster with Zarf initialized.
+[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which do not have defaults. Sensitive values will be set to "PLACEHOLDER" instead. For example, the `ZARF_REGISTRY` variable becomes `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure these commands can run without needing a connection to a cluster with Zarf initialized.
 
 Manifests and values files will be printed to standard out, while all other logs and output from this command will go to stderr.
 
@@ -319,7 +308,7 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
-This increases the surface area of the CLI with four new commands. Additionally, since `zarf dev show manifests` and `zarf package show manifests` have different parent commands they would be less discoverable than if under the same parent. It's easy to imagine a user being frustrated because they've found `package show manifests` and wished it worked on package directories, without realizing `dev show manifests` exists. 
+The `--create-set` and `--flavor` flags would not be applicable with an already built package. Additionally, the `--components` flag would only be applicable to already built packages, but could be made to work on package directories as a future enhancement. Clear help text for each flag and erroring out when an incorrect combination is used could mitigate user confusion here.
 
 ## Alternatives
 
@@ -331,12 +320,13 @@ information to express the idea and why it was not acceptable.
 
 ### Change the Command Structure
 
-There are several different ways this command could be structured differently. `manifests` is used in the below examples but there would be an additional command ending with `values-files` for each of the following. 
+There are several different ways this command could be structured differently.
 
+- `zarf dev show manifests [DIRECTORY]`, `zarf dev show values-files [DIRECTORY]`, `zarf package show manifests [PACKAGE]`, and `zarf package show values-files [PACKAGE]`. This would make the commands less overloaded as they wouldn't take either a package or a directory. It also would ensure every flag is relevant. For example, the `--create-set` and `--flavor` would only exist for the `dev` commands. However, This increases the surface area of the CLI with four new commands. Additionally, since `zarf dev show manifests` and `zarf package show manifests` have different parent commands they would be less discoverable than if under the same parent. It's easy to imagine a user being frustrated because they've found `package show manifests` and wished it worked on package directories, without realizing `dev show manifests` exists. 
 
-- `zarf package show manifests [PACKAGE | DIRECTORY]` which would take either a package directory or an already built package. This both reads well and would maximize discoverability as the parent is `package`. The tradeoff is some confusion around command line flags. The `--create-set` and `--flavor` flags would not be applicable with an already built package. Additionally, the `--components` flag would only be applicable to already built packages, but could be made to work on package directories as a future enhancement. Clear help text for each flag and erroring out when an incorrect combination is used could mitigate user confusion here.
+- `zarf show manifests [PACKAGE|DIRECTORY]` and `zarf show values-files [PACKAGE|DIRECTORY]`. This is the most concise option and reads well; however, introducing the new root command `show` may limit discoverability. With no other commands under `show` users may not notice the new root word.
 
-- `zarf show manifests [DIRECTORY]` and `zarf show package manifests [PACKAGE]`. This is the most concise option and reads the best; however, introducing the new root command `show` may limit discoverability. With no other commands under `show` users may not notice the new root word.
+- `zarf show manifests [DIRECTORY]`, `zarf show values-files [DIRECTORY]` `zarf show package manifests [PACKAGE]`, and `zarf show package manifests [PACKAGE]`. This options is concise and reads well; however, introducing the new root command `show` may limit discoverability. With no other commands under `show` users may not notice the new root word. Additionally, four new commands may be lead to command sprawl
 
 - `zarf package show manifests [PACKAGE]` and `zarf package show definition manifests [DIRECTORY]` This would have good discoverability, being under the `package` parent. However, `zarf package show definition manifests` is long at five words, and a word like `definition` may not be clearly articulate that the command is intended for package directories.
 
