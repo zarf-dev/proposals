@@ -158,7 +158,6 @@ Usage:
 Flags:
       --set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
   -f, --flavor string        The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
-      --confirm              Confirm package preview without prompting
 ```
 
 ### User Stories (Optional)
