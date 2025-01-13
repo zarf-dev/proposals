@@ -125,7 +125,7 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-- Preview package contents without creating the package
+- Preview rendered zarf.yaml without creating the package
 
 ### Non-Goals
 
