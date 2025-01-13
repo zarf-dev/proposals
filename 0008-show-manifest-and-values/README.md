@@ -156,6 +156,8 @@ Introduce two new commands. `zarf package show manifests [PACKAGE | DIRECTORY]`,
 
 Before printing the manifest for each chart the name and version of the chart will be printed. Before printing Manifests from the `.components[x].manifests` key the name of the manifests block, `.components[x].manifests[x].name`, will be printed.
 
+These commands will not prompt for optional components, package templates, or package variables. Users will be able to specify these values using flags.
+
 Below is the intended help text for `zarf package show manifests`. `zarf package show values-files` will include the same flags.
 ```
 Usage:
@@ -167,7 +169,6 @@ Flags:
   -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key). Only applicable for package directories
       --kube-version                Override the default helm template KubeVersion when performing a package chart template
       --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported. Only applicable for already built packages
-      --confirm                     Confirms command without prompting. Skips prompts to configure variables and select optional components
 ```
 
 ### User Stories (Optional)
