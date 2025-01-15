@@ -189,9 +189,8 @@ Flags:
   --skip-signature-validation   Skip validating the signature of the Zarf package
 ```
 #### zarf package inspect manifests
-This command will  in the `.components[x].manifests` key.
 ```
-Display all manifests. Accepts local or OCI packages
+Templates Helm charts and displays the manifests alongside any Kubernetes manifests. Accepts local or OCI packages
 Usage:
   zarf package inspect manifests [ PACKAGE ] [flags]
 Flags:
@@ -202,7 +201,7 @@ Flags:
 ```
 #### zarf package inspect values-files
 ```
-Print values files from Helm charts in the package
+Prints the values files of Helm charts
 Usage:
   zarf package inspect values-files [ PACKAGE ] [flags]
 Flags:
@@ -223,8 +222,8 @@ Flags:
   -f, --flavor string        The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
 ```
 #### zarf dev inspect manifests
-This command will print the manifests from all helm chart and the manifests in the `.components[x].manifests` key.
 ```
+Templates Helm charts and displays the manifests alongside any Kubernetes manifests.
 Usage:
   zarf dev inspect manifests [ DIRECTORY ] [flags]
 Flags:
@@ -235,8 +234,8 @@ Flags:
       --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
 ```
 #### zarf dev inspect values-files
-This command will print the values-files from all helm chart and the values-files in the `.components[x].manifests` key.
 ```
+Prints the values files of Helm charts
 Usage:
   zarf dev inspect values-files [ DIRECTORY ] [flags]
 Flags:
