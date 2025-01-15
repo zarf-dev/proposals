@@ -66,6 +66,7 @@ any additional information provided beyond the standard ZEP template.
   - [User Stories (Optional)](#user-stories-optional)
     - [Story 1](#story-1)
     - [Story 2](#story-2)
+    - [Story 3](#story-3)
   - [Risks and Mitigations](#risks-and-mitigations)
 - [Design Details](#design-details)
   - [Test Plan](#test-plan)
@@ -97,7 +98,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-The `zarf package inspect` command will become a parent command. It will have the five subcommands, `definition`, `sbom`, `images`, `manifests`, and `values-files`. Each of the `package inspect` commands will accept an already built package, either local or OCI. `definition` and `images` will also accept a package in the cluster. The `zarf dev inspect` parent command will be introduced. It will have three subcommands: `definition`, `sbom` and `values-files`. 
+The `zarf package inspect` command will become a parent command. It will have the five subcommands: `definition`, `sbom`, `images`, `manifests`, and `values-files`. The `package inspect` commands will accept an already built package, either local or OCI. `definition` and `images` will also accept a package in the cluster. The `zarf dev inspect` parent command will be introduced. It will have three subcommands: `definition`, `sbom` and `values-files`. These commands will accept a directory containing a `zarf.yaml` file.
 
 ## Motivation
 
@@ -116,12 +117,12 @@ Users need an easier way to view their package definition after it's rendered by
 
 Viewing manifests and values files after Zarf variable templating would be useful for both creators and deployers. Catching a mistake in templating early can reduce cycle time. A Helm template is almost instant, whereas create + deploy could take several minutes to hours.
 
-A user can achieve a similar effect to `zarf package inspect manifests` by decompressing a package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
+A user can achieve a similar effect to `zarf package inspect manifests` by decompressing their package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
 
 Features relating to these problems have been highly requested in recent months:
 - Request in Kubernetes Slack - https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1730229638367829
 - An issue has been created for this - https://github.com/zarf-dev/zarf/issues/2631
-- Defense Unicorns, an organization that relies heavily on Zarf for their deployments, has received requests for this feature in a feedback session with their partners.
+- Defense Unicorns, an organization that relies heavily on Zarf for their deployments, has received requests to view manifests in a feedback session with their partners.
 
 ### Goals
 
@@ -140,7 +141,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Accept a cluster source of the package for new commands. Cluster source will continue to work for `zarf package inspect definition` and `zarf package inspect images`, but not for `zarf package inspect sbom`, `zarf package inspect manifests`, or `zarf package inspect values-files`
+- Accept a cluster source of the package for new functionality. Cluster source will continue to work for `zarf package inspect definition` and `zarf package inspect images`, but not for `zarf package inspect sbom`, `zarf package inspect manifests`, or `zarf package inspect values-files`
 - Print out multiple types of inspects in the same command. A user will not be able to print out the package definition and manifests in the same command. 
 - Support directly opening the SBOM in browser
 
@@ -178,13 +179,13 @@ Flags:
   --skip-signature-validation   Skip validating the signature of the Zarf package
 ```
 #### zarf package inspect sbom
-This will mirror behavior of the current `zarf package inspect <package> --sbom-out` command
+This will mirror behavior of the current `zarf package inspect <package> --sbom-out` command. Note that the `zarf package inspect <package> --sbom` flag which opens the sbom in browser will be removed without replacement. 
 ```
 Extracts SBOM into the specified directory. Accepts local or OCI packages
 Usage:
   zarf package inspect sbom [ PACKAGE ] [flags]
 Flags:
-  --output                      REQUIRED. Output directory for the SBOM.
+  --output                      Output directory for the SBOM. (default is the current working directory) 
   --skip-signature-validation   Skip validating the signature of the Zarf package
 ```
 #### zarf package inspect manifests
@@ -257,11 +258,15 @@ bogged down.
 
 #### Story 1
 
-As a creator of Zarf packages, I want to make sure that the variables in my package are properly rendered with the expected values. I want to check this for both manifests and values files so I run `zarf dev inspect manifests path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor` and `zarf dev inspect values-files path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor`
+As a creator of Zarf packages, I want to make sure that the variables in my package are properly rendered with the expected values. I want to check this for both manifests and values files so I run `zarf dev inspect manifests path/to/package-dir --create-set=MY_TEMPLATE=my-template-val --deploy-set=MY_VAR=my-val --flavor=my-flavor` and `zarf dev inspect values-files path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor`
 
 #### Story 2
 
 As a deployer of Zarf packages, I want to make sure that the variables in my package are properly rendered for both manifests and values files before I deploy so I run `zarf package inspect manifests zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component` and `zarf package inspect values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component`
+
+#### Story 3
+
+As a creator of Zarf packages I want to see what my package definition will look like after templates, imports, and flavors are applied, with a simple invocation: `zarf dev inspect definition -f my-flavor --set=MY_TEMPLATE=my-val`
 
 ### Risks and Mitigations
 
@@ -288,9 +293,7 @@ proposal will be implemented, this is the place to discuss that.
 
 For the `inspect manifests` commands, before printing the manifests of each chart, the name and version of the chart will be printed. Before printing Manifests from the `.components[x].manifests` key the name of the manifests block, `.components[x].manifests[x].name`, will be printed. 
 
-All of these commands, besides `zarf package inspect sbom`, aim to provide a user with output. The output will go to stdout, while all other logs will go to stderr. 
-
-`zarf.yaml` files will be printed in color unless the `--no-color` flag is used. All other files will be printed without color.
+All of these commands, besides `zarf package inspect sbom`, will provide a user with text output. The output will go to stdout, while all other logs will go to stderr. 
 
 For commands printing deployment variables [Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which do not have defaults. Sensitive values will be set to "PLACEHOLDER" instead. For example, the `ZARF_REGISTRY` variable becomes `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure that these commands can run without requiring a connection to a cluster.
 
@@ -355,6 +358,8 @@ proposal:
 
 The current `zarf package inspect` command will become deprecated, after a year it will be removed. In cobra, when a command is added as a child command it will take priority over the parent command. For example, if a user calls `zarf package inspect images <my-package.tar.zst>` it will call the child `images` command, however if a user calls `zarf package inspect <my-package.tar.zst>` Cobra will call the parent command. Zarf will use the behavior to introduce the new commands, and leave a deprecation note on the `zarf package inspect` command.
 
+The only functionality of `zarf package inspect` that will be removed instead of deprecated is the `--sbom` flag, which opens an HTML viewer of the SBOM in the browser. Users can instead run `zarf package inspect sbom` and then point their browser to the HTML file in their filesystem. Removing this option keeps the `zarf package inspect sbom` command simple.
+
 ### Version Skew Strategy
 
 <!--
@@ -388,7 +393,7 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
-Since `zarf package inspect` and `zarf dev inspect` have different roots they may not be immediately discoverable. It's easy to imagine a user who doesn't know about `zarf dev inspect` so they build their package each time before running `zarf package inspect`. Still, `zarf dev find-images` has caught on from the community so this is good evidence that the same may happen in this situation. In the future, we could provide tutorials going over different situations where these commands may be useful.   
+Since `zarf package inspect` and `zarf dev inspect` have different roots they may not be immediately discoverable. It's easy to imagine a user who doesn't know about `zarf dev inspect` so they build their package each time before running `zarf package inspect`. Still, `zarf dev find-images` has had significant usage from community members so it's reasonable to expect users to find commands under the `dev` root. In the future, we could provide tutorials going over different situations where these commands may be useful.
 
 ## Alternatives
 
@@ -398,11 +403,14 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
+### Remove, instead of deprecate zarf package inspect
+`zarf package inspect <package.tar.zst>` inspect will remain usable, but deprecated for a year until it's removed, see [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy). Given that the `zarf package inspect` command is not a part of the core flow, and likely not often used in automated systems, we considered removing it right away. However, given the low anticipated maintenance cost of keeping the command around, we decided to institute a deprecation process
+
 ### Change the Command Structure
 
 There are several different ways this command could be structured differently.
 
-- `zarf package inspect` with flags for the different commands such as `zarf package inspect --manifests` or `zarf package inspect --images`. The issue here is that many flags would apply to some commands and not others. For example, `--kube-version` and `--set` are relevant to manifests and values-files but irrelevant to images. By separating the commands it becomes clear which flags apply to which resources. 
+- `zarf package inspect` with flags for the different commands such as `zarf package inspect --manifests` or `zarf package inspect --images`. The issue here is that many flags would apply to some commands and not others. For example, `--kube-version` and `--set` are relevant to `zarf package inspect manifests` and values-files but irrelevant to `zarf package inspect images`. By separating the commands it becomes clear which flags apply to which resources. 
 - `zarf dev show manifests [DIRECTORY]`, `zarf dev show values-files [DIRECTORY]`, `zarf package show manifests [PACKAGE]`, and `zarf package show values-files [PACKAGE]`. This would make the commands less overloaded as they wouldn't take either a package or a directory. It also would ensure every flag is relevant. For example, the `--create-set` and `--flavor` would only exist for the `dev` commands. However, This increases the surface area of the CLI with four new commands. Additionally, since `zarf dev show manifests` and `zarf package show manifests` have different parent commands they would be less discoverable than if under the same parent.
 - `zarf show manifests [PACKAGE|DIRECTORY]` and `zarf show values-files [PACKAGE|DIRECTORY]`. This is the most concise option and reads well. However, introducing the new root command `show` may limit discoverability. With no other commands under `show` users may not notice the new root word.
 - `zarf package show manifests [PACKAGE]` and `zarf package show definition manifests [DIRECTORY]` This would have good discoverability, being under the `package` parent. However, `zarf package show definition manifests` is long at five words, and a word like `definition` may not be clearly articulate that the command is intended for package directories.
