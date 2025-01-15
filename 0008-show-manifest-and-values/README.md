@@ -97,9 +97,11 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Both creators and deployers need a way to view their manifests and values files after Zarf variables are applied.
+Both creators and deployers need a way to view their manifests and values files after Zarf variables are applied. Additionally, users need an easier way to view their package definition after it's rendered by Zarf, but before `zarf package create`. A rendered package definition has had templating, imports, and flavors applied. 
 
-This will be accomplished through new CLI commands `zarf package show manifests [PACKAGE | DIRECTORY]`, `zarf package show values-files [PACKAGE | DIRECTORY]`
+For creators this will be accomplished through a new parent command `zarf dev inspect`. Sub commands will be `definition`, `manifests`, and `values-files`. For example, `zarf dev inspect definition [DIRECTORY]`
+
+For deployers this will be accomplished through changing the command `zarf package inspect [PACKAGE]` to a parent command `zarf package inspect`. Sub commands will be `sbom`, `images`, `definition`, `manifests`, and `values-files`.
 
 ## Motivation
 
@@ -114,11 +116,13 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
+The only path to view the rendered package definition is running `zarf package create` and viewing the printed yaml before the (y/n) prompt. Having a separate command, `zarf dev inspect definition` improves the UX by providing users with an easier way to view the rendered package definition. It also opens the possibility of allowing `zarf package create` to proceed without requiring user confirmation.
+
 Viewing manifests and values files after Zarf variable templating would be useful for both creators and deployers. Catching a mistake in templating early can reduce cycle time. A Helm template is almost instant, whereas create + deploy could take several minutes to hours.
 
-A user can achieve a similar effect to `zarf package show manifests` by decompressing a package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
+A user can achieve a similar effect to `zarf package inspect manifests` by decompressing a package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
 
-This feature has been highly requested in recent months:
+Features relating to these problems have been highly requested in recent months:
 - Request in Kubernetes Slack - https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1730229638367829
 - An issue has been created for this - https://github.com/zarf-dev/zarf/issues/2631
 - Defense Unicorns, an organization that relies heavily on Zarf for their deployments, has received requests for this feature in a feedback session with their partners.
@@ -131,7 +135,7 @@ know that this has succeeded?
 -->
 
 - View manifests or values files after Zarf variable templating and Helm templating have been applied.
-- Work with both package directories and already built packages.
+- View rendered package definition before create
 
 ### Non-Goals
 
@@ -140,7 +144,9 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Accept packages pulled from a live cluster as input.
+- Accept a cluster source of the package for new commands. Cluster source will continue to work for `zarf package inspect definition` and `zarf package inspect images`, but not for `zarf package inspect sbom`, `zarf package inspect manifests`, or `zarf package inspect values-files`
+- Print out multiple types of inspects in the same command. A user will not be able to print out the package definition and manifests in the same command. 
+- Support directly opening the SBOM in browser
 
 ## Proposal
 
@@ -152,23 +158,97 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Introduce two new commands. `zarf package show manifests [PACKAGE | DIRECTORY]`, `zarf package show values-files [PACKAGE | DIRECTORY]`. The commands will accept either an already built package, local or remote, or a directory containing a zarf.yaml file. `show manifests` will print both the manifests from a helm chart and the manifests in the `.components[x].manifests` key. Component actions will not run during any of these commands.
+These commands will not have a confirm flag and not prompt for optional components, package templates, or package variables. Users will be able to specify these values using flags, when applicable. None of these commands will run any Zarf actions.
 
-Before printing the manifest for each chart the name and version of the chart will be printed. Before printing Manifests from the `.components[x].manifests` key the name of the manifests block, `.components[x].manifests[x].name`, will be printed.
+### zarf package inspect
+Change `zarf package inspect` to a parent command. It will have the five sub commands specified below. Each of the `package inspect` commands will accept an already built package, either local or OCI.
 
-These commands will not prompt for optional components, package templates, or package variables. Users will be able to specify these values using flags.
+#### zarf package inspect definition
+This will mirror behavior of the current `zarf package inspect <package>` command
+```
+Displays the 'zarf.yaml' definition for the specified package. Accepts local, OCI, or packages deployed in cluster.
+Usage:
+  zarf package inspect definition [ PACKAGE ] [flags]
+Flags:
+  --skip-signature-validation   Skip validating the signature of the Zarf package
+```
 
-Below is the intended help text for `zarf package show manifests`. `zarf package show values-files` will include the same flags.
+#### zarf package inspect images
+This will mirror behavior of the current `zarf package inspect <package> --list-images` command
+```
+Lists the images of the specified package. Accepts local, OCI, or packages deployed in cluster.
+Usage:
+  zarf package inspect images [ PACKAGE ] [flags]
+Flags:
+  --skip-signature-validation   Skip validating the signature of the Zarf package
+```
+#### zarf package inspect sbom
+This will mirror behavior of the current `zarf package inspect <package> --sbom-out` command
+```
+Extracts SBOM into the specified directory. Accepts local or OCI packages
+Usage:
+  zarf package inspect sbom [ PACKAGE ] [flags]
+Flags:
+  --output                      REQUIRED. Output directory for the SBOM.
+  --skip-signature-validation   Skip validating the signature of the Zarf package
+```
+#### zarf package inspect manifests
+This command will  in the `.components[x].manifests` key.
+```
+Display all manifests. Accepts local or OCI packages
+Usage:
+  zarf package inspect manifests [ PACKAGE ] [flags]
+Flags:
+  --set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
+  --kube-version                Override the default helm template KubeVersion when performing a package chart template
+  --skip-signature-validation   Skip validating the signature of the Zarf package
+  --components                  Comma-separated list of components whose manifests should be displayed. If this flag is left empty, manifests from all components will be printed. Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
+```
+#### zarf package inspect values-files
+```
+Print values files from Helm charts in the package
+Usage:
+  zarf package inspect values-files [ PACKAGE ] [flags]
+Flags:
+  --deploy-set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
+  --kube-version                Override the default helm template KubeVersion when performing a package chart template
+  --skip-signature-validation   Skip validating the signature of the Zarf package
+  --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
+```
+### zarf dev inspect
+A new parent command `zarf dev inspect` will be introduced with the three sub commands specified below.
+#### zarf dev inspect definition
+```
+Display the 'zarf.yaml' definition after flavors, templating, and component imports are applied. 
+Usage:
+  zarf dev inspect definition [ DIRECTORY ] [flags]
+Flags:
+      --set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
+  -f, --flavor string        The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
+```
+#### zarf dev inspect manifests
+This command will print the manifests from all helm chart and the manifests in the `.components[x].manifests` key.
 ```
 Usage:
-  zarf package show manifests [ PACKAGE | DIRECTORY ] [flags]
-
+  zarf dev inspect manifests [ DIRECTORY ] [flags]
 Flags:
-      --create-set stringToString   Specify package variables to set on the command line. Only applicable for package directories (KEY=value) (default [])
+      --create-set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
       --deploy-set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
-  -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key). Only applicable for package directories
+  -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
       --kube-version                Override the default helm template KubeVersion when performing a package chart template
-      --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported. Only applicable for already built packages
+      --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
+```
+#### zarf dev inspect values-files
+This command will print the values-files from all helm chart and the values-files in the `.components[x].manifests` key.
+```
+Usage:
+  zarf dev inspect values-files [ DIRECTORY ] [flags]
+Flags:
+      --create-set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
+      --deploy-set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
+  -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
+      --kube-version                Override the default helm template KubeVersion when performing a package chart template
+      --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
 ```
 
 ### User Stories (Optional)
@@ -182,11 +262,11 @@ bogged down.
 
 #### Story 1
 
-As a creator of Zarf packages, I want to make sure that the variables in my package are properly rendered with the expected values. I want to check this for both manifests and values files so I run `zarf package show manifests path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor` and `zarf package show values-files path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor`
+As a creator of Zarf packages, I want to make sure that the variables in my package are properly rendered with the expected values. I want to check this for both manifests and values files so I run `zarf dev inspect manifests path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor` and `zarf dev inspect values-files path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor`
 
 #### Story 2
 
-As a deployer of Zarf packages, I want to make sure that the variables in my package are properly rendered for both manifests and values files before I deploy so I run `zarf package show manifests zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component` and `zarf package show values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component`
+As a deployer of Zarf packages, I want to make sure that the variables in my package are properly rendered for both manifests and values files before I deploy so I run `zarf package inspect manifests zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component` and `zarf package inspect values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component`
 
 ### Risks and Mitigations
 
@@ -200,7 +280,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-This command could print Zarf variables with the `sensitive` key set to true. Zarf variables are set using values that a user already has access to: user input, configuration files, or their default value in the zarf.yaml file. Given that these commands are expected to be run by a user developing a package or preparing for a deployment and not in an automated system, we deem these risks acceptable.
+The `inspect manifest` and `inspect values-files` commands could print Zarf variables with the `sensitive` key set to true. Zarf variables are set using values that a user already has access to: user input or configuration files. Given that these commands are expected to be run by a user developing a package or preparing for a deployment and not in an automated system, we deem these risks acceptable.
 
 ## Design Details
 
@@ -211,9 +291,13 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-[Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which do not have defaults. Sensitive values will be set to "PLACEHOLDER" instead. For example, the `ZARF_REGISTRY` variable becomes `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure these commands can run without needing a connection to a cluster with Zarf initialized.
+### manifest and values-files details
 
-Manifests and values files will be printed to standard out, while all other logs and output from this command will go to stderr.
+For the `inspect manifests` commands, before printing the manifests of each chart the name and version of the chart will be printed. Before printing Manifests from the `.components[x].manifests` key the name of the manifests block, `.components[x].manifests[x].name`, will be printed. 
+
+All of these commands, besides `zarf package inspect sbom`, aim to provide a user with output. The output will go to stdout, while all other logs will go to stderr. 
+
+For commands printing deployment variables [Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which do not have defaults. Sensitive values will be set to "PLACEHOLDER" instead. For example, the `ZARF_REGISTRY` variable becomes `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure these commands can run without needing a connection to a cluster with Zarf initialized.
 
 ### Test Plan
 
@@ -274,7 +358,7 @@ proposal:
   make use of the proposal?
 -->
 
-N/A
+The current `zarf package inspect` command will become deprecated, after a year it will be removed. In cobra, when a command is added as a child command it will take priority over the parent command. For example, if a user calls `zarf package inspect images <my-package.tar.zst>` it will call the child `images` command, however if a user calls `zarf package inspect <my-package.tar.zst>` Cobra will call the parent command. Zarf will use the behavior to introduce the new commands, and leave a deprecation note on the `zarf package inspect` command.
 
 ### Version Skew Strategy
 
@@ -309,7 +393,7 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
-The `--create-set` and `--flavor` flags would not be applicable with an already built package. Additionally, the `--components` flag would only be applicable to already built packages, but could be made to work on package directories as a future enhancement. Clear help text for each flag and erroring out when an incorrect combination is used could mitigate user confusion here.
+Since `zarf package inspect` and `zarf dev inspect` have different roots they may not be immediately discoverable. It's easy to imagine a user who doesn't know about `zarf dev inspect` so they build their package each time before running `zarf package inspect`. Still, `zarf dev find-images` has caught on from the community so this is good evidence that the same may happen in this situation. Additionally, in the future we could provide tutorials going over different situations where these commands may be useful.   
 
 ## Alternatives
 
@@ -323,8 +407,7 @@ information to express the idea and why it was not acceptable.
 
 There are several different ways this command could be structured differently.
 
-- `zarf dev show manifests [DIRECTORY]`, `zarf dev show values-files [DIRECTORY]`, `zarf package show manifests [PACKAGE]`, and `zarf package show values-files [PACKAGE]`. This would make the commands less overloaded as they wouldn't take either a package or a directory. It also would ensure every flag is relevant. For example, the `--create-set` and `--flavor` would only exist for the `dev` commands. However, This increases the surface area of the CLI with four new commands. Additionally, since `zarf dev show manifests` and `zarf package show manifests` have different parent commands they would be less discoverable than if under the same parent. It's easy to imagine a user being frustrated because they've found `package show manifests` and wished it worked on package directories, without realizing `dev show manifests` exists. 
-
+- `zarf package inspect` with flags for the different commands such as `zarf package inspect --manifests` or `zarf package inspect --images`. The issue here is that many flags would apply to some commands and not others. For example, `--kube-version` and `--set` are relevant to manifests and values-files but irrelevant to images. By separating the commands it becomes clear which flags apply to which resources. 
+- `zarf dev show manifests [DIRECTORY]`, `zarf dev show values-files [DIRECTORY]`, `zarf package show manifests [PACKAGE]`, and `zarf package show values-files [PACKAGE]`. This would make the commands less overloaded as they wouldn't take either a package or a directory. It also would ensure every flag is relevant. For example, the `--create-set` and `--flavor` would only exist for the `dev` commands. However, This increases the surface area of the CLI with four new commands. Additionally, since `zarf dev show manifests` and `zarf package show manifests` have different parent commands they would be less discoverable than if under the same parent.
 - `zarf show manifests [PACKAGE|DIRECTORY]` and `zarf show values-files [PACKAGE|DIRECTORY]`. This is the most concise option and reads well. However, introducing the new root command `show` may limit discoverability. With no other commands under `show` users may not notice the new root word.
-
 - `zarf package show manifests [PACKAGE]` and `zarf package show definition manifests [DIRECTORY]` This would have good discoverability, being under the `package` parent. However, `zarf package show definition manifests` is long at five words, and a word like `definition` may not be clearly articulate that the command is intended for package directories.
