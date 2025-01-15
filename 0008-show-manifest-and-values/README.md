@@ -97,11 +97,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Both creators and deployers need a way to view their manifests and values files after Zarf variables are applied. Additionally, users need an easier way to view their package definition after it's rendered by Zarf, but before `zarf package create`. A rendered package definition has had templating, imports, and flavors applied. 
-
-For creators this will be accomplished through a new parent command `zarf dev inspect`. Sub commands will be `definition`, `manifests`, and `values-files`. For example, `zarf dev inspect definition [DIRECTORY]`
-
-For deployers this will be accomplished through changing the command `zarf package inspect [PACKAGE]` to a parent command `zarf package inspect`. Sub commands will be `sbom`, `images`, `definition`, `manifests`, and `values-files`.
+The `zarf package inspect` command will become a parent command. It will have the five subcommands, `definition`, `sbom`, `images`, `manifests`, and `values-files`. Each of the `package inspect` commands will accept an already built package, either local or OCI. `definition` and `images` will also accept a package in the cluster. The `zarf dev inspect` parent command will be introduced. It will have three subcommands: `definition`, `sbom` and `values-files`. 
 
 ## Motivation
 
@@ -116,7 +112,7 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-The only path to view the rendered package definition is running `zarf package create` and viewing the printed yaml before the (y/n) prompt. Having a separate command, `zarf dev inspect definition` improves the UX by providing users with an easier way to view the rendered package definition. It also opens the possibility of allowing `zarf package create` to proceed without requiring user confirmation.
+Users need an easier way to view their package definition after it's rendered by Zarf, but before `zarf package create`. A rendered package definition has had templating, imports, and flavors applied. The only path to view the rendered package definition is running `zarf package create` and viewing the printed yaml before the (y/n) prompt. Having a separate command, `zarf dev inspect definition`, improves the UX by providing users with an easier way to view the rendered package definition. It also opens the possibility of allowing `zarf package create` to proceed without requiring user confirmation.
 
 Viewing manifests and values files after Zarf variable templating would be useful for both creators and deployers. Catching a mistake in templating early can reduce cycle time. A Helm template is almost instant, whereas create + deploy could take several minutes to hours.
 
@@ -158,11 +154,10 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-These commands will not have a confirm flag and not prompt for optional components, package templates, or package variables. Users will be able to specify these values using flags, when applicable. None of these commands will run any Zarf actions.
+These commands will not have a confirm flag and will not prompt for optional components, package templates, or package variables. Users will be able to specify these values using flags, when applicable. None of these commands will run any Zarf actions.
 
 ### zarf package inspect
-Change `zarf package inspect` to a parent command. It will have the five sub commands specified below. Each of the `package inspect` commands will accept an already built package, either local or OCI.
-
+`zarf package inspect` will be deprecated and replaced by the five commands below
 #### zarf package inspect definition
 This will mirror behavior of the current `zarf package inspect <package>` command
 ```
@@ -216,7 +211,7 @@ Flags:
   --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
 ```
 ### zarf dev inspect
-A new parent command `zarf dev inspect` will be introduced with the three sub commands specified below.
+A new parent command `zarf dev inspect` will be introduced with the three subcommands specified below.
 #### zarf dev inspect definition
 ```
 Display the 'zarf.yaml' definition after flavors, templating, and component imports are applied. 
@@ -291,13 +286,13 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-### manifest and values-files details
-
-For the `inspect manifests` commands, before printing the manifests of each chart the name and version of the chart will be printed. Before printing Manifests from the `.components[x].manifests` key the name of the manifests block, `.components[x].manifests[x].name`, will be printed. 
+For the `inspect manifests` commands, before printing the manifests of each chart, the name and version of the chart will be printed. Before printing Manifests from the `.components[x].manifests` key the name of the manifests block, `.components[x].manifests[x].name`, will be printed. 
 
 All of these commands, besides `zarf package inspect sbom`, aim to provide a user with output. The output will go to stdout, while all other logs will go to stderr. 
 
-For commands printing deployment variables [Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which do not have defaults. Sensitive values will be set to "PLACEHOLDER" instead. For example, the `ZARF_REGISTRY` variable becomes `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure these commands can run without needing a connection to a cluster with Zarf initialized.
+`zarf.yaml` files will be printed in color unless the `--no-color` flag is used. All other files will be printed without color.
+
+For commands printing deployment variables [Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which do not have defaults. Sensitive values will be set to "PLACEHOLDER" instead. For example, the `ZARF_REGISTRY` variable becomes `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure that these commands can run without requiring a connection to a cluster.
 
 ### Test Plan
 
@@ -393,7 +388,7 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
-Since `zarf package inspect` and `zarf dev inspect` have different roots they may not be immediately discoverable. It's easy to imagine a user who doesn't know about `zarf dev inspect` so they build their package each time before running `zarf package inspect`. Still, `zarf dev find-images` has caught on from the community so this is good evidence that the same may happen in this situation. Additionally, in the future we could provide tutorials going over different situations where these commands may be useful.   
+Since `zarf package inspect` and `zarf dev inspect` have different roots they may not be immediately discoverable. It's easy to imagine a user who doesn't know about `zarf dev inspect` so they build their package each time before running `zarf package inspect`. Still, `zarf dev find-images` has caught on from the community so this is good evidence that the same may happen in this situation. In the future, we could provide tutorials going over different situations where these commands may be useful.   
 
 ## Alternatives
 
