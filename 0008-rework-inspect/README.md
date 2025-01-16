@@ -190,7 +190,7 @@ Flags:
 ```
 #### zarf package inspect manifests
 ```
-Templates Helm charts and displays the manifests alongside any Kubernetes manifests. Accepts local or OCI packages
+Templates Helm charts and displays all Kubernetes manifests
 Usage:
   zarf package inspect manifests [ PACKAGE ] [flags]
 Flags:
@@ -214,7 +214,7 @@ Flags:
 A new parent command `zarf dev inspect` will be introduced with the three subcommands specified below.
 #### zarf dev inspect definition
 ```
-Display the 'zarf.yaml' definition after flavors, templating, and component imports are applied. 
+Displays the 'zarf.yaml' definition after flavors, templating, and component imports are applied
 Usage:
   zarf dev inspect definition [ DIRECTORY ] [flags]
 Flags:
@@ -223,7 +223,7 @@ Flags:
 ```
 #### zarf dev inspect manifests
 ```
-Templates Helm charts and displays the manifests alongside any Kubernetes manifests.
+Templates Helm charts and displays all Kubernetes manifests
 Usage:
   zarf dev inspect manifests [ DIRECTORY ] [flags]
 Flags:
