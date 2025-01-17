@@ -315,6 +315,8 @@ when drafting this test plan.
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
+Given the simplicity of this feature, unit tests will be adequate. 
+
 ### Graduation Criteria
 
 <!--
@@ -339,7 +341,7 @@ If this feature will eventually be deprecated, plan for it:
 - Wait at least two versions before fully removing it.
 -->
 
-Given the simplicity of this feature, unit tests will be adequate. 
+These new commands will be implemented directly in a stable state. The commands are simple to test, do not interact with a Kubernetes cluster, and do not have state to track between runs. 
 
 ### Upgrade / Downgrade Strategy
 
