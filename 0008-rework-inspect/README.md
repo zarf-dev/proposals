@@ -45,7 +45,7 @@ The latest instructions for this template can be found in [this repo](/NNNN-zep-
 longer appropriate, updates to the list must be approved by the remaining approvers.
 -->
 
-# ZEP-8: show manifests and values files
+# ZEP-0008: Add zarf dev inspect and change zarf package inspect 
 
 <!--
 Keep the title short simple and descriptive. It should clearly convey what
@@ -98,7 +98,9 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-The `zarf package inspect` command will become a parent command. It will have the five subcommands: `definition`, `sbom`, `images`, `manifests`, and `values-files`. The `package inspect` commands will accept an already built package, either local or OCI. `definition` and `images` will also accept a package in the cluster. The `zarf dev inspect` parent command will be introduced. It will have three subcommands: `definition`, `sbom` and `values-files`. These commands will accept a directory containing a `zarf.yaml` file.
+Introduce a command to enable end-users to inspect package contents. This will be implemented as the `zarf package inspect` command, with five subcommands: `definition`, `sbom`, `images`, `manifests`, and `values-files`. All the commands will work with an existing package, whether local or remote. 
+
+Additionally, introduce a command for developers to preview a package during implementation. This will be achieved through the `zarf dev inspect` command, with three subcommands: `definition`, `sbom` and `values-files`. These commands will work a directory containing a `zarf.yaml` file. 
 
 ## Motivation
 
@@ -115,7 +117,7 @@ or other references to show the community's interest in the ZEP.
 
 Users need an easier way to view their package definition after it's rendered by Zarf, but before `zarf package create`. A rendered package definition has had templating, imports, and flavors applied. The only path to view the rendered package definition is running `zarf package create` and viewing the printed yaml before the (y/n) prompt. Having a separate command, `zarf dev inspect definition`, improves the UX by providing users with an easier way to view the rendered package definition. It also opens the possibility of allowing `zarf package create` to proceed without requiring user confirmation.
 
-Viewing manifests and values files after Zarf variable templating would be useful for both creators and deployers. Catching a mistake in templating early can reduce cycle time. A Helm template is almost instant, whereas create + deploy could take several minutes to hours.
+Viewing manifests and values files after Zarf variable templating would be useful for both creators and deployers. Catching a mistake in templating early can save time. A Helm template is almost instant, whereas create + deploy could take several minutes to hours.
 
 A user can achieve a similar effect to `zarf package inspect manifests` by decompressing their package and running `helm template` on their chart. Not only is this a poor UX, but the `helm template` may fail depending on where Zarf variable templating is used within the chart.
 
@@ -132,7 +134,7 @@ know that this has succeeded?
 -->
 
 - View manifests or values files after Zarf variable templating and Helm templating have been applied.
-- View rendered package definition before create
+- View rendered package definition before creation 
 
 ### Non-Goals
 
@@ -155,10 +157,10 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-These commands will not have a confirm flag and will not prompt for optional components, package templates, or package variables. Users will be able to specify these values using flags, when applicable. None of these commands will run any Zarf actions.
+The newly added commands will not have a confirmation flag and will not prompt for optional components, package templates, or package variables. Users will be able to specify these values using flags, when applicable. None of these commands will run any Zarf actions.
 
 ### zarf package inspect
-`zarf package inspect` will be deprecated and replaced by the five commands below
+`zarf package inspect` will be deprecated and replaced by the five commands below.
 #### zarf package inspect definition
 This will mirror behavior of the current `zarf package inspect <package>` command
 ```
@@ -211,7 +213,7 @@ Flags:
   --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
 ```
 ### zarf dev inspect
-A new parent command `zarf dev inspect` will be introduced with the three subcommands specified below.
+A new command `zarf dev inspect` will be introduced with the three subcommands specified below.
 #### zarf dev inspect definition
 ```
 Displays the 'zarf.yaml' definition after flavors, templating, and component imports are applied
@@ -257,15 +259,15 @@ bogged down.
 
 #### Story 1
 
-As a creator of Zarf packages, I want to make sure that the variables in my package are properly rendered with the expected values. I want to check this for both manifests and values files so I run `zarf dev inspect manifests path/to/package-dir --create-set=MY_TEMPLATE=my-template-val --deploy-set=MY_VAR=my-val --flavor=my-flavor` and `zarf dev inspect values-files path/to/package-dir --deploy-set=MY_VAR=my-val --flavor=my-flavor`
+As a creator of Zarf packages, I want to make sure that the variables in my package are properly rendered with the expected values. I want to check this for both manifests and values files. 
 
 #### Story 2
 
-As a deployer of Zarf packages, I want to make sure that the variables in my package are properly rendered for both manifests and values files before I deploy so I run `zarf package inspect manifests zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component` and `zarf package inspect values-files zarf-package-podinfo-amd64.tar.zst --set=MY_VAR=my-val --components=my-optional-component`
+As a deployer of Zarf packages, I want to make sure that the variables in my package are properly rendered for both manifests and values files before I deploy. 
 
 #### Story 3
 
-As a creator of Zarf packages I want to see what my package definition will look like after templates, imports, and flavors are applied, with a simple invocation: `zarf dev inspect definition -f my-flavor --set=MY_TEMPLATE=my-val`
+As a creator of Zarf packages I want to see what my package definition will look like after templates, imports, and flavors are applied.
 
 ### Risks and Mitigations
 
