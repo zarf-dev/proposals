@@ -162,91 +162,30 @@ The newly added commands will not have a confirmation flag and will not prompt f
 ### zarf package inspect
 `zarf package inspect` will be deprecated and replaced by the five commands below.
 #### zarf package inspect definition
-This will mirror behavior of the current `zarf package inspect <package>` command
-```
-Displays the 'zarf.yaml' definition for the specified package. Accepts local, OCI, or packages deployed in cluster.
-Usage:
-  zarf package inspect definition [ PACKAGE ] [flags]
-Flags:
-  --skip-signature-validation   Skip validating the signature of the Zarf package
-```
+Displays the `zarf.yaml` definition of the given package. Will accept a package in the cluster in addition to local or OCI packages. This will mirror behavior of the current `zarf package inspect <package>` command.
 
 #### zarf package inspect images
-This will mirror behavior of the current `zarf package inspect <package> --list-images` command
-```
-Lists the images of the specified package. Accepts local, OCI, or packages deployed in cluster.
-Usage:
-  zarf package inspect images [ PACKAGE ] [flags]
-Flags:
-  --skip-signature-validation   Skip validating the signature of the Zarf package
-```
+Lists the images of the specified package. Will accept a package in the cluster in addition to local or OCI packages. This will mirror behavior of the current `zarf package inspect <package> --list-images` command
+
 #### zarf package inspect sbom
-This will mirror behavior of the current `zarf package inspect <package> --sbom-out` command. Note that the `zarf package inspect <package> --sbom` flag which opens the sbom in browser will be removed without replacement. 
-```
-Extracts SBOM into the specified directory. Accepts local or OCI packages
-Usage:
-  zarf package inspect sbom [ PACKAGE ] [flags]
-Flags:
-  --output                      Output directory for the SBOM. (default is the current working directory) 
-  --skip-signature-validation   Skip validating the signature of the Zarf package
-```
+Extracts the package SBOM into the specified directory. If no directory is specified it will default to the current directory. This will mirror behavior of the current `zarf package inspect <package> --sbom-out` command. Note that the `zarf package inspect <package> --sbom` flag which opens the sbom in browser will be removed without replacement. 
+
 #### zarf package inspect manifests
-```
-Templates Helm charts and displays all Kubernetes manifests
-Usage:
-  zarf package inspect manifests [ PACKAGE ] [flags]
-Flags:
-  --set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
-  --kube-version                Override the default helm template KubeVersion when performing a package chart template
-  --skip-signature-validation   Skip validating the signature of the Zarf package
-  --components                  Comma-separated list of components whose manifests should be displayed. If this flag is left empty, manifests from all components will be printed. Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
-```
+Templates Helm charts and displays all Kubernetes manifests. Accepts package variables and components as flags.
+
 #### zarf package inspect values-files
-```
-Prints the values files of Helm charts
-Usage:
-  zarf package inspect values-files [ PACKAGE ] [flags]
-Flags:
-  --deploy-set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
-  --kube-version                Override the default helm template KubeVersion when performing a package chart template
-  --skip-signature-validation   Skip validating the signature of the Zarf package
-  --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
-```
+Prints the values files of Helm charts. Accepts package variables and components as flags.
+
 ### zarf dev inspect
 A new command `zarf dev inspect` will be introduced with the three subcommands specified below.
 #### zarf dev inspect definition
-```
-Displays the 'zarf.yaml' definition after flavors, templating, and component imports are applied
-Usage:
-  zarf dev inspect definition [ DIRECTORY ] [flags]
-Flags:
-      --set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
-  -f, --flavor string        The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
-```
+Displays the 'zarf.yaml' definition after flavors, templating, and component imports are applied.
+
 #### zarf dev inspect manifests
-```
-Templates Helm charts and displays all Kubernetes manifests
-Usage:
-  zarf dev inspect manifests [ DIRECTORY ] [flags]
-Flags:
-      --create-set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
-      --deploy-set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
-  -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
-      --kube-version                Override the default helm template KubeVersion when performing a package chart template
-      --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
-```
+Templates Helm charts and displays all Kubernetes manifests. Accepts package templates, package variables, flavors, and components as flags. 
+
 #### zarf dev inspect values-files
-```
-Prints the values files of Helm charts
-Usage:
-  zarf dev inspect values-files [ DIRECTORY ] [flags]
-Flags:
-      --create-set stringToString   Specify package variables to set on the command line (KEY=value) (default [])
-      --deploy-set stringToString   Specify deployment variables to set on the command line (KEY=value) (default [])
-  -f, --flavor string               The flavor of components to include in the resulting package (i.e. have a matching or empty "only.flavor" key)
-      --kube-version                Override the default helm template KubeVersion when performing a package chart template
-      --components                  Comma-separated list of components whose manifests should be displayed.  Adding this flag will skip the prompts for selected components.  Globbing component names with '*' and deselecting 'default' components with a leading '-' are also supported.
-```
+Prints the values files of Helm charts. Accepts package templates, package variables, flavors, and components as flags.
 
 ### User Stories (Optional)
 
@@ -297,6 +236,10 @@ For the `inspect manifests` commands, before printing the manifests of each char
 All of these commands, besides `zarf package inspect sbom`, will provide a user with text output. The output will go to stdout, while all other logs will go to stderr. 
 
 For commands printing deployment variables [Internal variables](https://docs.zarf.dev/ref/values/#internal-values-zarf_) will be set using the default logic except for sensitive values which do not have defaults. Sensitive values will be set to "PLACEHOLDER" instead. For example, the `ZARF_REGISTRY` variable becomes `127.0.0.1:31999`, while `ZARF_GIT_AUTH_PUSH` will be set to "PLACEHOLDER". This is done to ensure that these commands can run without requiring a connection to a cluster.
+
+The following commands will accept a `--components` flag: `zarf package inspect manifests`, `zarf package inspect values-files`, `zarf dev inspect manifests`, and `zarf dev inspect values-files`. If `--components` is not used these commands will print out the requested resource from all components. 
+
+Any commands running a Helm template will accept a `--kube-version` flag. This is to avoid situations where the chart [KubeVersion](https://helm.sh/docs/topics/charts/#the-kubeversion-field) field doesn't match the kube version field in Zarf which prevents templating.
 
 ### Test Plan
 
