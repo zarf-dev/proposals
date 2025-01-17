@@ -1,6 +1,6 @@
 schema-version: 1.0.0
 
-title: Rework inspect
+title: Add zarf dev inspect and change zarf package inspect 
 zep-number: 0008
 authors:
   - "@austinabro321"
