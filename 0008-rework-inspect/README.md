@@ -388,6 +388,9 @@ Major milestones might include:
 - when the ZEP was retired or superseded
 -->
 
+- 2024-12-04: Document created
+- 2025-01-15: Rework proposal, squashing with ZEP-0006 introduce zarf package preview  
+
 ## Drawbacks
 
 <!--
