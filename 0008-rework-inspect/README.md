@@ -100,7 +100,7 @@ feedback and reduce unnecessary changes.
 
 Introduce a command to enable end-users to inspect package contents. This will be implemented as the `zarf package inspect` command, with five subcommands: `definition`, `sbom`, `images`, `manifests`, and `values-files`. All the commands will work with an existing package, whether local or remote. 
 
-Additionally, introduce a command for developers to preview a package during implementation. This will be achieved through the `zarf dev inspect` command, with three subcommands: `definition`, `sbom` and `values-files`. These commands will work a directory containing a `zarf.yaml` file. 
+Additionally, introduce a command for developers to preview a package during implementation. This will be achieved through the `zarf dev inspect` command, with three subcommands: `definition`, `sbom` and `values-files`. These commands will accept a directory containing a `zarf.yaml` file. 
 
 ## Motivation
 
