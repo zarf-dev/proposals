@@ -1,0 +1,22 @@
+schema-version: 1.0.0
+
+title: Improve Package Publish UX
+zep-number: 0013
+authors:
+  - "@jane.doe"
+status: implementable #|implemented|deferred|rejected|withdrawn|replaced
+creation-date: 2024-01-24
+reviewers:
+  - @zarf-dev
+approvers:
+  - @zarf-dev
+
+stage: stable
+
+# The most recent milestone for which work toward delivery of this ZEP has been
+# done. This can be the current (upcoming) milestone, if it is being actively
+# worked on.
+latest-milestone: "v0.47"
+
+milestone:
+  stable: "TBD"

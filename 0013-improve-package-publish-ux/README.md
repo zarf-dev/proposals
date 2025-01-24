@@ -45,7 +45,7 @@ The latest instructions for this template can be found in [this repo](/NNNN-zep-
 longer appropriate, updates to the list must be approved by the remaining approvers.
 -->
 
-# ZEP-NNNN: Your short, descriptive title
+# ZEP-0013: Improve Package Publish UX
 
 <!--
 Keep the title short simple and descriptive. It should clearly convey what
@@ -65,7 +65,6 @@ any additional information provided beyond the standard ZEP template.
 - [Proposal](#proposal)
   - [User Stories (Optional)](#user-stories-optional)
     - [Story 1](#story-1)
-    - [Story 2](#story-2)
   - [Risks and Mitigations](#risks-and-mitigations)
 - [Design Details](#design-details)
   - [Test Plan](#test-plan)
@@ -98,7 +97,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-`zarf package publish` accepts either a directory with a `zarf.yaml` file or a created Zarf package. The behavior when accepting a directory is to create and publish a [skeleton package](https://docs.zarf.dev/faq/#what-is-a-skeleton-zarf-package). This is not intuitive, the average user would most likely expect a package to be built then published. They likely wouldn't know what a skeleton package is as well.
+`zarf package publish` accepts either a directory with a `zarf.yaml` file or a created Zarf package. The behavior when accepting a directory is to create and publish a [skeleton package](https://docs.zarf.dev/faq/#what-is-a-skeleton-zarf-package). This is not intuitive, the average user would most likely expect a package to be built then published. They likely wouldn't know what a skeleton package is as well. Instead we will make an explicit command `zarf package publish skeleton` for skeleton package users.
 
 ## Motivation
 
@@ -131,7 +130,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Change the content of publish packages, this is focused on the CLI experience
+- Change any behavior around how packages are published, this is focused on improving the CLI UX
 
 ## Proposal
 
@@ -156,11 +155,7 @@ bogged down.
 
 #### Story 1
 
-I want to publish my Zarf package to an OCI registry so I run `zarf package publish my-package.tar.zst`
-
-#### Story 2
-
-I want to publish my skeleton package to an OCI registry so I run `zarf package publish skeleton my-directory`
+I want to publish my skeleton package so I run `zarf package publish skeleton my-directory`
 
 ### Risks and Mitigations
 
@@ -174,9 +169,9 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-This will deprecate the current way to publish skeleton packages, forcing users to change their workflows. Since this deprecation has a clear 1:1 alternative, and we will give users one year before the current functionality is removed this is deemed low risk. 
+This will deprecate the current way to publish skeleton packages, forcing users to change their workflows. Since the deprecated functionality has a clear 1:1 alternative, and we will give users one year before the current functionality is removed this is deemed low risk. 
 
-One situation that would break immediately is if a user is if a user is currently running `zarf package publish skeleton` to publish a skeleton package in their directory called skeleton. After this ZEP's implementation Zarf will look for a `zarf.yaml` in their current directory rather than the skeleton directory. Still, their issue should be clear after looking at the help text. 
+One situation that would break immediately is if a user is currently running `zarf package publish skeleton` to publish a skeleton package in a directory called "skeleton". After this ZEP's implementation Zarf will believe they are running the skeleton command rather than passing skeleton as an argument and instead look for a `zarf.yaml` in their current directory. Still, this situation is unlikely and the issue should be clear after looking at the help text. 
 
 ## Design Details
 
@@ -200,7 +195,7 @@ when drafting this test plan.
 [testing-guidelines]: https://docs.zarf.dev/contribute/testing/
 -->
 
-[ ] I/we understand the owners of the involved components may require updates to
+[X] I/we understand the owners of the involved components may require updates to
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
@@ -275,6 +270,8 @@ Major milestones might include:
 - when the ZEP was retired or superseded
 -->
 
+- 2024-01-24: Created ZEP first draft
+
 ## Drawbacks
 
 <!--
@@ -290,4 +287,4 @@ information to express the idea and why it was not acceptable.
 -->
 
 ### Create skeleton tar package
-Another option is to create a skeleton tar package with a command like `zarf package create --skeleton`. This would keep the `zarf package publish` command simple, it would take either a regular tar or a skeleton tar. This option wasn't selected as skeleton packages are only useful in OCI registries. By introducing a tar version of skeleton packages Zarf will have to build in error cases to ensure a user can't try to deploy or mirror resources using them. Skeleton packages may work with the `package remove` and `package inspect` commands as well, but we don't  work with remove or 
+Another option is to create a skeleton tar package with a command like `zarf package create --skeleton`. This would keep the `zarf package publish` command simple, it would take either a regular tar or a skeleton tar. This option wasn't selected as skeleton packages are only useful in OCI registries. By introducing a tar version of skeleton packages Zarf will have to build in error cases to ensure a user can't try to deploy or mirror resources using them. Skeleton packages could work with the `package remove`, `package inspect`, and `package pull` commands, but since there isn't much user value in these cases, it is better to avoid them entirely. 
