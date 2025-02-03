@@ -7,9 +7,9 @@ authors:
 status: implementable
 creation-date: 2025-02-03
 reviewers:
-  - @zarf-dev
+  - "@zarf-dev"
 approvers:
-  - @zarf-dev
+  - "@zarf-dev"
 
 # The target maturity stage in the current dev cycle for this ZEP.
 stage: alpha
