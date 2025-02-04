@@ -144,13 +144,20 @@ zarf package deploy zarf-package-test.tar.zst --set MY_OVERRIDE_VARIABLE_NAME.ke
 
 ### Risks and Mitigations
 
-This will require some additional processing of the `zarf-config` files to allow them to be processed properly because of Viper's long-running [case-insensitive keys issue](https://github.com/spf13/viper/issues/1014).  This could be performed similar to UDS CLI's implementation of this feature and / or by deprecating some of the existing less-used formats for configuration.
+This will require some additional processing of the `zarf-config` files to allow them to be processed properly because of Viper's long-running [case-insensitive keys issue](https://github.com/spf13/viper/issues/1014).  This could be performed similar to UDS CLI's implementation of this feature and / or by deprecating some of the existing less-used formats for configuration. (TODO: (@AustinAbro321) - link this to the other ZEP for viper reconsideration)
 
-The `--set` syntax will change somewhat how variables are interpreted on the CLI (i.e. `--set VAR=100` will no monger represent `"100"` and instead will just be `100` internally). For `###` templates this can be mitigated by simply representing the value as a string for backwards compatibility though this will likely need to either be marked as breaking for Helm overrides or have additional flag changes / opt ins for this specific feature.
+The `--set` syntax will change somewhat how variables are interpreted on the CLI (i.e. `--set VAR=100` will no longer represent `"100"` and instead will just be `100` internally). For `###` templates this can be mitigated by simply representing the value as a string for backwards compatibility though this will likely need to either be marked as breaking for Helm overrides or have additional flag changes / opt ins for this specific feature.
+
+As we implement these changes tehre are risks around opening a `string` to an `interface{}` and we should strongly look at adopting many of the [Helm helpers](https://github.com/helm/helm/blob/main/pkg/chartutil/values.go#L71) from their `chartutil` package to ensure that potential security and stability issues are minimized.  Also called out below we should implement fuzz testing to catch unanticipated issues and provide an additional layer of assurance to the implementation.
 
 ## Design Details
 
-This design proposal keeps changes to a minimum to align Zarf Variables with Helm Values with the largest changes being the change from `string` to `interface` and the changes to loading a `zarf-config` file and handling `--set` as described above.
+This design proposal seeks to keep changes to a minimum to align Zarf Variables with Helm Values with the largest changes being the change from `string` to `interface` and the changes to loading a `zarf-config` file and handling `--set` as described above.
+
+This change will also impact other aspects of Zarf variables as described below:
+
+- `default` values would now accept an interface - this would affect packages in the same way as zarf-config values for backwards compatibility
+- `setVariables` would still set variables to strings with no additional processing - if more is desired here later (i.e. expanding the `type` field) that would be a separate ZEP
 
 ### Test Plan
 
@@ -160,7 +167,7 @@ to implement this proposal.
 
 ##### Prerequisite testing updates
 
-NA - This is a modification of existing behavior that should not require prerequisite testing updates.
+For additional safety when implementing this feature we should look at adding fuzz testing to the existing unit / e2e tests to ensure that panics and other potential security issues are handled appropriately.  As mentioned above Helm does have some utility functions to help address some of these concerns but this would ensure that those functions were being used properly within Zarf and any additional concerns from Zarf's additional functionality were handled correctly as well.
 
 ##### Unit tests
 
