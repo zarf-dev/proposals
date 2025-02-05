@@ -118,14 +118,14 @@ package:
       my_component:
         my_chart: new-namespace
 ```
-**Then** Zarf will apply change the charts release namespace to `my_namespace`
+**Then** Zarf will change the chart's release namespace to `new-namespace`
 
 **Given** I have a Zarf Package with a chart named `my_chart` in a component named `my_component`
 **When** I deploy that package with a `--namespace` like the below:
 ```yaml
 zarf package deploy zarf-package-test.tar.zst --namespace my_component.my_chart=new-namespace
 ```
-**Then** Zarf will apply change the charts release namespace to `my_namespace`
+**Then** Zarf will change the chart's release namespace to `new-namespace`
 
 ##### Option 2 (UDS CLI Style)
 
@@ -139,14 +139,14 @@ package:
         my_chart:
           namespace: new-namespace
 ```
-**Then** Zarf will apply change the charts release namespace to `my_namespace`
+**Then** Zarf will change the chart's release namespace to `new-namespace`
 
 **Given** I have a Zarf Package with a chart named `my_chart` in a component named `my_component`
 **When** I deploy that package with a `--overrides` like the below:
 ```yaml
 zarf package deploy zarf-package-test.tar.zst --overrides my_component.my_chart.namespace=new-namespace
 ```
-**Then** Zarf will apply change the charts release namespace to `my_namespace`
+**Then** Zarf will change the chart's release namespace to `new-namespace`
 
 ##### Option 3 (Zarf Variable Style)
 
@@ -159,7 +159,7 @@ package:
     set:
       MY_CHART_NAMESPACE: new-namespace
 ```
-**Then** Zarf will apply change the charts release namespace to `my_namespace`
+**Then** Zarf will change the chart's release namespace to `new-namespace`
 
 **Given** I have a Zarf Package with a chart named `my_chart` in a component named `my_component`
 **And** the chart's namespace is set as the variable `MY_CHART_NAMESPACE`
@@ -167,7 +167,26 @@ package:
 ```yaml
 zarf package deploy zarf-package-test.tar.zst --set MY_CHART_NAMESPACE=new-namespace
 ```
-**Then** Zarf will apply change the charts release namespace to `my_namespace`
+**Then** Zarf will change the chart's release namespace to `new-namespace`
+
+##### Option 4 (Prefix/Suffix Style)
+
+**Given** I have a Zarf Package with a chart deploying to `my-namespace`
+**When** I deploy that package with a `zarf-config.yaml` like the below*:
+```yaml
+package:
+  deploy:
+    namespace-prefix: new-
+    namespace-suffix: -kitteh
+```
+**Then** Zarf will change the chart's release namespace to `new-my-namespace-kitteh`
+
+**Given** I have a Zarf Package with a chart deploying to `my-namespace`
+**When** I deploy that package with a `--set` like the below:
+```yaml
+zarf package deploy zarf-package-test.tar.zst --namespace-prefix new- --namespace-suffix -kitteh
+```
+**Then** Zarf will change the chart's release namespace to `new-my-namespace-kitteh`
 
 ### Risks and Mitigations
 
@@ -176,6 +195,8 @@ TODO - (@WSTARR)
 ## Design Details
 
 TODO - (@WSTARR)
+
+This proposal will affect the release namespace of a chart (or manifest) so that the Helm release secrets and any templates that use the `.Release.Namespace` template would use the newly provided namespace.  This would ensure that charts wouldn't affect the history or objects of prior deployments and would be able to properly install alongside one another.  This would not affect namespaces that are defined under .Values as those would still be controlled by the package configuration and Zarf variables as they are today.
 
 ### Test Plan
 
