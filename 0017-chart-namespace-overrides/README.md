@@ -188,6 +188,50 @@ zarf package deploy zarf-package-test.tar.zst --namespace-prefix new- --namespac
 ```
 **Then** Zarf will change the chart's release namespace to `new-my-namespace-kitteh`
 
+##### Option 5 (Package Namespace Style)
+
+TODO: (@WSTARR) - this one is a little more wishy washy but captures some more input from folks
+
+**Given** I have a Zarf Package that implements a new package `namespace` field
+```
+kind: ZarfPackageConfig
+metadata:
+  name: test
+  namespace: my-namespace
+```
+**And** That package has resources that reference the package namespace
+```
+ charts:
+  - name: my-chart
+    namespace: {{ .Package.Namespace }}
+```
+**When** I deploy that package with a `zarf-config.yaml` like the below*:
+```yaml
+package:
+  deploy:
+    namespace: new-namespace
+```
+**Then** Zarf will change the chart's release namespace to `new-namespace`
+
+**Given** I have a Zarf Package that implements a new package `namespace` field
+```
+kind: ZarfPackageConfig
+metadata:
+  name: my-package
+  namespace: my-namespace
+```
+**And** That package has resources that reference the package namespace
+```
+ charts:
+  - name: my-chart
+    namespace: {{ .Package.Namespace }}
+```
+**When** I deploy that package with a `--set` like the below:
+```yaml
+zarf package deploy zarf-package-test.tar.zst --namespace new-namespace
+```
+**Then** Zarf will change the chart's release namespace to `new-namespace`
+
 ### Risks and Mitigations
 
 TODO - (@WSTARR)
