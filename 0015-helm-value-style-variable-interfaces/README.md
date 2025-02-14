@@ -148,7 +148,7 @@ This will require some additional processing of the `zarf-config` files to allow
 
 The `--set` syntax will change somewhat how variables are interpreted on the CLI (i.e. `--set VAR=100` will no longer represent `"100"` and instead will just be `100` internally). For `###` templates this can be mitigated by simply representing the value as a string for backwards compatibility though this will likely need to either be marked as breaking for Helm overrides or have additional flag changes / opt ins for this specific feature.
 
-As we implement these changes tehre are risks around opening a `string` to an `interface{}` and we should strongly look at adopting many of the [Helm helpers](https://github.com/helm/helm/blob/main/pkg/chartutil/values.go#L71) from their `chartutil` package to ensure that potential security and stability issues are minimized.  Also called out below we should implement fuzz testing to catch unanticipated issues and provide an additional layer of assurance to the implementation.
+As we implement these changes there are risks around opening a `string` to an `interface{}` and we should strongly look at adopting many of the [Helm helpers](https://github.com/helm/helm/blob/main/pkg/chartutil/values.go#L71) from their `chartutil` package to ensure that potential security and stability issues are minimized.  Also called out below we should implement fuzz testing to catch unanticipated issues and provide an additional layer of assurance to the implementation.
 
 ## Design Details
 
