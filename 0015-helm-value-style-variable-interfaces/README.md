@@ -144,9 +144,9 @@ zarf package deploy zarf-package-test.tar.zst --set MY_OVERRIDE_VARIABLE_NAME.ke
 
 ### Risks and Mitigations
 
-This will require some additional processing of the `zarf-config` files to allow them to be processed properly because of Viper's long-running [case-insensitive keys issue](https://github.com/spf13/viper/issues/1014).  This could be performed similar to UDS CLI's implementation of this feature and / or by deprecating some of the existing less-used formats for configuration. (TODO: (@AustinAbro321) - link this to the other ZEP for viper reconsideration)
+This will require some additional processing of the `zarf-config` files to allow them to be processed properly because of Viper's long-running [case-insensitive keys issue](https://github.com/spf13/viper/issues/1014).  This could be performed similar to UDS CLI's implementation of this feature and / or by deprecating some of the existing less-used formats for configuration with the Zarf team tentatively looking to deprecate and remove config file options besides yaml and toml given they are not used much in the community but still would take time to support.
 
-The `--set` syntax will change somewhat how variables are interpreted on the CLI (i.e. `--set VAR=100` will no longer represent `"100"` and instead will just be `100` internally). For `###` templates this can be mitigated by simply representing the value as a string for backwards compatibility though this will likely need to either be marked as breaking for Helm overrides or have additional flag changes / opt ins for this specific feature.
+The `--set` syntax will change somewhat how variables are interpreted on the CLI (i.e. `--set VAR=100` will no longer represent `"100"` and instead will just be `100` internally). For `###` templates this will not be a breaking change and can be mitigated by simply representing the value as a string for backwards compatibility.  Existing Helm Overrides in Zarf `charts` may experience breakages from this however and this should be noted upon release.  We could add additional opt-in flags but this would add complexity and is likely not desirable for the expected impact of this smaller break (given Helm overrides have not seen much use yet).
 
 As we implement these changes there are risks around opening a `string` to an `interface{}` and we should strongly look at adopting many of the [Helm helpers](https://github.com/helm/helm/blob/main/pkg/chartutil/values.go#L71) from their `chartutil` package to ensure that potential security and stability issues are minimized.  Also called out below we should implement fuzz testing to catch unanticipated issues and provide an additional layer of assurance to the implementation.
 
@@ -191,16 +191,7 @@ NA - This proposal doesn't impact how Zarf's components interact
 
 ## Implementation History
 
-<!--
-Major milestones in the lifecycle of a ZEP should be tracked in this section.
-Major milestones might include:
-- the `Summary` and `Motivation` sections being merged, signaling acceptance of the ZEP
-- the `Proposal` section being merged, signaling agreement on a proposed design
-- the date implementation started
-- the first Zarf release where an initial version of the ZEP was available
-- the version of Zarf where the ZEP graduated to general availability
-- when the ZEP was retired or superseded
--->
+2025-02-03: Initial version of this document.
 
 ## Drawbacks
 
