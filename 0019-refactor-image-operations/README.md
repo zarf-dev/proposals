@@ -97,7 +97,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Zarf uses crane to pull and push container images. Crane has been the cause of several bugs and issues within Zarf. By switching to oras-go Zarf can solve Crane issues while reaping benefits from using the same library for container image operations and Zarf OCI package operations.
+Zarf uses crane to pull and push container images. Crane has several bugs or behaviors which cause issues within Zarf. Switching to oras-go Zarf will resolve many of the issues Zarf faces with Crane. Additionally, Zarf will reap benefits from using the same library for container image operations and Zarf OCI package operations.
 
 ## Motivation
 
@@ -302,7 +302,7 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
-There is potential for image operations to be slower for some use cases since we are defaulting to less concurrency. This is seen as a lower risk than the current reliability issues that users face.
+There is potential for image operations to be slower for some use cases since we are defaulting to less concurrency. This is a lower risk than the current reliability issues that users face which can completely break create + deploy operations. 
 
 ## Alternatives
 
