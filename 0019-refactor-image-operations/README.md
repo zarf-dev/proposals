@@ -97,7 +97,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Zarf uses crane to pull and push container images. Crane has several bugs or behaviors which cause issues within Zarf. Switching to oras-go Zarf will resolve many of the issues Zarf faces with Crane. Additionally, Zarf will reap benefits from using the same library for container image operations and Zarf OCI package operations.
+Zarf uses crane to pull and push container images. Crane has several bugs or behaviors which cause issues within Zarf. Switching to [oras-go](https://github.com/oras-project/oras-go) Zarf will resolve many of the issues Zarf faces with Crane. Additionally, Zarf will reap benefits from using the same library for container image operations and Zarf OCI package operations.
 
 ## Motivation
 
@@ -120,14 +120,14 @@ The team has made three bug reports in the Crane repository with reproducible st
 - ggcr: Image write concurrency errors google/go-containerregistry [#1941](https://github.com/google/go-containerregistry/issues/1941)
 - ggcr: Docker with Containerd snapshotter gives wrong config name [#1954](https://github.com/google/go-containerregistry/issues/1954)
 
-Each of these bug reports have had no responses and were automatically closed as not planned after being marked as stale. oras-go image operations are goroutine safe which solves [#1941](https://github.com/google/go-containerregistry/issues/1941). [#1955](https://github.com/google/go-containerregistry/issues/1955) stems from Crane not properly handling non container oci images in it's cache. The intended cache solution in this proposal handles non container OCI images. oras-go does not provide a native way to import Docker images. However, we will be able to avoid [#1954](https://github.com/google/go-containerregistry/issues/1954) in our custom implementation. 
+Each of these bug reports have had no responses and were automatically closed as not planned after being marked as stale. oras-go image operations are goroutine safe which solves [#1941](https://github.com/google/go-containerregistry/issues/1941). [#1955](https://github.com/google/go-containerregistry/issues/1955) stems from Crane not properly handling non-container OCI images in it's cache. The intended cache solution in this proposal handles non container OCI images. oras-go does not provide a native way to import Docker images. However, we will be able to avoid [#1954](https://github.com/google/go-containerregistry/issues/1954) in our custom implementation. 
 
 There are also several issues in the Zarf repository involving Crane: 
 - Unable to use OCI artifacts that are not all image layers [#3113](https://github.com/zarf-dev/zarf/issues/3113)
 - flake: failing during image pull when building podinfo-flux package in test-external [#3194](https://github.com/zarf-dev/zarf/issues/3194)
 - Intermittent Hangs at crane.Push() on Registry Push [#2104](https://github.com/zarf-dev/zarf/issues/2104)
 
-The issue in [#3113](https://github.com/zarf-dev/zarf/issues/3113) seems to stem from a similar issue as [#1955](https://github.com/google/go-containerregistry/issues/1955) where Crane does not properly handle non container OCI images in it's cache. [#3194](https://github.com/zarf-dev/zarf/issues/3194) is likely caused by issues with concurrent pulls as seen in [#1941](https://github.com/google/go-containerregistry/issues/1941), this will be solved in the migration since oras-go is go routine safe. It is not easy to verify that [#2104](https://github.com/zarf-dev/zarf/issues/2104), is 100% caused by Crane rather than connection issues to the registry. Still, the oras-go migration will give users flexibility to choose how many layers they push concurrently, which has potential to improve reliability.
+The issue in [#3113](https://github.com/zarf-dev/zarf/issues/3113) seems to stem from a similar issue as [#1955](https://github.com/google/go-containerregistry/issues/1955) where Crane does not properly handle non container OCI images in its cache. [#3194](https://github.com/zarf-dev/zarf/issues/3194) is likely caused by issues with concurrent pulls as seen in [#1941](https://github.com/google/go-containerregistry/issues/1941), this will be solved in the migration since oras-go is go routine safe. It is not easy to verify that [#2104](https://github.com/zarf-dev/zarf/issues/2104), is 100% caused by Crane rather than connection issues to the registry. Still, the oras-go migration will give users flexibility to choose how many layers they push concurrently, which has potential to improve reliability.
 
 ### Goals
 
@@ -200,7 +200,7 @@ proposal will be implemented, this is the place to discuss that.
 
 oras-go does not provide a blob storage natively, however the oras CLI does. While it is marked as internal, it is simple to vendor into the Zarf project. Additionally, issue [#881](https://github.com/oras-project/oras-go/issues/881) in oras-go requests caching as part of the library. The maintainers have noted that it seems like a valuable feature to add.
 
-oras-go does not natively support pulling images from the Docker daemon. Zarf will instead pull from the Docker daemon directly, which results in an OCI formatted tar file. Once extracted into a directly it can be treated as a normal oci-layout for use with the oras-go library. 
+oras-go does not natively support pulling images from the Docker daemon. Zarf will instead pull from the Docker daemon directly, which results in an OCI formatted tar file. Once extracted into a directory it can be treated as a normal oci-layout for use with the oras-go library. 
 
 ### Test Plan
 
@@ -221,7 +221,7 @@ to implement this proposal.
 
 Since image pulling and pushing is a core functionality of Zarf, most of the end to end tests will, by nature, test image pulling and pushing. Still, there should be a test to ensure a package built with a prior version of Zarf is able to push of all it's images successfully. 
 
-Additionally, the image push functionality should have unit tests, and the pull functionalities current unit tests should be improved. 
+Additionally, the image push should have unit tests, and the image pull unit tests should be improved. 
 
 ### Graduation Criteria
 
