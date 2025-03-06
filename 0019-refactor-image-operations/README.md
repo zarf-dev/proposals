@@ -97,7 +97,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Zarf uses crane to pull and push container images. Crane has several bugs or behaviors which cause issues within Zarf. Switching to [oras-go](https://github.com/oras-project/oras-go) Zarf will resolve many of the issues Zarf faces with Crane. Additionally, Zarf will reap benefits from using the same library for container image operations and Zarf OCI package operations.
+Zarf uses crane to pull and push container images. Crane has several bugs or behaviors which cause issues within Zarf. Through switching to [oras-go](https://github.com/oras-project/oras-go) Zarf will resolve many of the issues it faces with Crane. Additionally, Zarf will reap benefits from using the same library for container image operations and Zarf OCI package operations.
 
 ## Motivation
 
