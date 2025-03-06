@@ -64,8 +64,6 @@ any additional information provided beyond the standard ZEP template.
   - [Non-Goals](#non-goals)
 - [Proposal](#proposal)
   - [User Stories (Optional)](#user-stories-optional)
-    - [Story 1](#story-1)
-    - [Story 2](#story-2)
   - [Risks and Mitigations](#risks-and-mitigations)
 - [Design Details](#design-details)
   - [Test Plan](#test-plan)
@@ -97,7 +95,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Zarf uses crane to pull and push container images. Crane has several bugs or behaviors which cause issues within Zarf. Through switching to [oras-go](https://github.com/oras-project/oras-go) Zarf will resolve many of the issues it faces with Crane. Additionally, Zarf will reap benefits from using the same library for container image operations and Zarf OCI package operations.
+Zarf uses crane to pull and push container images. Crane has several bugs which cause issues within Zarf. Through switching to [oras-go](https://github.com/oras-project/oras-go) Zarf will resolve many of the issues it faces with Crane. Additionally, Zarf will reap benefits from using the same library for container image operations and Zarf OCI package operations.
 
 ## Motivation
 
@@ -120,7 +118,7 @@ The team has made three bug reports in the Crane repository with reproducible st
 - ggcr: Image write concurrency errors google/go-containerregistry [#1941](https://github.com/google/go-containerregistry/issues/1941)
 - ggcr: Docker with Containerd snapshotter gives wrong config name [#1954](https://github.com/google/go-containerregistry/issues/1954)
 
-Each of these bug reports have had no responses and were automatically closed as not planned after being marked as stale. oras-go image operations are goroutine safe which solves [#1941](https://github.com/google/go-containerregistry/issues/1941). [#1955](https://github.com/google/go-containerregistry/issues/1955) stems from Crane not properly handling non-container OCI images in it's cache. The intended cache solution in this proposal handles non container OCI images. oras-go does not provide a native way to import Docker images. However, we will be able to avoid [#1954](https://github.com/google/go-containerregistry/issues/1954) in our custom implementation. 
+Each of these bug reports have had no responses and were automatically closed as not planned after being marked as stale. oras-go image operations are goroutine safe which solves [#1941](https://github.com/google/go-containerregistry/issues/1941). [#1955](https://github.com/google/go-containerregistry/issues/1955) stems from Crane not properly handling non-container OCI images in it's cache. The cache solution in this proposal handles non container OCI images. oras-go does not provide a native way to import Docker images. However, we will be able to avoid [#1954](https://github.com/google/go-containerregistry/issues/1954) in our custom implementation. 
 
 There are also several issues in the Zarf repository involving Crane: 
 - Unable to use OCI artifacts that are not all image layers [#3113](https://github.com/zarf-dev/zarf/issues/3113)
@@ -160,9 +158,9 @@ below is for the real nitty-gritty.
 
 Use the oras-go library to replace Crane for image pull and image push operations. 
 
-Image pull and push operations will respect the existing global `--oci-concurrency` flag, which is used for Zarf package OCI operations. This flag is not currently respected for image pull and push operations with Crane. The default `--oci-concurrency` flag value will increase to six. The default in oras-go and Zarf is currently three, but this number is conservative. [Skopeo](https://github.com/containers/skopeo), for instance, has a default of six. Crane pushes and pulls all layers concurrently always.
+Image pull and push operations will respect the global `--oci-concurrency` flag to determine how many layers to push or pull concurrently. This flag is currently used for Zarf package OCI operations, but not respected during image operations with Crane. The default `--oci-concurrency` flag value will increase to six. The default in oras-go and Zarf is currently three, but this number is conservative. [Skopeo](https://github.com/containers/skopeo), for instance, has a default of six. Crane pushes and pulls all layers concurrently always.
 
-Zarf will only pull one image at a time. The current implementation pulls up to ten images concurrently, while this may improve speed in certain cases, in many others, Zarf is over saturating the network and worsening reliability. If in the future Zarf would like to go back to concurrently pulling images, oras-go will handle this without issue. This can be seen by the [DoOrasPullConcurrent](https://github.com/zarf-dev/image-pull-experiments/blob/main/oras/main.go#L55) function created to test this behavior.
+The oras-go implementation will only pull one image at a time. The current implementation pulls up to ten images concurrently, while this may improve speed in certain cases, in many others, Zarf is over saturating the network and worsening reliability. If in the future Zarf would like to go back to concurrently pulling images, oras-go will handle this without issue. This can be seen by the [DoOrasPullConcurrent](https://github.com/zarf-dev/image-pull-experiments/blob/main/oras/main.go#L55) function created to test this behavior.
 
 A shared cache will be used for Zarf package OCI operations and Zarf image OCI operations, see issue [2033](https://github.com/zarf-dev/zarf/issues/2033) which requests this feature. 
 
@@ -175,7 +173,7 @@ the system. The goal here is to make this feel real for users without getting
 bogged down.
 -->
 
-This ZEP will change Zarf internals and not effect user experience.
+This ZEP proposes a technical refactoring and does not change the users flow. 
 
 ### Risks and Mitigations
 
@@ -198,7 +196,7 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-oras-go does not provide a blob storage natively, however the oras CLI does. While it is marked as internal, it is simple to vendor into the Zarf project. Additionally, issue [#881](https://github.com/oras-project/oras-go/issues/881) in oras-go requests caching as part of the library. The maintainers have noted that it seems like a valuable feature to add.
+oras-go does not provide a blob storage natively, however the ORAS CLI does. While it is marked as internal, it is simple to vendor into the Zarf project. Additionally, issue [#881](https://github.com/oras-project/oras-go/issues/881) in oras-go requests caching as part of the library. The maintainers have noted that it seems like a valuable feature to add.
 
 oras-go does not natively support pulling images from the Docker daemon. Zarf will instead pull from the Docker daemon directly, which results in an OCI formatted tar file. Once extracted into a directory it can be treated as a normal oci-layout for use with the oras-go library. 
 
@@ -312,6 +310,6 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-[containers/image](https://github.com/containers/image) was looked at as a potential alternative to using oras-go. [Skopeo](https://github.com/containers/skopeo/) uses this tool for most of it's image operations, and has built a successful user base. This tool also has a builtin way to extract images from the docker daemon. Still containers/image does not have a blob cache which is a feature many users rely on to quickly iterate on packages. 
+[containers/image](https://github.com/containers/image) was looked at as an alternative replacement for image operations. [Skopeo](https://github.com/containers/skopeo/) uses this tool for most of it's image operations and has built a large user base. containers/image has a builtin way to extract images from the docker daemon. However, containers/image does not have a blob cache which is a feature many users rely on to quickly iterate on packages. 
 
-[Regclient](https://github.com/regclient/regclient) was also evaluated, but since it also lacked a blob cache it was ruled out. 
+[Regclient](https://github.com/regclient/regclient) was evaluated, but since it also lacked a blob cache it was ruled out. 
