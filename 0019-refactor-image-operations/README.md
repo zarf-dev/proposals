@@ -95,7 +95,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Zarf uses crane to pull and push container images. Crane has several bugs which cause issues within Zarf. Through switching to [oras-go](https://github.com/oras-project/oras-go) Zarf will resolve many of the issues it faces with Crane. Additionally, Zarf will reap benefits from using the same library for container image operations and Zarf OCI package operations.
+One of the core operations of Zarf is to push and pull container images across environments. Zarf uses Crane for this functionality, but has faced several bugs and issues in its Crane use. By switching the [images package](https://github.com/zarf-dev/zarf/tree/main/src/internal/packager/images) to utilize [oras-go](https://github.com/oras-project/oras-go) Zarf will resolve many of the issues it faces with Crane. Additionally, Zarf will reap benefits from using the same library for container image operations and Zarf OCI package operations.
 
 ## Motivation
 
@@ -110,22 +110,28 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-The Zarf team has had several problems while working with Crane. 
+Crane does not have optimal behavior and flexibility around concurrency and the Crane cache often errors when pulling non container OCI images such as Helm charts or cosign signatures. Attempts to bring up these issues have gone unanswered in the Crane repository. The OCI specification is continuously updating, and Zarf needs to ensure it can handle the changes. 
+
+oras-go is a CNCF project with active development and use from many other projects in the community such as Helm and Flux. It solves many, if not all, of the issues we face with Crane. It is committed to stay up to date with the ocispec. Zarf already uses oras-go to publish Zarf packages so using oras-go adds no new dependencies.  
+
+### Zarf issues related to Crane
+
+There are several issues in the Zarf repository involving Crane: 
+- Unable to use OCI artifacts that are not all image layers [#3113](https://github.com/zarf-dev/zarf/issues/3113)
+- flake: failing during image pull when building podinfo-flux package in test-external [#3194](https://github.com/zarf-dev/zarf/issues/3194)
+- Intermittent Hangs at crane.Push() on Registry Push [#2104](https://github.com/zarf-dev/zarf/issues/2104)
+
+The issue in [#3113](https://github.com/zarf-dev/zarf/issues/3113) seems to stem from a similar issue as [#1955](https://github.com/google/go-containerregistry/issues/1955) where Crane does not properly handle non container OCI images in its cache. [#3194](https://github.com/zarf-dev/zarf/issues/3194) is likely caused by issues with concurrent pulls as seen in [#1941](https://github.com/google/go-containerregistry/issues/1941), this will be solved in the migration since oras-go is go routine safe. It is not easy to verify that [#2104](https://github.com/zarf-dev/zarf/issues/2104), is 100% caused by Crane rather than connection issues to the registry. Still, the oras-go migration will give users flexibility to choose how many layers they push concurrently, which has potential to improve reliability.
+
+### Non responses to Crane issues
 
 The team has made three bug reports in the Crane repository with reproducible steps:
-
 - crane: incorrectly uses compressed layer of a cosign .sig file to write OCI image from cache google/go-containerregistry [#1955](https://github.com/google/go-containerregistry/issues/1955)
 - ggcr: Image write concurrency errors google/go-containerregistry [#1941](https://github.com/google/go-containerregistry/issues/1941)
 - ggcr: Docker with Containerd snapshotter gives wrong config name [#1954](https://github.com/google/go-containerregistry/issues/1954)
 
 Each of these bug reports have had no responses and were automatically closed as not planned after being marked as stale. oras-go image operations are goroutine safe which solves [#1941](https://github.com/google/go-containerregistry/issues/1941). [#1955](https://github.com/google/go-containerregistry/issues/1955) stems from Crane not properly handling non-container OCI images in it's cache. The cache solution in this proposal handles non container OCI images. oras-go does not provide a native way to import Docker images. However, we will be able to avoid [#1954](https://github.com/google/go-containerregistry/issues/1954) in our custom implementation. 
 
-There are also several issues in the Zarf repository involving Crane: 
-- Unable to use OCI artifacts that are not all image layers [#3113](https://github.com/zarf-dev/zarf/issues/3113)
-- flake: failing during image pull when building podinfo-flux package in test-external [#3194](https://github.com/zarf-dev/zarf/issues/3194)
-- Intermittent Hangs at crane.Push() on Registry Push [#2104](https://github.com/zarf-dev/zarf/issues/2104)
-
-The issue in [#3113](https://github.com/zarf-dev/zarf/issues/3113) seems to stem from a similar issue as [#1955](https://github.com/google/go-containerregistry/issues/1955) where Crane does not properly handle non container OCI images in its cache. [#3194](https://github.com/zarf-dev/zarf/issues/3194) is likely caused by issues with concurrent pulls as seen in [#1941](https://github.com/google/go-containerregistry/issues/1941), this will be solved in the migration since oras-go is go routine safe. It is not easy to verify that [#2104](https://github.com/zarf-dev/zarf/issues/2104), is 100% caused by Crane rather than connection issues to the registry. Still, the oras-go migration will give users flexibility to choose how many layers they push concurrently, which has potential to improve reliability.
 
 ### Goals
 
@@ -173,7 +179,11 @@ the system. The goal here is to make this feel real for users without getting
 bogged down.
 -->
 
-This ZEP proposes a technical refactoring and does not change the users flow. 
+The general flow of users should not change, if image pulls were already working without issues for users the change should be largely not noticeable. For reliability we're hoping the extra options enable users when they face.
+
+#### Story 1
+
+As a user deploying packages in an environment with a poor network connection to the Zarf registry, I run `zarf package deploy --oci-concurrency=1` so that it is less likely that my image push will flake. 
 
 ### Risks and Mitigations
 
@@ -217,7 +227,9 @@ when drafting this test plan.
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
-Since image pulling and pushing is a core functionality of Zarf, most of the end to end tests will, by nature, test image pulling and pushing. Still, there should be a test to ensure a package built with a prior version of Zarf is able to push of all it's images successfully. 
+Since image pulling and pushing is a core functionality of Zarf most of the end to end tests will, by nature, test image pulling and pushing. 
+
+Packages created with an older version of Zarf must deploy fine using a newer version of Zarf. See [Version Skew Strategy](#version-skew-strategy)
 
 Additionally, the image push should have unit tests, and the image pull unit tests should be improved. 
 
@@ -277,7 +289,10 @@ proposal:
   - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
 -->
 
-There are differences between the annotations on the index.json for images pulled by Crane vs ORAS. Zarf must ensure that packages created using Crane are backwards compatible for all operations.
+There are differences between the annotations on the index.json for images pulled by Crane vs ORAS. Zarf must continue to work in the following situations:
+
+- A package created with older version of Zarf, using Crane, must deploy with newer version of Zarf, using ORAS.
+- A package created with a newer version of Zarf, using ORAS, must deploy with an older version of Zarf, using Crane.
 
 ## Implementation History
 
@@ -310,6 +325,12 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
+### Alternative libraries to ORAS
+
 [containers/image](https://github.com/containers/image) was looked at as an alternative replacement for image operations. [Skopeo](https://github.com/containers/skopeo/) uses this tool for most of it's image operations and has built a large user base. containers/image has a builtin way to extract images from the docker daemon. However, containers/image does not have a blob cache which is a feature many users rely on to quickly iterate on packages. 
 
 [Regclient](https://github.com/regclient/regclient) was evaluated, but since it also lacked a blob cache it was ruled out. 
+
+### Alternative concurrency model
+
+As discussed in the proposal this implementation will only pull one image at a time so that the network is less likely to be over saturated while pulling images. One potential idea would be to dynamically set the concurrency depending on the size of images being pulled. For example, Zarf could pull as many layers concurrently as possible until the total size of concurrent layers is greater than 1 Gigabyte. For now this is not done to avoid extra complexity. 
