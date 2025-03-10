@@ -95,7 +95,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Pushing and pulling container images across environments is one of the core functionalities of Zarf. Zarf utilizes [Crane](https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane.md) to accomplish this, but has faces several bugs and issues involving Crane. By changing the [images package](https://github.com/zarf-dev/zarf/tree/main/src/internal/packager/images) to utilize [oras-go](https://github.com/oras-project/oras-go) Zarf will resolve many of the issues it faces. Additionally, Zarf will reap benefits from using the same library for container image operations and Zarf OCI package operations.
+Pushing and pulling container images across environments is one of the core functionalities of Zarf. Zarf utilizes [Crane](https://github.com/google/go-containerregistry/blob/main/cmd/crane/doc/crane.md) to accomplish this, but has faces several bugs and issues involving Crane. By changing the [images package](https://github.com/zarf-dev/zarf/tree/main/src/internal/packager/images) to utilize [oras-go](https://github.com/oras-project/oras-go) Zarf will resolve many of the issues it faces. Additionally, Zarf will reap benefits from standardizing on the same library for both container image operations and Zarf OCI package operations
 
 ## Motivation
 
