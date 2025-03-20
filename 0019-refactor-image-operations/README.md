@@ -150,7 +150,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Remove the `zarf tools crane` command which provides users with a CLI to interact with container registries. Crane will still be a dependency of Zarf because of this. Additionally, the Syft requires Crane objects to generate SBOMs. 
+- Remove the `zarf tools crane` command which provides users with a CLI to interact with container registries. Crane will still be a dependency of Zarf because of this. Additionally, Syft requires Crane objects to generate SBOMs. 
 
 ## Proposal
 
@@ -209,6 +209,8 @@ proposal will be implemented, this is the place to discuss that.
 oras-go does not provide a blob storage natively, however the ORAS CLI does. While it is marked as internal, it is simple to vendor into the Zarf project. Additionally, issue [#881](https://github.com/oras-project/oras-go/issues/881) in oras-go requests caching as part of the library. The maintainers have noted that it seems like a valuable feature to add.
 
 oras-go does not natively support pulling images from the Docker daemon. Zarf will instead pull from the Docker daemon directly, which results in an OCI formatted tar file. Once extracted into a directory it can be treated as a normal oci-layout for use with the oras-go library. 
+
+oras-go relies on the `org.opencontainers.image.ref.name` annotation to find images in an OCI directory. Cranes relies on the `org.opencontainers.image.base.name` to find images in an OCI directory. To ensure packages built with ORAS are deployable with Crane, Zarf will add the `org.opencontainers.image.base.name` annotation to images pulled with ORAS. To ensure packages built with Crane are deployable with ORAS Zarf will add the `org.opencontainers.image.ref.name` if it does not already exist before push. 
 
 ### Test Plan
 
