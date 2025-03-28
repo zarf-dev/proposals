@@ -197,6 +197,8 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
+V1 images will no longer be supported. Dockerhub stopped serving v1 images back in 2019, https://www.docker.com/blog/registry-v1-api-deprecation/, and virtually no public registries still serve them. We will warn users that this change is taking place, but we feel comfortable that this will not effect the vast majority of users. 
+
 ## Design Details
 
 <!--
@@ -206,11 +208,13 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-oras-go does not provide a blob storage natively, however the ORAS CLI does. While it is marked as internal, it is simple to vendor into the Zarf project. Additionally, issue [#881](https://github.com/oras-project/oras-go/issues/881) in oras-go requests caching as part of the library. The maintainers have noted that it seems like a valuable feature to add.
+oras-go does not provide a blob cache natively, however the ORAS CLI does. While it is marked as internal, it is simple to vendor into the Zarf project. Additionally, issue [#881](https://github.com/oras-project/oras-go/issues/881) in oras-go requests caching as part of the library. The maintainers have noted that it seems like a valuable feature to add.
 
-oras-go does not natively support pulling images from the Docker daemon. Zarf will instead pull from the Docker daemon directly, which results in an OCI formatted tar file. Once extracted into a directory it can be treated as a normal oci-layout for use with the oras-go library. 
+oras-go does not natively support pulling images from the Docker daemon. Zarf will still use Crane to pull images from the Docker daemon as the daemon only started saving images to an OCI format in Feb 2024 engine version v25. Managing the different potential formats would be complex. In the future, when enough uses have switched to Docker engine >v25 and the only expected format is an OCI layout we can re-evaluate moving away from Crane for this behavior. 
 
 oras-go relies on the `org.opencontainers.image.ref.name` annotation to find images in an OCI directory. Cranes relies on the `org.opencontainers.image.base.name` to find images in an OCI directory. To ensure packages built with ORAS are deployable with Crane, Zarf will add the `org.opencontainers.image.base.name` annotation to images pulled with ORAS. To ensure packages built with Crane are deployable with ORAS Zarf will add the `org.opencontainers.image.ref.name` if it does not already exist before push. 
+
+Zarf image operations will now respect the `--plain-http` flag. Additionally, if a registry URL is a localhost URL then Zarf will first try https, and if that fails Zarf will fallback to http. This is crucial because the Zarf registry currently only works over http connections. 
 
 ### Test Plan
 
