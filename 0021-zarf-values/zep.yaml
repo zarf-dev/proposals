@@ -1,11 +1,11 @@
 schema-version: 1.0.0
 
-title: Helm Value Style Variable Interfaces
-zep-number: 0015
+title: Zarf Values
+zep-number: 0021
 authors:
   - "@racer159"
-status: superceeded
-creation-date: 2025-02-03
+status: implementable
+creation-date: 2025-03-31
 reviewers:
   - "@zarf-dev"
 approvers:

@@ -45,7 +45,7 @@ The latest instructions for this template can be found in [this repo](/NNNN-zep-
 longer appropriate, updates to the list must be approved by the remaining approvers.
 -->
 
-# ZEP-0015: Helm Value Style Variable Interfaces
+# ZEP-0021: Zarf Values
 
 <!--
 Keep the title short simple and descriptive. It should clearly convey what
@@ -83,28 +83,30 @@ any additional information provided beyond the standard ZEP template.
 
 ## Summary
 
-This ZEP proposes to expand variables to more than just `string` values and instead to accept an `interface{}` instead.  This would change `map[string]string` for variables into `map[string]interface{}` in addition to changing how variables are inputted and handled internally.
+This ZEP proposes to introduce a new way to provide configuration to Zarf packages that is more in line with the Helm values paradigm.  This proposal would provide a new settable interface that uses `map[string]interface{}` instead of the current variable interface of `map[string]string`.  These values would also be able to be mapped directly to Helm chart values, and would introduce Go templating to the Zarf package configuration to support non-Helm features like `actions`.
 
-This ZEP has since been superceeded by [ZEP-0021](0021-zarf-values/README.md).
+This ZEP supercedes [ZEP-0015](0015-helm-value-style-variable-interfaces/README.md).
 
 ## Motivation
 
-The motivation for this centers around aligning Zarf Variables closer to Helm Values which use the type `map[string]interface{}` over `map[string]string`.  Pull Request [#2132](https://github.com/zarf-dev/zarf/pull/2131) pulled this point more into focus by allowing Zarf variables to be directly passed as Helm values, and there has been desire from the Zarf community to treat Zarf Variables more like Helm Values [[1](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1706175082741539)], [[2](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1702400472208839)], [[3](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1706299407255849?thread_ts=1706175134.116329&cid=C03B6BJAUJ3)].
+The motivation for this centers around the desire to align Zarf Variables closer to Helm Values which users in the Zarf community are generally already familiar with.  This proposal would also provide more flexibility for what values could be set to since the Zarf Values would be a full `interface{}` rather than simply `string`s. Pull Request [#2132](https://github.com/zarf-dev/zarf/pull/2131) initially allowed Zarf Variables to be directly passed as Helm values, but this always had limitations due to the design of Zarf Variables being geared toward string templating.  Over time, there has been desire from the Zarf community to treat Zarf Variables more like Helm Values [[1](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1706175082741539)], [[2](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1702400472208839)], [[3](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1706299407255849?thread_ts=1706175134.116329&cid=C03B6BJAUJ3)] and reevaluating variables entirely allows us to define more clearly how these values should work across Zarf's featureset (including non-Helm features like `actions`).
 
 ### Goals
 
-- Simplify the use of Zarf Variables for members of the community familiar with Helm
+- Design a replacement for Zarf Variables for members of the community familiar with Helm
+- Provide more flexibility for what values can be and how they can be used
+- Integrate this new design to work across Zarf's featureset
 
 ### Non-Goals
 
-- Entirely redesign Zarf Variables, Constants and Templates
-  - (while this is a non-goal for _this_ proposal it is worth discussion if this would better serve the goal above)
+- Entirely remove Zarf Variables, Constants and Templates
+  - (this may be desireable once the new design is solidified, but Zarf Variables enable some functionality that we may want to preserve (since they are template-driven))
 
 ## Proposal
 
-The proposed solution is to change the internal tracking of Zarf Variables from a `map[string]string` to a `map[string]interface{}` as well as allowing the `map[string]interface{}` to be loaded from a `zarf-config` file (including all of the existing formats that the file accepts).
+The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts with a new `values` field under `charts`. The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today.
 
-Additionally `--set` on the CLI would align to the [Helm `--set` syntax](https://helm.sh/docs/intro/using_helm/#the-format-and-limitations-of---set) with the values on the right-hand side of the `=` being handled as described there instead of as a `string`.
+To set these values a new `package.deploy.values` configuration option would be added to the Viper config and a new `-f`/`--values` flag would be added to the CLI to allow values files to be specified on `zarf package deploy` and `zarf dev deploy`.  For now, the `--set` flag would remain as it is for Zarf Variables though eventually we may want to deprecate it in the future and align to the [Helm `--set` syntax](https://helm.sh/docs/intro/using_helm/#the-format-and-limitations-of---set) with the values specified setting Zarf Values instead of Zarf Variables.
 
 ### User Stories (Optional)
 
@@ -113,36 +115,45 @@ Additionally `--set` on the CLI would align to the [Helm `--set` syntax](https:/
 **As** Jacquline **I want** to be able to set full Helm value objects in a Zarf config variable **so that** I can simplify package configurations and rely on my existing familiarity with Helm.
 
 **Given** I have a Zarf Package with a Helm value override in a chart
-**When** I deploy that package with a `zarf-config.yaml` like the below*:
+```yaml
+components:
+  - name: component
+    charts:
+      - name: mychart
+        version: 0.1.0
+        namespace: zarf
+        localPath: chart
+        valuesFiles:
+          - values.yaml
+        values:
+          - key: component.resources
+            path: resources
+```
+**When** I deploy that package with a `zarf-config.yaml` like the below* or by specifying `-f values.yaml`:
 ```yaml
 package:
   deploy:
-    set:
-      MY_OVERRIDE_VARIABLE_NAME:
-        key: value
-        bool: true
-        num: 100
-        arr: []
-        obj: {}
+    values:
+      - values.yaml
+```
+**And** I have a `values.yaml` like the below:
+```yaml
+component:
+  resources:
+    limits:
+      memory: 128Mi
+      cpu: 100m
+    requests:
+      memory: 64Mi
+      cpu: 100m
+
+other-component:
+  disabled: true
 ```
 **Then** Zarf will apply the entire interface to the Helm chart override
 
 > [!NOTE]
 > *This would apply to all `zarf-config` formats not just YAML
-
-#### Story 2
-
-**As** Jacquline **I want** to be able to set full Helm value objects from the CLI **so that** I can simplify package configurations and rely on my existing familiarity with Helm.
-
-**Given** I have a Zarf Package with a Helm value override in a chart
-**When** I deploy that package with a `--set` like the below:
-```yaml
-zarf package deploy zarf-package-test.tar.zst --set MY_OVERRIDE_VARIABLE_NAME.key=value,MY_OVERRIDE_VARIABLE_NAME.bool=true,MY_OVERRIDE_VARIABLE_NAME.num=100,MY_OVERRIDE_VARIABLE_NAME.arr=[]
-```
-**Then** Zarf will apply the entire interface to the Helm chart override
-
-> [!NOTE]
-> *This should follow the [Helm `--set` syntax](https://helm.sh/docs/intro/using_helm/#the-format-and-limitations-of---set)
 
 ### Risks and Mitigations
 
@@ -154,12 +165,11 @@ As we implement these changes there are risks around opening a `string` to an `i
 
 ## Design Details
 
-This design proposal seeks to keep changes to a minimum to align Zarf Variables with Helm Values with the largest changes being the change from `string` to `interface` and the changes to loading a `zarf-config` file and handling `--set` as described above.
+The new `values.files` field would 
 
-This change will also impact other aspects of Zarf variables as described below:
+`values.files` and `schema` would follow the current component composability logic where additional values files from parent Zarf packages would layer in and merge with those of the children.  The schema from the parent would replace that of the child.
 
-- `default` values would now accept an interface - this would affect packages in the same way as zarf-config values for backwards compatibility
-- `setVariables` would still set variables to strings with no additional processing - if more is desired here later (i.e. expanding the `type` field) that would be a separate ZEP
+`setValues` 
 
 ### Test Plan
 
@@ -194,7 +204,6 @@ NA - This proposal doesn't impact how Zarf's components interact
 ## Implementation History
 
 2025-02-03: Initial version of this document.
-2025-03-31: ZEP superceeded by ZEP-0021
 
 ## Drawbacks
 
