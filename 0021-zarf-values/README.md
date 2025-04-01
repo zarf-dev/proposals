@@ -135,7 +135,10 @@ components:
           - sourcePath: my-component.resources
             targetPath: resources
           # option 2: 
-          - component.resources: resources
+          - my-component.resources: resources
+          # option 3:
+          my-component:
+            resources: resources
 ```
 **When** I deploy that package with a `zarf-config.yaml` like the below* or by specifying `-f values.yaml`:
 ```yaml
