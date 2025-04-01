@@ -89,13 +89,13 @@ This ZEP supercedes [ZEP-0015](0015-helm-value-style-variable-interfaces/README.
 
 ## Motivation
 
-The motivation for this centers around the desire to align Zarf Variables closer to Helm Values which users in the Zarf community are generally already familiar with.  This proposal would also provide more flexibility for what values could be set to since the Zarf Values would be a full `interface{}` rather than simply `string`s. Pull Request [#2132](https://github.com/zarf-dev/zarf/pull/2131) initially allowed Zarf Variables to be directly passed as Helm values, but this always had limitations due to the design of Zarf Variables being geared toward string templating.  Over time, there has been desire from the Zarf community to treat Zarf Variables more like Helm Values [[1](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1706175082741539)], [[2](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1702400472208839)], [[3](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1706299407255849?thread_ts=1706175134.116329&cid=C03B6BJAUJ3)] and reevaluating variables entirely allows us to define more clearly how these values should work across Zarf's featureset (including non-Helm features like `actions`).
+The motivation for this centers around the long-lived desire to have Zarf Variables work more like Helm Values, which users in the Zarf community are generally already familiar with.  This proposal seeks to rethink what Variables should be given that desire and take the chance to also improve the user experience around value configuration within Zarf.  This proposal would allow values to be a full `interface{}` rather than simply `string`s and would also allow those values to be mapped directly to Helm chart values and templated in Zarf actions in a more Helm-like way. Pull Request [#2132](https://github.com/zarf-dev/zarf/pull/2131) initially allowed Zarf Variables to be directly passed as Helm values, but this always had limitations due to the design of Zarf Variables being geared toward string templating.  Over time, there has been desire from the Zarf community to treat Zarf Variables more like Helm Values [[1](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1706175082741539)], [[2](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1702400472208839)], [[3](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1706299407255849?thread_ts=1706175134.116329&cid=C03B6BJAUJ3)] and reevaluating variables entirely allows us to define more clearly how these values should work across Zarf's featureset (including those non-Helm features like `actions`).
 
 ### Goals
 
 - Design a replacement for Zarf Variables for members of the community familiar with Helm
 - Provide more flexibility for what values can be and how they can be used
-- Integrate this new design to work across Zarf's featureset
+- Integrate this new design to work across Zarf's entire featureset
 
 ### Non-Goals
 
@@ -104,7 +104,7 @@ The motivation for this centers around the desire to align Zarf Variables closer
 
 ## Proposal
 
-The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts with a new `values` field under `charts`. The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today.
+The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would also map into Helm charts with a new `values` field under `charts`. The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today.
 
 To set these values a new `package.deploy.values` configuration option would be added to the Viper config and a new `-f`/`--values` flag would be added to the CLI to allow values files to be specified on `zarf package deploy` and `zarf dev deploy`.  For now, the `--set` flag would remain as it is for Zarf Variables though eventually we may want to deprecate it in the future and align to the [Helm `--set` syntax](https://helm.sh/docs/intro/using_helm/#the-format-and-limitations-of---set) with the values specified setting Zarf Values instead of Zarf Variables.
 
@@ -152,20 +152,54 @@ other-component:
 ```
 **Then** Zarf will apply the entire interface to the Helm chart override
 
+**Given** I have a Zarf Package with Go templating inside an action
+```yaml
+components:
+  - name: component
+    actions:
+      onDeploy:
+        before:
+          - cmd: "echo \"${{ .Values.component.resources.limits.memory }}\""
+```
+**When** I deploy that package with a `zarf-config.yaml` like the below* or by specifying `-f values.yaml`:
+```yaml
+package:
+  deploy:
+    values:
+      - values.yaml
+```
+**And** I have a `values.yaml` like the below:
+```yaml
+component:
+  resources:
+    limits:
+      memory: 128Mi
+      cpu: 100m
+    requests:
+      memory: 64Mi
+      cpu: 100m
+
+other-component:
+  disabled: true
+```
+**Then** Zarf will template the action and output `128Mi`
+
 > [!NOTE]
 > *This would apply to all `zarf-config` formats not just YAML
 
 ### Risks and Mitigations
 
-This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for a time.  This feature will need to be clearly disambiguated from those features in documentation and if the feature gains traction and is accepted by the community a deprecation plan for the original Zarf Variables, Constants and Templates should be created.  Because this feature will be implemented alongside the existing featureset it should not introduce many breaking changes, though to assist with disambiguation the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping.
+This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for now.  Because of this, the feature will need to be clearly disambiguated from Variables/Constants/Templates in documentation and while this feature should not introduce many breaking changes being implemented alongside the existing featureset, the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping to assist with disambiguation.  If the feature gains traction and is accepted by the community, a deprecation plan for the original Zarf Variables/Constants/Templates should be created.
 
-This feature also could open up Zarf packages to being less declarative - especially if a package author opens up security-critical Helm values in their charts.  This should be clearly documented as a concern which should also recommend a policy engine to be used to enforce security-critical values within the cluster itself.
+This feature also could open up Zarf packages to being less declarative - especially if a package author opens up security-critical Helm values in their charts.  This caveat should be clearly documented as a concern which should also recommend a policy engine be used to enforce security-critical values within the cluster itself.
+
+Because we will be using more `interface{}` types, we should also look into the security implications of this feature and ensure that this is well tested and we utilize some of Helm's existing protections against `nil` maps and other potential security issues with this feature.
 
 ## Design Details
 
-The new `values.files` field would be added to the `ZarfPackageConfig` schema and would accept a list of local values files or URLs to match the existing functionality of the `valuesFiles` key under `charts`.  This key would also follow the same composability logic as the `valuesFiles` key with additional parent values files merging with and overriding any common keys from children.  Since this is a global field, values would be merged regardless of component similar to how variables work today. The `values.schema` field would simply replace the child version if it were non-empty in the parent, similar to the `namespace` or `releaseName` fields in `charts` today.
+The new `values.files` field would be added to the `ZarfPackageConfig` schema and would accept a list of local values files or URLs, matching the existing functionality of the `valuesFiles` key under `charts`.  This key would also follow the same composability logic as the `valuesFiles` key with additional parent values files merging with and overriding any common keys from children imports.  Since this is a global field, values would be merged regardless of component similar to how variables work today.  The `values.schema` field would simply replace the child version if it were non-empty in the parent, similar to the `namespace` or `releaseName` fields in `charts` today.
 
-Once all of the values (from the defaults in the `ZarfPackageConfig` and the set values files) are merged, the values would be passed to the Helm chart via the `values` field under a given `charts` entry.
+Each of the referenced values files would be included inside the created Zarf package and stored inside of the tarball or at an OCI path so that they would travel with the package and be available to the user on deploy.  On deploy, the values (from the defaults in the `ZarfPackageConfig` and the set values files) would be merged with the set values overriding the defaults, and the resulting values would be passed to the Helm chart via the `values` field under a given `charts` entry.  Any actions which contained a go template (i.e. `{{ .Values.component.resources | toYaml }}`) would be templated prior to execution. This templating would work in all fields within an action definition including `cmd` and `wait` actions.
 
 ### Test Plan
 
@@ -175,19 +209,19 @@ to implement this proposal.
 
 ##### Prerequisite testing updates
 
-For additional safety when implementing this feature we should look at adding fuzz testing to the existing unit / e2e tests to ensure that panics and other potential security issues are handled appropriately.  As mentioned above Helm does have some utility functions to help address some of these concerns but this would ensure that those functions were being used properly within Zarf and any additional concerns from Zarf's additional functionality were handled correctly as well.
+As mentioned above, for additional safety when implementing the parts of this feature that interact with the `map[string]interface{}` types, we should look at adding fuzz testing to the existing unit / e2e tests to ensure that panics and other potential security issues are handled appropriately.  Helm does have some utility functions to help address some of these concerns but this would ensure that those functions were being used properly within Zarf and any additional concerns from Zarf's additional functionality were handled correctly as well.
 
 ##### Unit tests
 
-Variable interfaces and libraries should be updated to ensure that interfaces are properly handled as opposed to strings.
+Values interfaces and libraries should be updated to ensure that interfaces are properly passed to charts and templated in actions.
 
 ##### e2e tests
 
-Additional E2E tests should be added to ensure that `zarf-config` interfaces and `-f`/`--values` are passed through appropriately to Helm on chart install / upgrade.
+Additional E2E tests should be added to ensure that `zarf-config` values files and `-f`/`--values` are passed through appropriately to Helm on chart install / upgrade.
 
 ### Graduation Criteria
 
-Pending review / community input these changes could be made either with known breakages (pending perceived impact of the --set changes) or as a feature flag for a series of releases eventually becoming the default behavior.
+Pending review / community input these changes could be replace the existing Variables/Constants/Templates with this new values feature.  This would require evaluating the features still in use by the community and creating suitable alternatives for them in either the values themselves or the Go templating of the Zarf package definition.
 
 ### Upgrade / Downgrade Strategy
 
@@ -195,7 +229,7 @@ NA - There would be no upgrade / downgrade of cluster installed components
 
 ### Version Skew Strategy
 
-This proposal doesn't impact how Zarf's Agent and CLI interact so no changes would be needed there. If a package that contained the `values` field was deployed with an older version of the Zarf CLI the values would simply be ignored.
+This proposal doesn't impact how Zarf's Agent and CLI interact so no changes would be needed there, however if a package that contained the `values` field was deployed with an older version of the Zarf CLI the values would simply be ignored.
 
 ## Implementation History
 
@@ -203,7 +237,7 @@ This proposal doesn't impact how Zarf's Agent and CLI interact so no changes wou
 
 ## Drawbacks
 
-This will require a lot more design work to ensure that this new feature has a solid user experience and is well integrated with the rest of Zarf's features.
+This feature will require a lot more design work to ensure that it has a solid user experience and is well integrated with the rest of Zarf's features.  Go templating is also a large change that was avoided initially to reduce potential conflicts with Helm's templating - while relatively safe to use in the Zarf package definition it would be difficult to extend this templating further down if that were desired.
 
 ## Alternatives
 
