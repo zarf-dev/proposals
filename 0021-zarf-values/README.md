@@ -106,7 +106,7 @@ The motivation for this centers around the long-lived desire to have Zarf Variab
 
 The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would also map into Helm charts with a new `values` field under `charts`. The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today.
 
-To set these values new `package.[deploy|create|remove].values` configuration options would be added to the Viper config and a new `-f`/`--values` flag would be added to the CLI to allow values files to be specified on `zarf package deploy`, `zarf package create` and `zarf package remove` (`zarf dev deploy` would need to split this into two flags for create and deploy like `--set` is today).  For now, the `--set` flag would remain as it is for Zarf Variables though eventually we may want to deprecate it and align to the [Helm `--set` syntax](https://helm.sh/docs/intro/using_helm/#the-format-and-limitations-of---set) with the values specified setting Zarf Values instead of Zarf Variables.
+To set these values new `package.[deploy|remove].values` configuration options would be added to the Viper config and a new `-f`/`--values` flag would be added to the CLI to allow values files to be specified on `zarf package deploy`, `zarf package remove` and `zarf dev deploy`.  For now, the `--set` flag would remain as it is for Zarf Variables though eventually we may want to deprecate it and align to the [Helm `--set` syntax](https://helm.sh/docs/intro/using_helm/#the-format-and-limitations-of---set) with the values specified setting Zarf Values instead of Zarf Variables.
 
 ### User Stories (Optional)
 
@@ -116,11 +116,6 @@ To set these values new `package.[deploy|create|remove].values` configuration op
 
 **Given** I have a Zarf Package with a Helm value override in a chart
 ```yaml
-values:
-  files:
-    - values-defaults.yaml
-  schema: values.schema.json
-
 components:
   - name: my-component
     charts:
@@ -165,7 +160,7 @@ other-component:
 
 ---
 
-**Given** I have a Zarf Package with Go templating inside an action
+**Given** I have a Zarf Package with top-level `values` and Go templating inside an action
 ```yaml
 values:
   files:
@@ -179,14 +174,7 @@ components:
         before:
           - cmd: "echo \"{{ .Values.my-component.resources.limits.memory }}\""
 ```
-**When** I deploy that package with a `zarf-config.yaml` like the below* or by specifying `-f values.yaml`:
-```yaml
-package:
-  deploy:
-    values:
-      - values.yaml
-```
-**And** I have a `values.yaml` like the below:
+**And** it was created with the following `values-defaults.yaml` file:
 ```yaml
 my-component:
   resources:
@@ -200,17 +188,13 @@ my-component:
 other-component:
   disabled: true
 ```
+**When** I deploy that package without setting any values
 **Then** Zarf will template the action and output `128Mi`
 
 ---
 
 **Given** I have a Zarf Package with a setValues action
 ```yaml
-values:
-  files:
-    - values-defaults.yaml
-  schema: values.schema.json
-
 components:
   - name: my-component
     actions:
@@ -251,7 +235,7 @@ other-component:
 
 ### Risks and Mitigations
 
-This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for now.  Because of this, the feature will need to be clearly disambiguated from Variables/Constants/Templates in documentation and, while this feature should not introduce many breaking changes being implemented alongside the existing featureset, the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping to assist with disambiguation.  If the feature gains traction and is accepted by the community, a deprecation plan for the original Zarf Variables/Constants/Templates should be created.
+This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for now.  Because of this, the feature will need to be clearly disambiguated from Variables/Constants/Templates in documentation and, while this feature should not introduce many breaking changes being implemented alongside the existing featureset, the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping to assist with disambiguation.  If the feature gains traction and is accepted by the community, a deprecation plan for the original Zarf Variables/Constants/Templates should be created.  Likely this plan would not break `charts.variables` in existing packages and would simply prevent furutre packages from using this feature.
 
 This feature also could open up Zarf packages to being less declarative - especially if a package author opens up security-critical Helm values in their charts.  This caveat should be clearly documented as a concern which should also recommend a policy engine be used to enforce security-critical values within the cluster itself.
 
@@ -265,11 +249,13 @@ Each of the referenced `values.files` would be included inside the created Zarf 
 
 This feature would also implement a `setValues` field for actions that would act as a replacement for the existing `setVariables` field.  This field would take a values path and would set that path to the output of the command.  This field would also have `type` defined on it, though instead of `file`, it would take `string`, `json`, or `yaml` and then handle the standard output of the command according to that format.
 
-Zarf Values would also be available to onCreate and onRemove actions if they existed in `package.create.values` or `package.remove.values` or were set with `-f`/`--values`.  These would template actions and be able to use `setValues` but would not map to Helm charts.
+Zarf Values would also be available to onRemove actions if they existed in `package.remove.values` or were set with `-f`/`--values`.  These would template actions and be able to use `setValues` but would not map to Helm charts.
 
 An additional `zarf dev generate-values` command will also be added to generate a sample values file based on the merging of the default values specified in the `ZarfPackageConfig` of a given package.  This will assist deploy users in knowing what values they are able to set within a given package.
 
-Zarf Values files themselves will only accept `yaml` as a format.  The list of values files in a zarf config file under `package.[deploy|create|remove].values` will exist in all of Zarf's config formats, but the values files that the list references will only support the YAML format.
+Zarf Values files themselves will only accept `yaml` as a format.  The list of values files in a zarf config file under `package.[deploy|remove].values` will exist in all of Zarf's config formats, but the values files that the list references will only support the YAML format.
+
+Zarf Values will _not_ be available to onCreate actions since Zarf Variables are not available there either and there may be confusion around when a value is set (`onCreate` or `onDeploy`).
 
 ### Test Plan
 
