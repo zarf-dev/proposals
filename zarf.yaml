@@ -1,0 +1,55 @@
+# Copyright 2025 Defense Unicorns
+# SPDX-License-Identifier: LicenseRef-Defense-Unicorns-Commercial
+
+kind: ZarfPackageConfig
+metadata:
+  name: uds-remote-agent
+  description: UDS Remote Agent service
+  version: 0.5.0
+
+values:
+  files:
+    - values.yaml
+  schema: values.schema.json
+
+components:
+  - name: uds-remote-agent-service
+    description: |
+      A Kubernetes Deployment and Node Port for the UDS Remote Agent Service. This will
+      enable the installation of Zarf packages via GRPC.
+    required: true
+    # x-release-please-start-version 
+    images:
+      - ghcr.io/defenseunicorns/uds-remote-agent:0.5.0
+    # x-release-please-end
+    charts:
+      - name: uds-remote-agent
+        version: 0.1.0
+        namespace: zarf
+        localPath: chart
+        valuesFiles:
+          - values.yaml
+        variables:
+          - name: NODE_PORT
+            description: "The node port for the UDS Remote Agent service"
+            path: nodePort
+          - name: LOG_LEVEL
+            description: "The log level for the UDS Remote Agent service"
+            path: logLevel
+
+    actions:
+      onDeploy:
+        before:
+          - cmd: "if [ \"${{ .Values.mtls.disabled }}\" == \"true\" ]; then echo \"Warning: mTLS is disabled\"; fi"
+          # If mutual TLS is not disabled, we need to ensure that the server TLS certificate, server TLS key, and root CA are provided
+          - cmd: "if [ \"${{ .Values.mtls.disabled }}\" != \"true\" ] && ( [ -z \"${{ .Values.certs.server }}\" ] || [ ! -f \"${{ .Values.certs.server }}\" ] ); then echo 'Server TLS certificate not provided or not found'; exit 1; fi"
+          - cmd: "if [ \"${{ .Values.mtls.disabled }}\" != \"true\" ] && ( [ -z \"${{ .Values.certs.serverKey }}\" ] || [ ! -f \"${{ .Values.certs.serverKey }}\" ] ); then echo 'Server TLS key not provided or not found'; exit 1; fi"
+          - cmd: "if [ \"${{ .Values.mtls.disabled }}\" != \"true\" ] && ( [ -z \"${{ .Values.certs.rootCA }}\" ] || [ ! -f \"${{ .Values.certs.rootCA }}\" ] ); then echo 'Root CA not provided or not found'; exit 1; fi"
+        after:
+          - wait:
+              cluster:
+                kind: deployment
+                name: uds-remote-agent-deployment
+                # TODO: We should not be deploying to the zarf namespace
+                namespace: zarf
+                condition: "{.status.readyReplicas}=1"

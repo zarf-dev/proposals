@@ -112,7 +112,7 @@ To set these values a new `package.deploy.values` configuration option would be 
 
 #### Story 1
 
-**As** Jacquline **I want** to be able to set full Helm value objects in a Zarf config variable **so that** I can simplify package configurations and rely on my existing familiarity with Helm.
+**As** Jacquline **I want** to be able to specify values files for a Zarf package **so that** I can simplify package configurations and rely on my existing familiarity with Helm.
 
 **Given** I have a Zarf Package with a Helm value override in a chart
 ```yaml
@@ -157,19 +157,15 @@ other-component:
 
 ### Risks and Mitigations
 
-This will require some additional processing of the `zarf-config` files to allow them to be processed properly because of Viper's long-running [case-insensitive keys issue](https://github.com/spf13/viper/issues/1014).  This could be performed similar to UDS CLI's implementation of this feature and / or by deprecating some of the existing less-used formats for configuration with the Zarf team tentatively looking to deprecate and remove config file options besides yaml and toml given they are not used much in the community but still would take time to support.
+This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for a time.  This feature will need to be clearly disambiguated from those features in documentation and if the feature gains traction and is accepted by the community a deprecation plan for the original Zarf Variables, Constants and Templates should be created.  Because this feature will be implemented alongside the existing featureset it should not introduce many breaking changes, though to assist with disambiguation the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping.
 
-The `--set` syntax will change somewhat how variables are interpreted on the CLI (i.e. `--set VAR=100` will no longer represent `"100"` and instead will just be `100` internally). For `###` templates this will not be a breaking change and can be mitigated by simply representing the value as a string for backwards compatibility.  Existing Helm Overrides in Zarf `charts` may experience breakages from this however and this should be noted upon release.  We could add additional opt-in flags but this would add complexity and is likely not desirable for the expected impact of this smaller break (given Helm overrides have not seen much use yet).
-
-As we implement these changes there are risks around opening a `string` to an `interface{}` and we should strongly look at adopting many of the [Helm helpers](https://github.com/helm/helm/blob/main/pkg/chartutil/values.go#L71) from their `chartutil` package to ensure that potential security and stability issues are minimized.  Also called out below we should implement fuzz testing to catch unanticipated issues and provide an additional layer of assurance to the implementation.
+This feature also could open up Zarf packages to being less declarative - especially if a package author opens up security-critical Helm values in their charts.  This should be clearly documented as a concern which should also recommend a policy engine to be used to enforce security-critical values within the cluster itself.
 
 ## Design Details
 
-The new `values.files` field would 
+The new `values.files` field would be added to the `ZarfPackageConfig` schema and would accept a list of local values files or URLs to match the existing functionality of the `valuesFiles` key under `charts`.  This key would also follow the same composability logic as the `valuesFiles` key with additional parent values files merging with and overriding any common keys from children.  Since this is a global field, values would be merged regardless of component similar to how variables work today. The `values.schema` field would simply replace the child version if it were non-empty in the parent, similar to the `namespace` or `releaseName` fields in `charts` today.
 
-`values.files` and `schema` would follow the current component composability logic where additional values files from parent Zarf packages would layer in and merge with those of the children.  The schema from the parent would replace that of the child.
-
-`setValues` 
+Once all of the values (from the defaults in the `ZarfPackageConfig` and the set values files) are merged, the values would be passed to the Helm chart via the `values` field under a given `charts` entry.
 
 ### Test Plan
 
@@ -187,7 +183,7 @@ Variable interfaces and libraries should be updated to ensure that interfaces ar
 
 ##### e2e tests
 
-Additional E2E tests should be added to ensure that `zarf-config` interfaces and Helm-style `--set`s are passed through appropriately to Helm on chart install / upgrade.
+Additional E2E tests should be added to ensure that `zarf-config` interfaces and `-f`/`--values` are passed through appropriately to Helm on chart install / upgrade.
 
 ### Graduation Criteria
 
@@ -199,19 +195,19 @@ NA - There would be no upgrade / downgrade of cluster installed components
 
 ### Version Skew Strategy
 
-NA - This proposal doesn't impact how Zarf's components interact
+This proposal doesn't impact how Zarf's Agent and CLI interact so no changes would be needed there. If a package that contained the `values` field was deployed with an older version of the Zarf CLI the values would simply be ignored.
 
 ## Implementation History
 
-2025-02-03: Initial version of this document.
+2025-03-31: Initial version of this document.
 
 ## Drawbacks
 
-This will introduce a breakage that will need to be mitigated for existing users either expressly as a breaking change or with a feature flag.  It also pushes out/builds upon the existing Variables/Constants/Templates paradigm which has been in need of some rethinking for a while.  This doesn't preclude doing that work eventually but it does build upon / patch a paradigm that will likely need to be rethought.
+This will require a lot more design work to ensure that this new feature has a solid user experience and is well integrated with the rest of Zarf's features.
 
 ## Alternatives
 
-We could instead spend more effort redesigning the entire Variables/Constants/Templates paradigm to simplify this for Zarf users as mentioned in the drawbacks above.  This would likely look like collapsing Templates/Constants together and changing Variables to Values or something similar to wholly align them with Helm paradigms (since that is what many Zarf users would be familiar with).
+We could patch the existing Variables/Constants/Templates paradigm to align more with Helm paradigms but this would not address the other issues that exist with the Variables/Constants/Templates paradigm.  Features like `autoIndent` and `setVariables` have always been limiting to users and creating a new way to set values will allow us to design something that is more user friendly (especially since many Zarf users are also Helm users).
 
 ## Infrastructure Needed (Optional)
 
