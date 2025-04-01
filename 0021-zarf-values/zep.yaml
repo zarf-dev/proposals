@@ -11,6 +11,11 @@ reviewers:
 approvers:
   - "@zarf-dev"
 
+see-also:
+  - "/0015-helm-value-style-variable-interfaces"
+replaces:
+  - "/0015-helm-value-style-variable-interfaces"
+
 # The target maturity stage in the current dev cycle for this ZEP.
 stage: alpha
 
