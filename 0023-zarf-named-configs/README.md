@@ -83,160 +83,93 @@ any additional information provided beyond the standard ZEP template.
 
 ## Summary
 
-<!--
-This section is key for creating high-quality, user-focused documentation
-like release notes or a roadmap. You should gather this info before
-implementation starts to keep the focus on development, not writing. ZEP
-editors should ensure the `Summary` is clear and useful for a broad audience.
-
-A good summary should be at least a paragraph long.
-
-Follow the [documentation style guide] for this section and the rest of the ZEP.
-Keep line lengths reasonable to make it easier for reviewers to provide
-feedback and reduce unnecessary changes.
-
-[documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
--->
+This ZEP proposes to enable a namespace override for charts similar to the namespace override [functionality available in UDS CLI](https://uds.defenseunicorns.com/reference/bundles/overrides/#namespace).  This would allow namespaces of charts within a Zarf package to be overridden so that multiples of the same Zarf package could be deployed to the same cluster under different namespaces (without needing to maintain variants of the same package).
 
 ## Motivation
 
-<!--
-This section is for explicitly listing the motivation, goals, and non-goals of
-this ZEP.  Describe why the change is important and the benefits to users. You
-can also optionally include links to [experience reports], [community slacks],
-or other references to show the community's interest in the ZEP.
-
-[experience reports]: https://go.dev/wiki/ExperienceReports
-[openssf slack]: https://openssf.slack.com/archives/C07AKUMBDMJ
-[kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
--->
+Doing this allows more flexibility with certain Zarf packages where you may want to have multiples of them installed in the cluster with slightly different configurations (such as [GitLab Runners](https://github.com/defenseunicorns/uds-package-gitlab-runner)).  Right now the release namespace of any chart has to be hardcoded into the package and will be overwritten even if the chart allows namespace overrides for some manifests within the chart.  The current behavior is also different from what Helm does by default which may not be what users of Zarf expect (Helm allows the use of the `namespace` flag on install to set the Chart's namespace without it needing to be baked into the Chart).
 
 ### Goals
 
-<!--
-List the specific goals of the ZEP. What is it trying to achieve? How will we
-know that this has succeeded?
--->
+- Provide a way for an already created Zarf package containing Helm Charts to be easily installed more than once with different configurations
 
 ### Non-Goals
 
-<!--
-What is out of scope for this ZEP? Listing non-goals helps to focus discussion
-and make progress.
--->
+- Move away from the declarative nature of Zarf packages
 
 ## Proposal
 
-<!--
-This is where you explain the specifics of the proposal. Provide enough detail
-for reviewers to clearly understand what you're proposing, but avoid including
-too many specifics like API designs or implementation details. Focus on the
-desired outcome and how success will be measured. The "Design Details" section
-below is for the real nitty-gritty.
--->
+The proposed solution is to introduce a new named override config to Zarf to allow for a managed way to provide overrides for namespaces and eventually different values.  This allows for potential future override expansion while also forcing the overrides to be named and versioned to a package rather than be as fluid as an existing zarf-config file helping reduce declarative loss. These overrides could also eventually be signed as an artifact if desired.
 
 ### User Stories (Optional)
 
-<!--
-Detail the things that people will be able to do if this ZEP is implemented.
-Include as much detail as possible so that people can understand the "how" of
-the system. The goal here is to make this feel real for users without getting
-bogged down.
--->
-
 #### Story 1
 
-#### Story 2
+**As** Jacquline **I want** to be able to set namespace overrides **so that** I can install the same package with different configurations in different namespaces.
+
+**Given** I have a Zarf Package with a chart named `my-chart` in a component named `my-component`
+**And** I have a new ZarfOverrideConfig created from the following
+```yaml
+kind: ZarfOverrideConfig
+metadata:
+  name: test-override
+  ref: oci://my-registry/test:0.1.0
+  version: 0.1.0
+
+overrides:
+  my-component:
+    my-chart:
+      namespace: new-namespace
+```
+**When** I deploy that package with a `--override` like the below:
+```yaml
+zarf package deploy oci://my-registry/test:0.1.0 --override oci://my-registry/test-override:0.1.0
+```
+**Then** Zarf will change the chart's release namespace to `new-namespace`
 
 ### Risks and Mitigations
 
-<!--
-What are the risks of this proposal, and how do we mitigate? Think broadly.
-For example, consider both security and how this will impact the larger
-Zarf ecosystem.
-
-How will security be reviewed, and by whom?
-
-How will UX be reviewed, and by whom?
--->
+TODO - (@WSTARR)
 
 ## Design Details
 
-<!--
-This section should contain enough information that the specifics of your
-change are understandable. This may include API specs (though not always
-required) or even code snippets. If there's any ambiguity about HOW your
-proposal will be implemented, this is the place to discuss that.
--->
+TODO - (@WSTARR) - We need to discuss format if we co with named configs.  Items of discussion:
+
+1. How will named override configs reference the Zarf package they are attached to.
+2. Would named override configs have a local format (or be OCI only)
+3. How would publishing / pulling overrides work in practice
+
+This proposal will affect the release namespace of a chart (or manifest) so that the Helm release secrets and any templates that use the `.Release.Namespace` template would use the newly provided namespace.  This would ensure that charts wouldn't affect the history or objects of prior deployments and would be able to properly install alongside one another.  This would not affect namespaces that are defined under .Values as those would still be controlled by the package configuration and Zarf variables as they are today.
 
 ### Test Plan
 
-<!--
-**Note:** *Not required until targeted at a release.*
-The goal is to ensure that we don't accept proposals with inadequate testing.
-
-All code is expected to have adequate tests (eventually with coverage
-expectations). Please adhere to the [Zarf testing guidelines][testing-guidelines]
-when drafting this test plan.
-
-[testing-guidelines]: https://docs.zarf.dev/contribute/testing/
--->
-
-[ ] I/we understand the owners of the involved components may require updates to
+[X] I/we understand the owners of the involved components may require updates to
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
+##### Prerequisite testing updates
+
+NA - This is a modification of existing behavior that should not require prerequisite testing updates.
+
+##### Unit tests
+
+TODO - (@WSTARR)
+
+##### e2e tests
+
+TODO - (@WSTARR)
+
 ### Graduation Criteria
 
-<!--
-**Note:** *Not required until you're targeting a release.*
-
-Define what needs to happen for this feature to move from alpha to beta to GA
-(General Availability). Focus on key signals or criteria that show the feature
-is ready for each stage.
-
-Consider the following stages when setting graduation criteria:
-- Alpha: Feature is behind a feature flag, basic tests in place.
-- Beta: Gather feedback from users, complete core features, add more tests.
-- GA: Prove real-world usage, complete rigorous testing, gather feedback.
-
-In general, features should wait at least two releases between Beta and GA to
-allow time for feedback. For features moving to GA, include conformance tests
-to ensure stability and compatibility.
-
-#### Deprecation
-If this feature will eventually be deprecated, plan for it:
-- Announce deprecation and support policy.
-- Wait at least two versions before fully removing it.
--->
+TODO - (@WSTARR)
 
 ### Upgrade / Downgrade Strategy
 
-<!--
-If applicable, how will the component be upgraded and downgraded? Make sure
-this is in the test plan.
-
-Consider the following in developing an upgrade/downgrade strategy for this
-proposal:
-- What changes (in invocations, configurations, API use, etc.) is an existing
-  package definition or deployment required to make on upgrade, in order to
-  maintain previous behavior?
-- What changes (in invocations, configurations, API use, etc.) is an existing
-  package definition or deployment required to make on upgrade, in order to
-  make use of the proposal?
--->
+NA - There would be no upgrade / downgrade of cluster installed components
 
 ### Version Skew Strategy
 
-<!--
-If applicable, how will the component handle version skew with other
-components? What are the guarantees? Make sure this is in the test plan.
-
-Consider the following in developing a version skew strategy for this
-proposal:
-- Does this proposal involve coordinating behavior between components?
-  - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
--->
+NA - This proposal doesn't impact how Zarf's components interact
 
 ## Implementation History
 
@@ -253,22 +186,12 @@ Major milestones might include:
 
 ## Drawbacks
 
-<!--
-Why should this ZEP _not_ be implemented?
--->
+TODO - (@WSTARR)
 
 ## Alternatives
 
-<!--
-What other approaches did you consider, and why did you rule them out? These do
-not need to be as detailed as the proposal, but should include enough
-information to express the idea and why it was not acceptable.
--->
+
 
 ## Infrastructure Needed (Optional)
 
-<!--
-Use this section if you need things from the project. Examples include a new repo,
-cloud infrastructure for testing or GitHub details. Listing these here
-allows the process to get these resources to be started right away.
--->
+NA - This change requires no additional infrastructure as it is internal to Zarf's operation.
