@@ -184,6 +184,43 @@ other-component:
 ```
 **Then** Zarf will template the action and output `128Mi`
 
+**Given** I have a Zarf Package with a setValues action
+```yaml
+components:
+  - name: component
+    actions:
+      onDeploy:
+        before:
+          - cmd: "echo '{ \"memory\": \"256Mi\", \"cpu\": \"200m\" }'"
+            setValues:
+              - path: component.resources.limits
+                type: json
+                
+```
+**When** I deploy that package with a `zarf-config.yaml` like the below* or by specifying `-f values.yaml`:
+```yaml
+package:
+  deploy:
+    values:
+      - values.yaml
+```
+**And** I have a `values.yaml` like the below:
+```yaml
+component:
+  resources:
+    limits:
+      memory: 128Mi
+      cpu: 100m
+    requests:
+      memory: 64Mi
+      cpu: 100m
+
+other-component:
+  disabled: true
+```
+**Then** Zarf will initially use the values provided for any components before the one with `setValues`
+**And Then** apply the values provided in the `setValues` action for any following components based on the actions lifecycle.
+
 > [!NOTE]
 > *This would apply to all `zarf-config` formats not just YAML
 
@@ -200,6 +237,10 @@ Because we will be using more `interface{}` types, we should also look into the 
 The new `values.files` field would be added to the `ZarfPackageConfig` schema and would accept a list of local values files or URLs, matching the existing functionality of the `valuesFiles` key under `charts`.  This key would also follow the same composability logic as the `valuesFiles` key with additional parent values files merging with and overriding any common keys from children imports.  Since this is a global field, values would be merged regardless of component similar to how variables work today.  The `values.schema` field would simply replace the child version if it were non-empty in the parent, similar to the `namespace` or `releaseName` fields in `charts` today.
 
 Each of the referenced values files would be included inside the created Zarf package and stored inside of the tarball or at an OCI path so that they would travel with the package and be available to the user on deploy.  On deploy, the values (from the defaults in the `ZarfPackageConfig` and the set values files) would be merged with the set values overriding the defaults, and the resulting values would be passed to the Helm chart via the `values` field under a given `charts` entry.  Any actions which contained a go template (i.e. `{{ .Values.component.resources | toYaml }}`) would be templated prior to execution. This templating would work in all fields within an action definition including `cmd` and `wait` actions.
+
+This feature would also implement a `setValues` field for actions that would act as a replacement for the existing `setVariables` field.  This field would take a values path and would set that path to the output of the command.  This field would also have `type` defined on it, though instead of `file`, it would take `string`, `json`, or `yaml` and then handle the standard out of the command according to that format.
+
+Zarf Values would also be available to onCreate and onRemove actions if they existed in `package.create.values` or `package.remove.values` or were set with `-f`/`--values`.  These would template actions and be able to use `setValues` but would not map to Helm charts.
 
 ### Test Plan
 
