@@ -242,6 +242,8 @@ This feature would also implement a `setValues` field for actions that would act
 
 Zarf Values would also be available to onCreate and onRemove actions if they existed in `package.create.values` or `package.remove.values` or were set with `-f`/`--values`.  These would template actions and be able to use `setValues` but would not map to Helm charts.
 
+An additional `zarf dev generate-values` command will also be added to generate a sample values file based on the merging of the default values specified in the `ZarfPackageConfig` of a given package.
+
 ### Test Plan
 
 [X] I/we understand the owners of the involved components may require updates to
