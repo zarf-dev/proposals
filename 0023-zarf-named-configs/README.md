@@ -109,8 +109,27 @@ The proposed solution introduces a new named configuration type to Zarf to allow
 
 **As** Jacquline **I want** to be able to pre-bake package configuration **so that** I can provide a more declarative package to Ashton.
 
-**Given** I have a Zarf Package with a chart named `my-chart` in a component named `my-component`
-**And** I have a new ZarfNamedConfig created from the following
+**Given** I have a Zarf Package created from the below:
+```yaml
+metadata:
+  kind: ZarfPackageConfig
+  name: example
+  version: 0.1.0
+  namespace: example
+
+variables:
+  - name: EXAMPLE
+
+values:
+  - values-default.yaml
+
+components:
+  - name: first
+    ...
+  - name: second
+    ...
+```
+**And** I have a new ZarfNamedConfig published from the following
 ```yaml
 kind: ZarfNamedConfig
 metadata:
@@ -118,30 +137,35 @@ metadata:
   ref: oci://my-registry/test:0.1.0
   version: 0.1.0
 
-overrides:
-  my-component:
-    my-chart:
-      namespace: new-namespace
+components: [ first ]
+
+namespace: new-namespace
+
+set:
+  EXAMPLE: example
+
+values:
+  - values-override.yaml
+
+adopt-existing-resources: true
 ```
-**When** I deploy that package with a `--override` like the below:
-```yaml
-zarf package deploy oci://my-registry/test:0.1.0 --override oci://my-registry/test-override:0.1.0
+**When** I deploy that package with a `--config` like the below:
+```bash
+zarf package deploy oci://my-registry/test:0.1.0 --config oci://my-registry/test-override:0.1.0
 ```
-**Then** Zarf will change the chart's release namespace to `new-namespace`
+**Then** Zarf will set the deploy options in accordance with the referenced config
 
 ### Risks and Mitigations
 
-TODO - (@WSTARR)
+This would make it easy to potentially accidentaly store secrets in the registry which is not desireable.  We should add documentation about this and potentially prevent the storage of variables that are marked `sensitive` in named configs.
 
 ## Design Details
 
 TODO - (@WSTARR) - We need to discuss format if we co with named configs.  Items of discussion:
 
-1. How will named override configs reference the Zarf package they are attached to.
-2. Would named override configs have a local format (or be OCI only)
-3. How would publishing / pulling overrides work in practice
-
-This proposal will affect the release namespace of a chart (or manifest) so that the Helm release secrets and any templates that use the `.Release.Namespace` template would use the newly provided namespace.  This would ensure that charts wouldn't affect the history or objects of prior deployments and would be able to properly install alongside one another.  This would not affect namespaces that are defined under .Values as those would still be controlled by the package configuration and Zarf variables as they are today.
+1. How will named configs reference the Zarf package they are attached to.
+2. Would named configs have a local format (or be OCI only)
+3. How would publishing / pulling named configs work in practice
 
 ### Test Plan
 
@@ -171,7 +195,7 @@ NA - There would be no upgrade / downgrade of cluster installed components
 
 ### Version Skew Strategy
 
-NA - This proposal doesn't impact how Zarf's components interact
+NA - This proposal is an entirely new feature and does not impact existing behavior
 
 ## Implementation History
 
