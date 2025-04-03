@@ -259,6 +259,21 @@ Zarf Values files themselves will only accept `yaml` as a format.  The list of v
 
 Zarf Values will _not_ be available to onCreate actions since Zarf Variables are not available there either and there may be confusion around when a value is set (`onCreate` or `onDeploy`).
 
+If multiple Zarf values use the same target Helm value path in a chart, the last value set will be the one that is used.  This is similar to how Zarf compose rules for `valuesFiles` work today. i.e.
+
+```yaml
+components:
+  - name: my-component
+    charts:
+      - name: mychart
+        ...
+        values:
+          - sourcePath: my-component.resources
+            targetPath: resources
+          - sourcePath: other-component.resources
+            targetPath: resources # this wins
+```
+
 ### Test Plan
 
 [X] I/we understand the owners of the involved components may require updates to
