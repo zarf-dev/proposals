@@ -83,7 +83,7 @@ any additional information provided beyond the standard ZEP template.
 
 ## Summary
 
-This ZEP proposes to allow configuration specific to a Zarf package deployment to be able to be named, versioned and published to a registry so that it can simplify the deployment experience for end users.
+This ZEP proposes to allow configuration specific to a Zarf package deployment to be named, versioned and published to a registry so that it can simplify the deployment experience for end users.
 
 ## Motivation
 
@@ -129,11 +129,16 @@ components:
   - name: second
     ...
 ```
-**And** I have a new ZarfNamedConfig published from the following
+**And** I have a new configuration published from the following
 ```yaml
+# option 1
 kind: ZarfNamedConfig
+# option 2
+kind: ZarfDeployConfig
+# option 3
+kind: ZarfConfig
 metadata:
-  name: test-override
+  name: test-config
   ref: oci://my-registry/test:0.1.0
   version: 0.1.0
 
@@ -151,21 +156,18 @@ adopt-existing-resources: true
 ```
 **When** I deploy that package with a `--config` like the below:
 ```bash
-zarf package deploy oci://my-registry/test:0.1.0 --config oci://my-registry/test-override:0.1.0
+zarf package deploy oci://my-registry/test:0.1.0 --config oci://my-registry/test-config:0.1.0
 ```
 **Then** Zarf will set the deploy options in accordance with the referenced config
 
 ### Risks and Mitigations
 
-This would make it easy to potentially accidentaly store secrets in the registry which is not desireable.  We should add documentation about this and potentially prevent the storage of variables that are marked `sensitive` in named configs.
+This would make it easy to potentially accidentally store secrets in the registry which is not desireable.  We should add documentation about this and potentially prevent the storage of variables that are marked `sensitive` in named configs.
 
 ## Design Details
 
-TODO - (@WSTARR) - We need to discuss format if we co with named configs.  Items of discussion:
-
-1. How will named configs reference the Zarf package they are attached to.
-2. Would named configs have a local format (or be OCI only)
-3. How would publishing / pulling named configs work in practice
+<!-- This is negotiable and would like to hear others' thoughts on a local format for named configs vs having them be OCI-only -->
+Named configs would be created and published through a set of new CLI commands (`zarf config create` and `zarf config publish`).  This would pull together any referenced files or necessary artifacts and either create a local `tar.zst` or publish an OCI reference similar to a package.
 
 ### Test Plan
 
@@ -179,15 +181,15 @@ NA - This is a modification of existing behavior that should not require prerequ
 
 ##### Unit tests
 
-TODO - (@WSTARR)
+Unit tests would need to be added to ensure that the config was passed into the package deploy library interface correctly.
 
 ##### e2e tests
 
-TODO - (@WSTARR)
+Additional end to end tests would need to be added to ensure that the CLI flags and Viper config properly configured Zarf to use the published config.  Config publishing from the CLI would also need to be tested.
 
 ### Graduation Criteria
 
-TODO - (@WSTARR)
+Pending review / community input these changes would be moved from alpha status and be marked as stable within Zarf's Package definition.  This would be based on user adoption of the feature and confidence in its continued stability.
 
 ### Upgrade / Downgrade Strategy
 
@@ -212,11 +214,35 @@ Major milestones might include:
 
 ## Drawbacks
 
-TODO - (@WSTARR)
+This is limited to only the package deployment options and does not allow for the full range of options that one may want to change in a Zarf package.  This means that while an SRE can set configuration for a package they cannot override the package contents in any way and would need to contact the original package creator for assistance.
 
 ## Alternatives
 
-TODO - (@WSTARR)
+Similar to [ZEP-0017](../0017-chart-namespace-overrides/README.md) we could allow for Zarf package remixing:
+
+**Given** I have a Zarf Package with a chart named `my-chart` in a component named `my-component`
+**And** I have a new ZarfRemixConfig created from the following
+```yaml
+kind: ZarfRemixConfig
+metadata:
+  name: test-override
+  version: 0.1.0
+  ref: oci://my-registry/test:0.1.0
+
+remix:
+  my-component:
+    my-chart:
+      namespace: new-namespace
+```
+**When** I create a new package from that with:
+```bash
+zarf package create zarf-remix.yaml
+```
+**Then** Zarf will change the chart's release namespace to `new-namespace` in the new package
+**And When** I deploy that package
+**Then** the chart will be in the `new-namespace` namespace.
+
+To allow multiple configured packages to be created from one base package. This has the potential though to introduce Zarf package sprawl and could clog a registry with references to Zarf packages that are mostly the same.
 
 ## Infrastructure Needed (Optional)
 
