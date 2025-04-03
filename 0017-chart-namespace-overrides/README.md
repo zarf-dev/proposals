@@ -147,6 +147,12 @@ components:
 ```bash
 zarf package deploy oci://my-registry/test:0.1.0 --namespace new-namespace
 ```
+**Or When** I deploy that package with a `zarf-config.yaml` like the below:
+```yaml
+package:
+  deploy:
+    namespace: new-namespace
+```
 **Then** Zarf will change the chart's release namespace to `new-namespace`
 **And** Zarf will change the action's cluster namespace to `new-namespace`
 
