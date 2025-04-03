@@ -158,7 +158,7 @@ We would need to be careful to document and clearly outline which fields are tem
 
 In addition to the new package `metadata.namespace` field, the Go templates would also allow the use of Zarf Values as well for Zarf packages that needed to deploy or control multiple namespaces (similar to Helm).  The main requirement driving the addition of this new field is that the Zarf package secret that is deployed to the cluster needs to be namespaced so that Zarf can continue to keep track of all of the deployments of a given package (again similar to Helm).  Without this field, package names would overlap and Zarf would "forget" which version of the package was deployed.
 
-This proposal would retain the current mapping of a `chart` or `manifest`'s `namespace` field being tied to the chart's release namespace. This would ensure that Helm release secrets and any templates that use the `.Release.Namespace` template would use the newly provided namespace, and that carts wouldn't affect the history or objects of prior deployments under different namespaces.  This implementation would not affect namespaces that are defined under Helm .Values as those would still be controlled by the package configuration and Zarf Variables (or Zarf Values) as they are today.
+This proposal would retain the current mapping of a `chart` or `manifest`'s `namespace` field being tied to the chart's release namespace. This would ensure that Helm release secrets and any templates that use the `.Release.Namespace` template would use the newly provided namespace, and that carts wouldn't affect the history or objects of prior deployments under different namespaces.  This implementation would not affect namespaces that are defined under Helm `.Values` as those would still be controlled by the package configuration and Zarf Variables (or Zarf Values) as they are today.
 
 ### Test Plan
 
@@ -205,9 +205,9 @@ Major milestones might include:
 
 ## Drawbacks
 
-This furthers the use of Go templating in Zarf which has been avoided up to this point due to the potential to conflict with Helm templates.  This is discussed more in [ZEP-0021](./0021-zarf-values/README.md), though we should be careful to ensure that it is clear where this templating is allowed and whereit is not.
+This furthers the use of Go templating in Zarf which has been avoided up to this point due to the potential to conflict with Helm templates.  This is discussed more in [ZEP-0021](./0021-zarf-values/README.md), though we should be careful to ensure that it is clear where this templating is allowed and where it is not.
 
-This requires a change to a package from the Zarf package creator to be able to deploy the package to multiple namespaces and does not allow adhoc namespace overrides like UDS CLI.  This puts more of a burden on package creators to be responsive, but also allows a package to expose a much simpler interface to deployers and allows for some issues with the original UDS design to be mitigated (i.e. availability of the namespaces in `actions`).
+This requires a change be made from the Zarf package creator in order to be able to take advantage of deploying the package to multiple namespaces and does not allow adhoc namespace overrides from the deployer like UDS CLI.  This puts more of a burden on package creators to be responsive to change requests, but also allows a package to expose a much simpler interface to deployers and allows for some issues with the original UDS design to be mitigated (i.e. availability of the namespaces in `actions`).
 
 ## Alternatives
 
