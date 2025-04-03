@@ -83,34 +83,36 @@ any additional information provided beyond the standard ZEP template.
 
 ## Summary
 
-This ZEP proposes to enable a namespace override for charts similar to the namespace override [functionality available in UDS CLI](https://uds.defenseunicorns.com/reference/bundles/overrides/#namespace).  This would allow namespaces of charts within a Zarf package to be overridden so that multiples of the same Zarf package could be deployed to the same cluster under different namespaces (without needing to maintain variants of the same package).
+This ZEP proposes to allow configuration specific to a Zarf package deployment to be able to be named, versioned and published to a registry so that it can simplify the deployment experience for end users.
 
 ## Motivation
 
-Doing this allows more flexibility with certain Zarf packages where you may want to have multiples of them installed in the cluster with slightly different configurations (such as [GitLab Runners](https://github.com/defenseunicorns/uds-package-gitlab-runner)).  Right now the release namespace of any chart has to be hardcoded into the package and will be overwritten even if the chart allows namespace overrides for some manifests within the chart.  The current behavior is also different from what Helm does by default which may not be what users of Zarf expect (Helm allows the use of the `namespace` flag on install to set the Chart's namespace without it needing to be baked into the Chart).
+This proposal comes from a desire to even further lower the barrier to entry for the deploy persona by pre-baking some deployment configuration for a Zarf package into named configurations that can be selected from.  In some environments a user deploying a Zarf package may not have system administrator experience and an SRE may want to pre-configure the package for them to make the package even more declarative and easier to manage.  Additionally many Zarf packages cross security domains and so might not be able to contain their related configuration inside the package at create time.  Having a way to marry the package with the configuration within the deployment environment would help with this as well.
 
 ### Goals
 
-- Provide a way for an already created Zarf package containing Helm Charts to be easily installed more than once with different configurations
+- Provide a way for Zarf packages to reference pre-baked configurations during deployments
+- Enhance the declarative design of Zarf
 
 ### Non-Goals
 
-- Move away from the declarative nature of Zarf packages
+- Provide configuration outside of the deployment of the package
+- Include security relevant deployment configuration in the registry (i.e. package signing keys)
 
 ## Proposal
 
-The proposed solution is to introduce a new named override config to Zarf to allow for a managed way to provide overrides for namespaces and eventually different values.  This allows for potential future override expansion while also forcing the overrides to be named and versioned to a package rather than be as fluid as an existing zarf-config file helping reduce declarative loss. These overrides could also eventually be signed as an artifact if desired.
+The proposed solution introduces a new named configuration type to Zarf to allow for a managed way to provide deployment configuration for a package.  This would include most options that are available in a `zarf-config` file under `package.deploy` including the new options mentioned in [ZEP-0021](../0021-zarf-values/README.md) and [ZEP-0017](../0017-chart-namespace-overrides/README.md).  This file would refer to a specific Zarf package name and version and itself would have a reference for itself.  This would then be published in a registry and could be refered to on `zarf package deploy` or `zarf dev deploy`.
 
 ### User Stories (Optional)
 
 #### Story 1
 
-**As** Jacquline **I want** to be able to set namespace overrides **so that** I can install the same package with different configurations in different namespaces.
+**As** Jacquline **I want** to be able to pre-bake package configuration **so that** I can provide a more declarative package to Ashton.
 
 **Given** I have a Zarf Package with a chart named `my-chart` in a component named `my-component`
-**And** I have a new ZarfOverrideConfig created from the following
+**And** I have a new ZarfNamedConfig created from the following
 ```yaml
-kind: ZarfOverrideConfig
+kind: ZarfNamedConfig
 metadata:
   name: test-override
   ref: oci://my-registry/test:0.1.0
@@ -190,7 +192,7 @@ TODO - (@WSTARR)
 
 ## Alternatives
 
-
+TODO - (@WSTARR)
 
 ## Infrastructure Needed (Optional)
 

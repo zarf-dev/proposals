@@ -11,6 +11,10 @@ reviewers:
 approvers:
   - "@zarf-dev"
 
+see also:
+  - "/0021-zarf-values"
+  - "/0017-chart-namespace-overrides"
+
 # The target maturity stage in the current dev cycle for this ZEP.
 stage: alpha
 
