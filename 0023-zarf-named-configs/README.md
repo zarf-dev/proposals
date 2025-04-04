@@ -87,7 +87,7 @@ This ZEP proposes to allow configuration specific to a Zarf package deployment t
 
 ## Motivation
 
-This proposal comes from a desire to even further lower the barrier to entry for the deploy persona by pre-baking some deployment configuration for a Zarf package into named configurations that can be selected from.  In some environments a user deploying a Zarf package may not have system administrator experience and an SRE may want to pre-configure the package for them to make the package even more declarative and easier to manage.  Additionally many Zarf packages cross security domains and so might not be able to contain their related configuration inside the package at create time.  Having a way to marry the package with the configuration within the deployment environment would help with this as well.
+This proposal comes from a desire to even further lower the barrier to entry for the deploy persona by pre-baking some deployment configuration for a Zarf package into named configurations that can be selected from.  In some environments a user deploying a Zarf package may not have system administrator experience and an SRE may want to pre-configure the package for them to make the package even more declarative and easier to manage.  Additionally many Zarf packages cross security domains and might not be able to contain their related configuration inside the package at create time.  Having a way to marry the package with the configuration within the deployment environment would help with this as well.
 
 ### Goals
 
@@ -101,7 +101,7 @@ This proposal comes from a desire to even further lower the barrier to entry for
 
 ## Proposal
 
-The proposed solution introduces a new named configuration type to Zarf to allow for a managed way to provide deployment configuration for a package.  This would include most options that are available in a `zarf-config` file under `package.deploy` including the new options mentioned in [ZEP-0021](../0021-zarf-values/README.md) and [ZEP-0017](../0017-chart-namespace-overrides/README.md).  This file would refer to a specific Zarf package name and version and itself would have a reference for itself.  This would then be published in a registry and could be refered to on `zarf package deploy` or `zarf dev deploy`.
+The proposed solution introduces a new named configuration type to Zarf to allow for a managed way to provide deployment configuration for a package.  This would include most options that are available in a `zarf-config` file under `package.deploy` including the new options mentioned in [ZEP-0021](../0021-zarf-values/README.md) and [ZEP-0017](../0017-chart-namespace-overrides/README.md).  This file would be tied to a specific Zarf package name and version in addition to its own name and version.  This configuration could then be published in a registry and/or be referenced on `zarf package deploy` or `zarf dev deploy`.
 
 ### User Stories (Optional)
 
@@ -138,8 +138,11 @@ kind: ZarfDeployConfig
 # option 3
 kind: ZarfConfig
 metadata:
-  name: test-config
-  ref: oci://my-registry/test:0.1.0
+  name: example-config
+  version: 0.1.0
+
+package:
+  name: example
   version: 0.1.0
 
 components: [ first ]
@@ -156,7 +159,7 @@ adopt-existing-resources: true
 ```
 **When** I deploy that package with a `--config` like the below:
 ```bash
-zarf package deploy oci://my-registry/test:0.1.0 --config oci://my-registry/test-config:0.1.0
+zarf package deploy oci://my-registry/example:0.1.0 --config oci://my-registry/example-config:0.1.0
 ```
 **Then** Zarf will set the deploy options in accordance with the referenced config
 
@@ -167,7 +170,9 @@ This would make it easy to potentially accidentally store secrets in the registr
 ## Design Details
 
 <!-- This is negotiable and would like to hear others' thoughts on a local format for named configs vs having them be OCI-only -->
-Named configs would be created and published through a set of new CLI commands (`zarf config create` and `zarf config publish`).  This would pull together any referenced files or necessary artifacts and either create a local `tar.zst` or publish an OCI reference similar to a package.
+Named configs would be created and published through a set of new CLI commands (`zarf config create` and `zarf config publish`).  This would pull together any referenced files or necessary artifacts and either create a local `tar.zst` or publish an OCI reference similar to a package.  This config would then be referenced and applied during a package deployment.
+
+Because package configurations refer to packages a `zarf config list oci://<registry>/<package>` command would also be added that, for an OCI reference, would list the available named configs for that package.
 
 ### Test Plan
 
