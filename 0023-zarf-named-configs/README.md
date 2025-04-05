@@ -87,7 +87,7 @@ This ZEP proposes to allow configuration specific to a Zarf package deployment t
 
 ## Motivation
 
-This proposal comes from a desire to even further lower the barrier to entry for the deploy persona by pre-baking some deployment configuration for a Zarf package into named configurations that can be selected from.  In some environments a user deploying a Zarf package may not have system administrator experience and an SRE may want to pre-configure the package for them to make the package even more declarative and easier to manage.  Additionally many Zarf packages cross security domains and might not be able to contain their related configuration inside the package at create time.  Having a way to marry the package with the configuration within the deployment environment would help with this as well.
+This proposal comes from a desire to even further lower the barrier to entry for the deploy persona by pre-baking some deployment configuration for a Zarf package into named configurations that can be selected from.  In some environments a user deploying a Zarf package may not have system administrator experience and an SRE may want to pre-configure the package for them to make the package even more declarative and easier to manage.  Additionally many Zarf packages cross security domains and might not be able to contain their related configuration inside the package at create time.  Having a way to marry the package with the configuration within the deployment environment would help with this as well.  Some packages also may have a set of configurations that could be selected from (i.e. `device1`, `device2`, `device3`) that would be useful to manage sets of similar but different deployments.
 
 ### Goals
 
@@ -96,7 +96,7 @@ This proposal comes from a desire to even further lower the barrier to entry for
 
 ### Non-Goals
 
-- Provide configuration outside of the deployment of the package
+- Provide configuration outside of the deployment of the package (i.e. geared towards the Ashton persona)
 - Include security relevant deployment configuration in the registry (i.e. package signing keys)
 
 ## Proposal
