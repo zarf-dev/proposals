@@ -11,8 +11,6 @@ reviewers:
 approvers:
   - "@zarf-dev"
 
-see-also:
-  - "/0015-helm-value-style-variable-interfaces"
 replaces:
   - "/0015-helm-value-style-variable-interfaces"
 

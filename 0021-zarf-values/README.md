@@ -112,7 +112,7 @@ To set these values new `package.[deploy|remove].values` configuration options w
 
 #### Story 1
 
-**As** Jacquline **I want** to be able to specify values files for a Zarf package **so that** I can simplify package configurations and rely on my existing familiarity with Helm.
+**As** a platform engineer **I want** to be able to specify values files for a Zarf package **so that** I can simplify package configurations and rely on my existing familiarity with Helm.
 
 **Given** I have a Zarf Package with a Helm value override in a chart
 ```yaml
