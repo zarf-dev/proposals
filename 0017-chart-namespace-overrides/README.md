@@ -140,7 +140,7 @@ components:
 ```
 **When** I deploy that package with a `--namespace` flag like the below:
 ```bash
-zarf package deploy oci://my-registry/test:0.1.0 --namespace new-namespace
+zarf package deploy oci://my-registry/example:0.1.0 --namespace new-namespace
 ```
 **Or When** I deploy that package with a `zarf-config.yaml` like the below:
 ```yaml
