@@ -104,7 +104,7 @@ The motivation for this centers around the long-lived desire to have Zarf Variab
 
 ## Proposal
 
-The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would also map into Helm charts with a new `values` field under `charts`. The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today.  Zarf `files` and `manifests` would also implement Go templating to be able to take advantage of values as well.
+The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would also map into Helm charts with a new `values` field under `charts`. The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today.  Zarf `files` and `manifests` would also optionally implement Go templating to be able to take advantage of values as well.
 
 To set these values new `package.[deploy|remove].values` configuration options would be added to the Viper config and a new `-f`/`--values` flag would be added to the CLI to allow values files to be specified on `zarf package deploy`, `zarf package remove` and `zarf dev deploy`.  For now, the `--set` flag would remain as it is for Zarf Variables though eventually we may want to deprecate it and align to the [Helm `--set` syntax](https://helm.sh/docs/intro/using_helm/#the-format-and-limitations-of---set) with the values specified setting Zarf Values instead of Zarf Variables.  Zarf `actions` would also add a new `setValues` field that would allow setting values from an action similar to `setVariables`.
 
@@ -116,6 +116,7 @@ To set these values new `package.[deploy|remove].values` configuration options w
 
 **Given** I have a Zarf Package with a Helm value override in a chart
 ```yaml
+# zarf.yaml
 components:
   - name: my-component
     charts:
@@ -137,6 +138,7 @@ components:
 ```
 **When** I deploy that package with a `zarf-config.yaml` like the below* or by specifying `-f values.yaml`:
 ```yaml
+# zarf-config.yaml
 package:
   deploy:
     values:
@@ -144,6 +146,7 @@ package:
 ```
 **And** I have a `values.yaml` like the below:
 ```yaml
+# values.yaml
 my-component:
   resources:
     limits:
@@ -162,6 +165,7 @@ other-component:
 
 **Given** I have a Zarf Package with top-level `values` and Go templating inside an action
 ```yaml
+# zarf.yaml
 values:
   files:
     - values-defaults.yaml
@@ -176,6 +180,7 @@ components:
 ```
 **And** it was created with the following `values-defaults.yaml` file:
 ```yaml
+# values-defaults.yaml
 my-component:
   resources:
     limits:
@@ -195,6 +200,7 @@ other-component:
 
 **Given** I have a Zarf Package with a setValues action
 ```yaml
+# zarf.yaml
 components:
   - name: my-component
     actions:
@@ -208,6 +214,7 @@ components:
 ```
 **When** I deploy that package with a `zarf-config.yaml` like the below* or by specifying `-f values.yaml`:
 ```yaml
+# zarf-config.yaml
 package:
   deploy:
     values:
@@ -215,6 +222,7 @@ package:
 ```
 **And** I have a `values.yaml` like the below:
 ```yaml
+# values-defaults.yaml
 my-component:
   resources:
     limits:
@@ -233,6 +241,61 @@ other-component:
 > [!NOTE]
 > *This would apply to all `zarf-config` formats not just YAML
 
+---
+
+**Given** I have a Zarf Package with top-level `values` and Go templating inside of a file and/or manifest (with templating enabled)
+```yaml
+# zarf.yaml
+values:
+  files:
+    - values-defaults.yaml
+  schema: values.schema.json
+
+components:
+  - name: my-component
+    manifests:
+      - name: my-deployment
+        namespace: my-namespace
+        files:
+          - my-deployment.yaml
+        template: true
+    files:
+      - source: my-deployment.yaml
+        target: my-out-deployment.yaml
+        template: true
+```
+```yaml
+# my-deployment.yaml
+kind: Deployment
+metadata:
+  name: my-deployment
+  namespace: my-namespace
+spec:
+  template:
+    spec:
+      containers:
+        - name: my-container
+          resources:
+            {{ .Values.my-component.resources | toYaml }}
+```
+**And** it was created with the following `values-defaults.yaml` file:
+```yaml
+# values-defaults.yaml
+my-component:
+  resources:
+    limits:
+      memory: 128Mi
+      cpu: 100m
+    requests:
+      memory: 64Mi
+      cpu: 100m
+
+other-component:
+  disabled: true
+```
+**When** I deploy that package without setting any values
+**Then** Zarf will template the file and manifest with the resources given
+
 ### Risks and Mitigations
 
 This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for now.  Because of this, the feature will need to be clearly disambiguated from Variables/Constants/Templates in documentation and, while this feature should not introduce many breaking changes being implemented alongside the existing featureset, the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping to assist with disambiguation.  If the feature gains traction and is accepted by the community, a deprecation plan for the original Zarf Variables/Constants/Templates should be created.  Likely this plan would not break `charts.variables` in existing packages and would simply prevent furutre packages from using this feature.
@@ -243,13 +306,7 @@ Because we will be using more `interface{}` types, we should also look into the 
 
 This proposal also adds to the concept of Zarf `onDeploy` actions and creates another way to execute arbitrary bash commands on the host (depending on how the package creator implemented Zarf Values and their Go templates).  If this feature is to replace Zarf variables however, using Values in actions is still needed, and examples exist in the wild where Helm templates alone are not sufficient to provide the desired functionality for a package.  One example being the GitLab Runner UDS Package that creates a runner token through the GitHub API - this requires pulling a registration token from an existing secret (which is possible today with Helm templates), but then this token is used to register the runner with the GitLab API.  This requires making an HTTP request which Helm cannot help with requiring onDeploy actions to wire this in. References: [GitLab Runner Config Chart Values](https://github.com/defenseunicorns/uds-package-gitlab-runner/blob/d2b573bdbed12ac2aafd52082f1b9ea84b213439/chart/values.yaml#L9), [GitLab Runner Token `onDeploy` action](https://github.com/defenseunicorns/uds-package-gitlab-runner/blob/d2b573bdbed12ac2aafd52082f1b9ea84b213439/common/zarf.yaml#L34).  This will need to be mitigated with documentation and it may be desireable to implement a form of `shellcheck` to `zarf dev lint` to look for areas where this might be an issue.  Users would be able to control the shape of input values via the `values.schema` field and Zarf should halt a deployment if a bad value is provided.  Users could also pass user input through the `env` field in actions for some additional protection.
 
-# TODO: (@WSTARR)
-
-Zarf `files` and `manifests` may already contain Go templates that we would not want to trample on. Previous behavior wrapped `manifests` in an additional `{{ ... }}` so that Helm would not erroneously see the templates inside a manifest and mess with them [[Ref](https://github.com/zarf-dev/zarf/blob/e51ea928f58e24d2558e679d1905254b1f3ae7cd/src/internal/packager/helm/common.go#L107)].
-
-1. We could change template delims (i.e. `###{{ .Values.hello }}###`)
-
-2. We could add a `template: true` field to them (default to `false` to start)
+Zarf `files` and `manifests` may already contain Go templates that we would not want to trample on. Previous behavior wrapped `manifests` in an additional `{{ ... }}` so that Helm would not erroneously see the templates inside a manifest and mess with them [[Ref](https://github.com/zarf-dev/zarf/blob/e51ea928f58e24d2558e679d1905254b1f3ae7cd/src/internal/packager/helm/common.go#L107)]. To mitigate this we could change template delims (i.e. `###{{ .Values.hello }}###`) but this may not be familiar to Helm users and it may be useful to be able to have a longer term toggle for templating in these use cases.  To solve this this proposal would add a `template: true` field to `files` and `manifests` (defaulting to `false` to start but this can change as the feature gets maturity)
 
 ## Design Details
 
@@ -318,7 +375,7 @@ This proposal doesn't impact how Zarf's Agent and CLI interact so no changes wou
 
 ## Drawbacks
 
-This feature will require a lot more design work to ensure that it has a solid user experience and is well integrated with the rest of Zarf's features.  Go templating is also a large change that was avoided initially to reduce potential conflicts with Helm's templating - while relatively safe to use in the Zarf Package definition it would be difficult to extend this templating further down if that were desired.
+This feature will require a lot of design work to ensure that it has a solid user experience and is well integrated with the rest of Zarf's features.  Go templating is also a large change that was avoided initially to reduce potential conflicts with Helm's templating - while relatively safe to use in the Zarf Package definition it would be difficult to extend this templating further down if that were desired.
 
 ## Alternatives
 
