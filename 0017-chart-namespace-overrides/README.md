@@ -114,9 +114,7 @@ The proposed solution is to add a new `namespace` flag that would allow a user t
 kind: ZarfPackageConfig
 metadata:
   name: example
-  ref: oci://my-registry/test:0.1.0
   version: 0.1.0
-  namespace: example-namespace
 
 components:
   - name: example-component
