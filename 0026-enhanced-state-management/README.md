@@ -105,7 +105,7 @@ Currently there are a few issues that limit what you can do with Zarf due to the
 
 ## Proposal
 
-The proposed solution is to split Zarf secrets into one for each version of a package
+The proposed solution is to split Zarf secrets into one for each deployment of a package to track the changes that occur during each call of `zarf package deploy`.  This is similar to how Helm works where each release of a chart is stored in a separate secret.  Zarf would also change to label resources a package has created using the Helm post render logic. This would include both the package and the component name that created that resource.
 
 ### User Stories (Optional)
 
