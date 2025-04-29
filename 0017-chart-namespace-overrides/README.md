@@ -107,7 +107,7 @@ The proposed solution is to add a new `namespace` flag that would allow a user t
 
 #### Story 1
 
-**As** Jacquline **I want** to be able to set namespace values **so that** I can install the same package with different configurations in different namespaces.
+**As** a platform engineer **I want** to be able to set namespace values **so that** I can install the same package with different configurations in different namespaces.
 
 **Given** I have a Zarf Package created from the following
 ```yaml
