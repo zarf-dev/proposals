@@ -13,6 +13,7 @@ approvers:
 
 see-also:
   - "/0021-zarf-values"
+  - "/0026-enhanced-state-management"
 
 # The target maturity stage in the current dev cycle for this ZEP.
 stage: alpha

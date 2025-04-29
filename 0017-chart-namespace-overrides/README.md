@@ -83,11 +83,11 @@ any additional information provided beyond the standard ZEP template.
 
 ## Summary
 
-This ZEP proposes to enable namespace overrides for charts by leveraging the Go templating that is being designed as part of [ZEP-0021](./0021-zarf-values/README.md) in addition to making namespaces in Zarf more Helm-like.
+This ZEP proposes to enable namespace overrides for Zarf packages by adding a `--namespace` flag that will support overriding single-namespace packages.
 
 ## Motivation
 
-Doing this allows more flexibility with certain Zarf packages where you may want to have multiples of them installed in the cluster with slightly different configurations (such as [GitLab Runners](https://github.com/defenseunicorns/uds-package-gitlab-runner)).  Currently, the release namespace of any chart has to be hardcoded into the package and will be used even if the chart allows namespace overrides via values for some manifests within the chart.  The current behavior is also different from what Helm does by default which may not be what users of Zarf expect (Helm allows the use of the `namespace` flag on install to set the Chart's release namespace without it needing to be baked into the Chart).  This is made slightly more complex in Zarf because a package often contains multiple namespaces that need to be correlated across multiple Zarf primitives (such as a Helm chart and a wait action).
+Doing this allows more flexibility with certain Zarf packages where you may want to have multiples of them installed in the cluster with slightly different configurations (such as [GitLab Runners](https://github.com/defenseunicorns/uds-package-gitlab-runner)).  Currently, the release namespace of any chart has to be hardcoded into the package and will be used even if the chart allows namespace overrides via values for some manifests within the chart.  The current behavior is also different from what Helm does by default which may not be what users of Zarf expect (Helm allows the use of the `namespace` flag on install to set the Chart's release namespace without it needing to be baked into the Chart).  This is made slightly more complex in Zarf because a package could contain multiple namespaces that need to be correlated across multiple Zarf primitives (such as a Helm chart and a wait action) and these namespaces may differ across components.
 
 ### Goals
 
@@ -97,10 +97,11 @@ Doing this allows more flexibility with certain Zarf packages where you may want
 ### Non-Goals
 
 - Move away from the declarative nature of Zarf packages
+- Create a solution that will work for multi-namespace packages (90% of packages in the wild are single namespace across their chart and manifest resources so the initial implementation doesn't need to cover this)
 
 ## Proposal
 
-The proposed solution is to add a new `namespace` field under the Zarf Package configuration `metadata` and to allow a default to be set and allow this value to be exposed in Go templating under `charts`, `manifests`, and `actions`.  Charts and manifests would allow templating of their `namespace` and `releaseName` fields and actions would be templateable as designed in [ZEP-0021](./0021-zarf-values/README.md).
+The proposed solution is to add a new `namespace` flag that would allow a user to set a namespace for a Zarf package and override the release namespace of all charts and manifests in that package globally.  This value would also be available through the templates in [ZEP-0021](./0021-zarf-values/README.md) though no additional templating would be added elsewhere.
 
 ### User Stories (Optional)
 
@@ -121,13 +122,13 @@ components:
   - name: example-component
     charts:
       - name: example-chart
-        # option 1
-        namespace: "{{ .Package.metadata.namespace }}"
-        # option 2
-        namespace: "{{ .Release.Namespace }}"
-        # option 3
-        namespace: "{{ .Deploy.Namespace }}"
+        namespace: "my-namespace"
         url: https://example.com/helm-chart
+    manifests:
+      - name: example-manifest
+        namespace: "my-namespace"
+        files:
+          - "example.yaml"
     actions:
       onDeploy:
         after:
@@ -135,13 +136,9 @@ components:
               cluster:
                 kind: Deployment
                 name: example
-                # option 1
-                namespace: "{{ .Package.metadata.namespace }}"
-                # option 2
-                namespace: "{{ .Release.Namespace }}"
-                # option 3
                 namespace: "{{ .Deploy.Namespace }}"
                 condition: "Available"
+          - cmd: "echo {{ .Deploy.Namespace }}"
 ```
 **When** I deploy that package with a `--namespace` flag like the below:
 ```bash
@@ -154,17 +151,23 @@ package:
     namespace: new-namespace
 ```
 **Then** Zarf will change the chart's release namespace to `new-namespace`
+**And** Zarf will change the manifest's release namespace to `new-namespace`
 **And** Zarf will change the action's cluster namespace to `new-namespace`
+**And** Zarf will echo `new-namespace`
 
 ### Risks and Mitigations
 
-We would need to be careful to document and clearly outline which fields are templateable and which are not - fields that control the contents of the Zarf package (i.e. `url`, `valuesFiles`, `name`, etc.) should not be templated since, if changed, they would refer to things that cannot be deployed in the airgap.  Only fields that control the deployment of the chart or manifest would be templateable and this would need to be clearly communicated to reduce confusion.  It may also be useful to outline areas beyond this proposal that Go templating should apply within a Zarf package definition to further reduce confusion.  We also should fail fast during package create if a template is found somewhere it is not allowed - this will allow a package creator to realize that they need to make a change before they attempt to deploy the package.
+We would need to be careful to document and clearly outline which fields are overriden in these cases since `charts` and `manifests` would be forced to the new value but actions would need to use templating to access the new value.
+
+Additionally we would not want this to work for a Zarf package that declared multiple namespaces since that may have unintended consequences and squish deployments on top of each other.  To mitigate this we should have a pre-deployment validation that will fail if the `--namespace` flag is given to a package with multiple namespaces defined.
 
 ## Design Details
 
-In addition to the new package `metadata.namespace` field, the Go templates would also allow the use of Zarf Values as well for Zarf packages that needed to deploy or control multiple namespaces (similar to Helm).  The main requirement driving the addition of this new field is that the Zarf package secret that is deployed to the cluster needs to be namespaced so that Zarf can continue to keep track of all of the deployments of a given package (again similar to Helm).  Without this field, package names would overlap and Zarf would "forget" which version of the package was deployed.
+When the new `--namespace` flag is given to a Zarf package, Zarf will override the release namespace of all charts and manifests in that package with the new namespace value.  This value will also be available through the templates in [ZEP-0021](./0021-zarf-values/README.md). This would be global and occur across all components defined within a package.
 
-This proposal would retain the current mapping of a `chart` or `manifest`'s `namespace` field being tied to the chart's release namespace. This would ensure that Helm release secrets and any templates that use the `.Release.Namespace` template would use the newly provided namespace, and that carts wouldn't affect the history or objects of prior deployments under different namespaces.  This implementation would not affect namespaces that are defined under Helm `.Values` as those would still be controlled by the package configuration and Zarf Variables (or Zarf Values) as they are today.
+Zarf will also use the namespace value to store a separate state Secret for the package.  This would allow the package to be deployed multiple times with different namespaces and the state Secret would be unique to each deployment allowing for proper inspection and removal of the packages.
+
+This proposal would also retain the current mapping of a `chart` or `manifest`'s `namespace` field being tied to the chart's release namespace. This would ensure that Helm release secrets and any templates that use the `.Release.Namespace` template would use the newly provided namespace, and that updates wouldn't affect the history or objects of prior deployments under different namespaces.  This implementation would not affect namespaces that are defined under Helm `.Values` as those would still be controlled by the package configuration and Zarf Variables (or Zarf Values) as they are today.
 
 ### Test Plan
 
@@ -178,15 +181,17 @@ NA - This is a modification of existing behavior that should not require prerequ
 
 ##### Unit tests
 
-Unit tests would need to be added to ensure that the go templating worked as expected.
+Unit tests would need to be added to ensure that the namespaces are updated/tracked correctly in library code.
 
 ##### e2e tests
 
-Additional end to end tests would need to be added to ensure that the go templating worked as expected.
+Additional end to end tests would need to be added to ensure that the namespace override takes effect correctly and maintains the ability to inspect and remove multiple packages.
 
 ### Graduation Criteria
 
 Pending review / community input these changes would be moved from alpha status and be marked as stable within Zarf's Package definition.  This would be based on user adoption of the feature and confidence in its continued stability.
+
+Additionally we will need to evaluate how we might implement multi-namespace support in the future as we look to bring this feature out of alpha.  This status will need to be clearly communicated as this change may also have breaking changes to this proposed feature when implemented.  When this redesign happens we would want to strongly consider the implications on state and ideally move to a better model such as the one proposed in [ZEP-0026](./0026-enhanced-state-management/README.md).
 
 ### Upgrade / Downgrade Strategy
 
@@ -194,7 +199,7 @@ NA - There would be no upgrade / downgrade of cluster installed components
 
 ### Version Skew Strategy
 
-NA - This proposal doesn't impact how Zarf's components interact and is only adding new features - existing behavior will continue to work
+Because this will impact the storage of state in the cluster, we will need to be careful to ensure that the new behavior to add namespaces to the package secret does not break older versions of the CLI.  Packages deployed with namespace overrides only need to be inspectable or removeable with the current CLI but we should test to ensure that these operations are not broken when interacting with the cluster from an older CLI.
 
 ## Implementation History
 
@@ -209,11 +214,13 @@ Major milestones might include:
 - when the ZEP was retired or superseded
 -->
 
+- 2025-02-03: Initial version of this document
+
 ## Drawbacks
 
-This furthers the use of Go templating in Zarf which has been avoided up to this point due to the potential to conflict with Helm templates.  This is discussed more in [ZEP-0021](./0021-zarf-values/README.md), though we should be careful to ensure that it is clear where this templating is allowed and where it is not.
+This proposal only supports single-namespace packages (which from research seems to be most packages) but may be limiting short term.  This also means that this feature will need to be redesigned once more feedback is gathered which may result in breaking changes at that time.
 
-This requires a change be made from the Zarf package creator in order to be able to take advantage of deploying the package to multiple namespaces and does not allow adhoc namespace overrides from the deployer like UDS CLI.  This puts more of a burden on package creators to be responsive to change requests, but also allows a package to expose a much simpler interface to deployers and allows for some issues with the original UDS design to be mitigated (i.e. availability of the namespaces in `actions`).
+Overriding packages globally may also be slightly confusing to users used to Helm and it's templates since generally manifests are deployed to the namespace that is templated, not to a force-overridden namespace.  This can be mitigated with documentation but should be taken into account when designing multi-namespace support.
 
 ## Alternatives
 
@@ -241,7 +248,7 @@ zarf package deploy zarf-package-test.tar.zst --namespace my_component.my_chart=
 
 #### Reason for Rejection
 
-While this would allow a package deployer to override any namespaces they wanted on any package its configuration is relatively complex and that complexity needs to be specified on the host computer and cannot easily be transmitted to it.  It also does not allow namespaces to be easily present elsewhere such as in `actions`.
+While this would allow a package deployer to override any namespaces they wanted on any package its configuration is relatively complex and that complexity needs to be specified on the host computer and cannot easily be transmitted to it.  It also would complicate the templating of the namespace elsewhere such as in `actions`.
 
 ### Option 2 (UDS CLI Config Style)
 
@@ -332,7 +339,7 @@ zarf package deploy zarf-package-test.tar.zst --namespace-prefix new- --namespac
 
 #### Reason for Rejection
 
-This would allow for some customization but may not provide enough flexibility in some cases.  Some clusters for security reasons will only authorize the deploy user to access specific namespaces which may not line up with what was originally in the package.  It also does not allow namespaces to be easily present elsewhere such as in `actions`.
+This would allow for some customization but may not provide enough flexibility in some cases.  Some clusters for security reasons will only authorize the deploy user to access specific namespaces which may not line up with what was originally in the package.  It also does not allow namespaces to be easily templated elsewhere such as in `actions`.
 
 ### Option 5 (Package Namespace Style)
 
@@ -378,7 +385,7 @@ zarf package deploy zarf-package-test.tar.zst --namespace new-namespace
 
 #### Reason for Rejection
 
-While this is the most "Helm-way" option, many packages have multiple namespaces they need to deploy to (even simpler ones like `uds-package-postgres-operator`).  This would then at least require some templating to make work, but again that could have the same drawbacks as prefixes / suffixes.
+While this is the most "Helm-way" option, this pushes further into packages having a single namespace which may not be desireable - since the namespace is implicit and not a template it also may be confusing to some users.  Also if the namespace was templated this would need to be clearly communicated since many parts of a Zarf package should not be templated at deploy time (i.e. `images`).
 
 ### Option 6 (UDS Bundle Style)
 
@@ -405,7 +412,7 @@ zarf bundle deploy zarf-bundle-test.tar.zst
 
 #### Reason for Rejection
 
-This is similar to the proposed option but allows many Zarf packages to be stuck together.  While managing the configuration of multiple packages together in this way can be nicer for simple deployments it can get difficult to manage many deployments together where say a database may be included and need to be deployed many times because there is no true DAG behind the dependency tree.  It also does not allow namespaces to be easily present elsewhere such as in `actions`.
+While managing the configuration of multiple packages together in this way can be nicer for simple deployments it can get difficult to manage many deployments together where say a database may be included and need to be deployed many times because there is no true DAG behind the dependency tree.  It also does not allow namespaces to be easily templated elsewhere such as in `actions`.
 
 ### Option 7 (Package Remix Style)
 
