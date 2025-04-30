@@ -4,7 +4,7 @@ title: Add zarf dev inspect and change zarf package inspect
 zep-number: 0008
 authors:
   - "@austinabro321"
-status: implementable #|implemented|deferred|rejected|withdrawn|replaced
+status: implemented
 creation-date: 2024-12-04
 reviewers:
   - @zarf-dev
@@ -17,8 +17,8 @@ stage: stable
 # The most recent milestone for which work toward delivery of this ZEP has been
 # done. This can be the current (upcoming) milestone, if it is being actively
 # worked on.
-latest-milestone: "0.47.0"
+latest-milestone: "0.53.0"
 
 # The milestone at which this feature was, or is targeted to be, at each stage.
 milestone:
-  stable: "0.47.0"
+  stable: "0.53.0"
