@@ -85,6 +85,8 @@ any additional information provided beyond the standard ZEP template.
 
 This ZEP proposes to expand variables to more than just `string` values and instead to accept an `interface{}` instead.  This would change `map[string]string` for variables into `map[string]interface{}` in addition to changing how variables are inputted and handled internally.
 
+This ZEP has since been superceeded by [ZEP-0021](0021-zarf-values/README.md).
+
 ## Motivation
 
 The motivation for this centers around aligning Zarf Variables closer to Helm Values which use the type `map[string]interface{}` over `map[string]string`.  Pull Request [#2132](https://github.com/zarf-dev/zarf/pull/2131) pulled this point more into focus by allowing Zarf variables to be directly passed as Helm values, and there has been desire from the Zarf community to treat Zarf Variables more like Helm Values [[1](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1706175082741539)], [[2](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1702400472208839)], [[3](https://kubernetes.slack.com/archives/C03B6BJAUJ3/p1706299407255849?thread_ts=1706175134.116329&cid=C03B6BJAUJ3)].
@@ -192,6 +194,7 @@ NA - This proposal doesn't impact how Zarf's components interact
 ## Implementation History
 
 2025-02-03: Initial version of this document.
+2025-03-31: ZEP superceeded by ZEP-0021
 
 ## Drawbacks
 
