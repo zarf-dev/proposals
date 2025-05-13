@@ -1,2 +1,22 @@
-# proposals
-Proposals tracking for the Zarf project 
+# Zarf Enhancement Proposals (ZEPs)
+Formal documents proposing significant Zarf changes, features, or enhancements.  ZEPs are premised off Kuberetes Enhancement Proposals (KEPs).
+
+## Purpose
+Provide a structured way for Zarf community contributors to suggest, discuss, and track new features or changes to the Zarf project. ZEPs contribute to Zarf transparency, community input, and alignment with [Roadmap](https://docs.zarf.dev/roadmap) goals and priorities.
+
+## Desired Outcome
+Improved visibility for proposed changes, better coordination across the Zarf community, and a clear vision of what Zarf does and does not support as it evolves.⁠
+
+## How ZEPs Work
+- Contributors draft ZEPs as GitHub pull requests in the zarf-dev/proposals repository.
+
+- ZEPs are discussed and reviewed by the Zarf maintainers and the community, via the Kubernetes Slack chat, public [Zarf Community Meetings](https://www.google.com/url?q=https://zoom-lfx.platform.linuxfoundation.org/meeting/97461829237?password%3Dadd48ad5-fc07-4951-96d2-531b72d2a5dc&sa=D&source=calendar&ust=1747595030129732&usg=AOvVaw3mFLYGKyTC_8Q97lGnHegX), or in the Github zarf-dev/proposals ZEP Pull Request itself. Key topics include clarifying the problem, outlining the proposed solution, and identifying related dependencies or design questions.⁠
+⁠​
+- Once reviewed, a ZEP can be accepted, rejected, or returned for revisions. Accepted ZEPs move forward into development, with tickets or issues tracked in the [Zarf GitHub Project Board](https://github.com/orgs/zarf-dev/projects/1).⁠
+⁠​
+### Primary ZEP Phases
+- Idea (issue creation)
+- Proposal Draft
+- Proposal Review and Iteration
+- Proposal Review
+- Implementation: Zarf code is adjusted to implement ZEP details⁠⁠
