@@ -1,0 +1,29 @@
+schema-version: 1.0.0
+
+title: Chart Namespace Overrides
+zep-number: 0017
+authors:
+  - "@racer159"
+status: implementable
+creation-date: 2025-02-03
+reviewers:
+  - "@zarf-dev"
+approvers:
+  - "@zarf-dev"
+
+see-also:
+  - "/0021-zarf-values"
+  - "/0026-enhanced-state-management"
+
+# The target maturity stage in the current dev cycle for this ZEP.
+stage: alpha
+
+# The most recent milestone for which work toward delivery of this ZEP has been
+# done. This can be the current (upcoming) milestone, if it is being actively
+# worked on.
+latest-milestone: NA
+
+# The milestone at which this feature was, or is targeted to be, at each stage.
+milestone:
+  alpha: "TBD"
+  stable: "v1.0"
