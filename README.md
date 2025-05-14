@@ -14,7 +14,7 @@ Improved visibility for proposed changes, better coordination across the Zarf co
 ⁠​
 - Once reviewed, a ZEP can be accepted, rejected, or returned for revisions. Accepted ZEPs move forward into development, with tickets or issues tracked in the [Zarf GitHub Project Board](https://github.com/orgs/zarf-dev/projects/1).⁠
 ⁠
-### Primary ZEP Phases
+### ZEP Phases
 - provisional: The ZEP has been proposed and is actively being defined. This is the starting state while the ZEP is being fleshed out and actively defined and discussed.
 - implementable: The approvers have approved this ZEP for implementation.
 - implemented: The ZEP has been implemented and is no longer actively changed.
