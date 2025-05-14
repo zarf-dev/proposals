@@ -1,5 +1,5 @@
 # Zarf Enhancement Proposals (ZEPs)
-Formal documents proposing significant Zarf changes, features, or enhancements.  ZEPs are premised off Kuberetes Enhancement Proposals (ZEPs).
+Formal documents proposing significant Zarf changes, features, or enhancements.  ZEPs are premised off Kuberetes Enhancement Proposals (KEPs).
 
 ## Purpose
 Provide a structured way for Zarf community contributors to suggest, discuss, and track new features or changes to the Zarf project. ZEPs contribute to Zarf transparency, community input, and alignment with [Roadmap](https://docs.zarf.dev/roadmap) goals and priorities.
