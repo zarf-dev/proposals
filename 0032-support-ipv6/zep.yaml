@@ -1,14 +1,14 @@
 schema-version: 1.0.0
 
 title: Support IPv6
-zep-number: 0022
+zep-number: 0032
 authors:
   - "vincent.touchard@collibra.com"
 status: provisional
 creation-date: 2025-06-05
 reviewers:
   - "christopher.jackson@collibra.com"
-  - TBD
+  - "@AustinAbro321"
 approvers:
   - TBD
 
