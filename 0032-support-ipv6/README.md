@@ -129,7 +129,8 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-* Change the current mechanism for bootstrapping Zarf in an IPv4 cluster (that is, using a `Service` of type `NodePort` and the "the route localnet hack").
+* Change the current mechanism for bootstrapping Zarf in IPv4-only or IPv4/IPv6 dual-stack clusters (that is, using a `Service` of type `NodePort` and the "the route localnet hack").
+* Support for IPv6-IPv4 dual-stack clusters.
 
 ## Proposal
 
