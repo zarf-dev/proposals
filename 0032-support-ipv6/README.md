@@ -159,17 +159,7 @@ bogged down.
 
 #### Story 1
 
-Make Zarf IP stack aware via a new optional command line argument. This information should be stored in the cluster Zarf state.
-
-#### Story 2
-
-Update the Zarf Rust injector:
-* Listen on the IPv6 `[::]` address when running in IPv6 mode.
-* Support serving multiple container images.
-
-#### Story 3
-
-Update Zarf and its init package to provide support for running the internal container image registries in IPv6 mode.
+As a administrator of Kubernetes cluster configured in IPv6-only networking mode, I want to deploy the Zarf init package using the default in cluster registry so I run the `zarf init` with the `--ipv6` command line flag.
 
 ### Risks and Mitigations
 
@@ -182,6 +172,10 @@ How will security be reviewed, and by whom?
 
 How will UX be reviewed, and by whom?
 -->
+
+As the proxying workload uses a `DaemonSet` and the host networking stack, it should:
+* include the minimal amount of binaries to prevent shell access.
+* expose the registry only locally (similar to what the `NodePort` exposes).
 
 ## Design Details
 
@@ -204,6 +198,9 @@ when drafting this test plan.
 
 [testing-guidelines]: https://docs.zarf.dev/contribute/testing/
 -->
+
+For end-to-end testing, a new type of Kubernetes cluster should be made available, where IPv6 is the only networking stack available.
+
 
 [ ] I/we understand the owners of the involved components may require updates to
 existing tests to make this code solid enough prior to committing the changes necessary
@@ -249,6 +246,8 @@ proposal:
   make use of the proposal?
 -->
 
+In the event of a change of networking configuration in the Kubernetes cluster, the adminstrator should be able to simply re-run `zarf init` with or without the `--ipv6` command line flag.
+
 ### Version Skew Strategy
 
 <!--
@@ -280,6 +279,8 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
+Code complexity: the init code (Golang and Helm template) needs to support two paths, one for IPv4 (the current solution) and IPv6.
+
 ## Alternatives
 
 <!--
@@ -295,5 +296,3 @@ Use this section if you need things from the project. Examples include a new rep
 cloud infrastructure for testing or GitHub details. Listing these here
 allows the process to get these resources to be started right away.
 -->
-
-For end-to-end testing, a new type of Kubernetes cluster should be made available, where IPv6 is the only networking stack available.
