@@ -23,5 +23,8 @@ Improved visibility for proposed changes, better coordination across the Zarf co
 - withdrawn: The authors have withdrawn the ZEP.
 - replaced: The ZEP has been replaced by a new ZEP. The superseded-by metadata value should point to the new ZEP.
 
+### ZEP Status:
+- A ZEP's status (provisional, deferred, implemented, etc.) can be found in the ZEP's **zep.yaml** under "status."
+
 ## Getting started
 Follow the guide at the top of the [ZEP Template](NNNN-zep-template/zep.yaml) to get started on your ZEP
