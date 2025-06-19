@@ -247,7 +247,9 @@ proposal:
   make use of the proposal?
 -->
 
-In the event of a change of networking configuration in the Kubernetes cluster, the adminstrator should be able to simply re-run `zarf init` with or without the `--ipv6` command line flag.
+If an administrator with an existing Kubernetes cluster, configured with dual-stack networking, wants their cluster to use the IPv6 setup then he can run `zarf init --ipv6`.
+
+If an administrator wants to stop using the IPv6 setup then he runs `zarf init` without the `--ipv6` flag and their cluster will go back to the IPv4 setup.
 
 ### Version Skew Strategy
 
