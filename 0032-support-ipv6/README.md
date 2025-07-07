@@ -182,11 +182,25 @@ How will UX be reviewed, and by whom?
 
 hostPort can be used in the daemonset on IPV4, which will limit the connections to the proxy to only those on the actual node, however since IPv6 does not support rewriting packets to ::1 the the hostPort strategy will not work. IPv6 will have to use hostNetwork instead. HostNetwork implies a greater security risk as anyone with connection to the node will have connection to the exposed port, however, since packets cannot be rewritten to ::1 we bind our proxy to only listen to ::1 and have confidence that only connections from the node will succeed. 
 
-Network policies are not considered in the host IP or Host Network setup so if someone wanted to block certain namespaces from the Zarf registry they would no longer be able to. FIXME: I need to verify this. 
+Network policies are not considered in the host IP or Host Network setup so if someone wanted to block certain namespaces from the Zarf registry they would no longer be able to. TODO: I need to verify this. 
 
 Increased attack vector, if someone were to gain access to the proxy pod in the daemonset, they could break the registry or potentially forward malicious content. For now we are using the default alpine socat image which includes a shell. In the future we could use a different image for the proxy that has no shell to limit this possibility.
 
-The daemonset pod will not be monitored by a sidecar / istio. FIXME: I need to verify this. Also does the isitio host mode change this?
+The daemonset pod will not be monitored by a sidecar / istio? TODO: figure this out. Also does the isitio host mode change this?
+
+Practical risks:
+- Some distros may disallow this
+  - Kind - works
+  - K3D - works
+  - microk8s - works
+  - talos - works, but needs to make the Zarf namespace privalleged
+  - k0s - almost certainly works, but I need to get PVCs working on it to test 100%  
+  - k3s - tbd
+  - RKE2 - tbd
+  - openshift - tbd
+- Some CNIs may disallow host network or host port
+  - Kube proxy default works
+  - calclico works.
 
 ## Design Details
 
@@ -316,6 +330,9 @@ cloud infrastructure for testing or GitHub details. Listing these here
 allows the process to get these resources to be started right away.
 -->
 
+
+<!-- 
+FIXME: delete these notes
 - ClusterIP works from the node, but cluster DNS does not. You cannot use http://zarf-registry.zarf.svc.cluster.local:5000/v2 from the node for example. 
 - What if the service needs to be re-created and it's created with a different clusterIP
   - If an image is pushed to an OCI registry and the domain changes, the image doesn't change.
@@ -324,38 +341,5 @@ allows the process to get these resources to be started right away.
 - I believe we'll have to make config for several different container runtime interfaces so we can give a cert without trusting the cert at the node level
 - I need to evaluate the proxy method to the local host registry and see if it can be better secured
 - I'll need to check the use of different signing keys
-- I will need to test the difference that a proxy makes. For example, does a proxy make openshift work? Does a proxy make things work with NFtables instead of IP tables.  
-
-
-The question we need to ask is do we need the users input on whether or not this is an IPv6 cluster. Maybe and maybe not. 
-Here is currently all the ways that IPv6 is used
-- It's used to decide whether or not the long living daemonset is spun up - use hostNetwork
-- It's used to decide whether or not to spin up the daemonset injector - use hostNetwork
-- It's used to decide if the docker registry service should be a nodeport or clusterIP - use hostNetwork
-- It's used to configure the address of the localhost registry, whether we should use [::1] or 127.0.0.1 - this uses IPv6 and can be determined automatically
-
-
-#### Notes on proxy solution
-
-- There are two daemonsets in this solution. The first is the zarf-injector which is how the Zarf docker registry initially gets things spun up. The second is the long living daemonset which is how the registry moves to the new solution. Currently I have it working with the first daemonset but not the second. Likely because the first daemonset has the total loopback whereas I will need to separate out of the concept of IPV6 vs the concept of host network. 
-
-
-
-
-## Risks
-
-- One problem with this solution is spinning up new nodes. The proxy daemonset on new nodes won't have the required image since the injector daemonset will not have spun up. This can be solved with a zarf init, however it would be better if it could be solved automatically. One idea could be to have a mutating webhook spin up an injector when a new node enters the cluster. IMO, it's fine to force users to run `zarf init` when creating a new node while this feature is not yet in GA.
-
-
-Practical risks:
-- Some distros may disallow this
-  - Kind - works
-  - K3D - works
-  - k3s - tbd
-  - RKE2 - tbd
-  - openshift - tbd
-  - microk8s - tbd
-  - talos - works, but need
-  - k0s - almost certainly works
-- Some CNIs may disallow host network or host port
+- I will need to test the difference that a proxy makes. For example, does a proxy make openshift work? Does a proxy make things work with NFtables instead of IP tables.   -->
 
