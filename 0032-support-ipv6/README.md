@@ -119,6 +119,7 @@ The current nodeport service solution does support IPv6. There is a mandate ([wa
 
 The nodeport solution does not work by default on certain distros such as talos and OpenShift (I need to verify openshift works with IPv6)
 
+The registry proxy solution comes with security advantages. The registry will only be accessible from within the cluster or the loopback address on the node. This is an advantage over the nodeport solution where the registry is accessible externally to anyone who can connect a node. Additionally, the only insecure hop is now occuring from within the node to the proxy. The internode traffic from the proxy to the registry is now secured over https. 
 
 ### Goals
 
