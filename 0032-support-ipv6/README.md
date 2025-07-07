@@ -115,11 +115,11 @@ or other references to show the community's interest in the ZEP.
 
 Kubeneretes 1.33 has made [NFTables](https://kubernetes.io/blog/2025/02/28/nftables-kube-proxy/) generally available. The NFTables designers have made the explicit choice to stop making Nodeport services accessible one 127.0.0.1 (https://kubernetes.io/docs/reference/networking/virtual-ips/#migrating-from-iptables-mode-to-nftables). NFtables are not on by default, however we can expect distros, especially secure or performant distros, to start adopting NFTables by defualt in the coming months or years. It's important that the Zarf registry will work by default in these distros. 
 
-The current nodeport service solution does support IPv6. There is a mandate ([wayback machine link because white house site is flaky ATM](https://web.archive.org/web/20250116092323/https://www.whitehouse.gov/wp-content/uploads/2020/11/M-21-07.pdf)) for government agencys to migrate to IPv6 single stack by end of fiscal year (FY) 2025. Given how often Zarf is used in government environments it's important IPv6 is enabled. 
+The current nodeport service solution does support IPv6. There is a mandate ([wayback machine link because white house site is flaky ATM](https://web.archive.org/web/20250116092323/https://www.whitehouse.gov/wp-content/uploads/2020/11/M-21-07.pdf)) for government agencys to migrate to IPv6 single stack by end of fiscal year (FY) 2025. Given how often Zarf is used in government environments it's important IPv6 is enabled. TODO: are IPV6 address free in some cloud environments like AWS? 
 
 The nodeport solution does not work by default on certain distros such as talos and OpenShift (I need to verify openshift works with IPv6)
 
-The registry proxy solution comes with security advantages. The registry will only be accessible from within the cluster or the loopback address on the node. This is an advantage over the nodeport solution where the registry is accessible externally to anyone who can connect a node. Additionally, the only insecure hop is now occuring from within the node to the proxy. The internode traffic from the proxy to the registry is now secured over https. 
+The registry proxy solution comes with security advantages. The registry will only be accessible from within the cluster or the loopback address on the node. This is an advantage over the nodeport solution where the registry is accessible externally to anyone who can connect a node. Additionally, we will secure the call from socat to the registry with TLS. This way the only unecrypted traffic from the registry is from the kubelet to the proxy, and is exclusively on the host.  
 
 ### Goals
 
@@ -199,8 +199,8 @@ Practical risks:
   - RKE2 - tbd
   - openshift - tbd
 - Some CNIs may disallow host network or host port
-  - Kube proxy default works
-  - calclico works.
+  - flannel - works
+  - calico - works
 
 ## Design Details
 
@@ -213,8 +213,10 @@ proposal will be implemented, this is the place to discuss that.
 
 Initially the proxying component will be based on an existing container image using the `socat` binary ([Alpine socat](https://hub.docker.com/r/alpine/socat)); this is a small and simple image.
 
-`zarf init` should fail if both `--registry-proxy` and `--registry-url` are used.
+`zarf init` will fail if both `--registry-proxy` and `--registry-url` are used.
 
+TLS will be run between the proxy and the registry. Zarf will create it's own certificates to start for the alpha release. By the beta release Zarf will accept certs if given, otherwise it will create it's own. 
+ 
 ### Test Plan
 
 <!--
@@ -312,6 +314,8 @@ Why should this ZEP _not_ be implemented?
 Code complexity, the injector and init package needs to support two paths, one for nodeports and one for host proxy.
 
 When a node is added to the cluster, the proxy will not exist, and will not be able to start since the CRI will have no access to the registry on that node. Users will need to re-run `zarf init` in order to get new nodes up and running. As a future enhancement we could potentially have a webhook that spins up the injector for each node, or a method of mirroring the proxy and registry image to each new node.  
+
+There is inherent downtime with this solution when a proxy is restarted. A solution that continously pulls images, such as a gitlab runner, is likely to notice the downtime when `zarf init` is run. 
 
 ## Alternatives
 
