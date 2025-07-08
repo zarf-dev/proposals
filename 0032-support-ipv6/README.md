@@ -324,7 +324,11 @@ What other approaches did you consider, and why did you rule them out? These do
 not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
+
+One alternative would be to add TLS to the current nodeport solution by providing certs to Containerd. Containerd has the ability to hot reload certs so using a daemonset to edit the filesystem on the host would allow Zarf to automatically configure a secure connection. This would have the advantage of avoiding hostPort or hostNetwork, though the daemonset would need the ability to edit files on the host node. 
+
 In a later stage, the proxy component could be replaced by a component similar to the Rust Zarf injector (or even the Zarf injector itself - a proxy based on the Rust Tokyo library - already part of the used libraries - is only a few lines of code).
+
 
 ## Infrastructure Needed (Optional)
 
