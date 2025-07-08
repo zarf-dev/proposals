@@ -313,7 +313,7 @@ Why should this ZEP _not_ be implemented?
 
 Code complexity, the injector and init package needs to support two paths, one for nodeports and one for host proxy.
 
-When a node is added to the cluster, the proxy will not exist, and will not be able to start since the CRI will have no access to the registry on that node. Users will need to re-run `zarf init` in order to get new nodes up and running. As a future enhancement we could potentially have a webhook that spins up the injector for each node, or a method of mirroring the proxy and registry image to each new node.  
+When a node is added to the cluster, the proxy will not exist, and will not be able to start since the CRI will have no access to the registry on that node. Users will need to re-run `zarf init` in order to get new nodes up and running. A potential solution would be to have a small controller in the cluster that detects when the registry is spun up and calls the injector if so. Another option would be to mirror the proxy image to each new node with something like [spegel](https://github.com/spegel-org/spegel), however spegel only works with certain distros and must use containerd.
 
 There is inherent downtime with this solution when a proxy is restarted. A solution that continously pulls images, such as a gitlab runner, is likely to notice the downtime when `zarf init` is run. 
 
