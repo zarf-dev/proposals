@@ -182,11 +182,11 @@ How will UX be reviewed, and by whom?
 
 hostPort can be used in the daemonset on IPV4, which will limit the connections to the proxy to only those on the actual node, however since IPv6 does not support rewriting packets to ::1 the the hostPort strategy will not work. IPv6 will have to use hostNetwork instead. HostNetwork implies a greater security risk as anyone with connection to the node will have connection to the exposed port, however, since packets cannot be rewritten to ::1 we bind our proxy to only listen to ::1 and have confidence that only connections from the node will succeed.
 
-Network policies are not considered in the host IP or Host Network setup so if someone wanted to block certain namespaces from the Zarf registry they would no longer be able to. TODO: I need to verify this. 
+<!-- Network policies are not considered in the host IP or Host Network setup so if someone wanted to block certain namespaces from the Zarf registry they would no longer be able to. TODO: I need to verify this.  -->
 
 Increased attack vector, if someone were to gain access to the proxy pod in the daemonset, they could break the registry or potentially forward malicious content. There are additional concerns with the IPv6 solution where pods will have `hostNetwork: true`. An attacker who has taken over the registry proxy pod would have the ability to bind to any free port on the node. For now we are using the default alpine socat image which includes a shell. In the future we could use a different image for the proxy that has no shell to limit this possibility. 
 
-The daemonset pod will not be monitored by a sidecar / istio? TODO: figure this out. Also does the isitio host mode change this?
+<!-- The daemonset pod will not be monitored by a sidecar / istio? TODO: figure this out. Also does the isitio host mode change this? -->
 
 Practical risks:
 - Some distros may disallow this
