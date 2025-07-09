@@ -180,7 +180,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-hostPort can be used in the daemonset on IPV4, which will limit the connections to the proxy to only those on the actual node, however since IPv6 does not support rewriting packets to ::1 the the hostPort strategy will not work. IPv6 will have to use hostNetwork instead. HostNetwork implies a greater security risk as anyone with connection to the node will have connection to the exposed port, however, since packets cannot be rewritten to ::1 we bind our proxy to only listen to ::1 and have confidence that only connections from the node will succeed.
+hostPort can be used in the daemonset on IPV4, which will limit the connections to the proxy to only those on the actual node, however since IPv6 does not support rewriting packets to ::1 the the hostPort strategy will not work. IPv6 will have to use hostNetwork instead. We can still guarentee that the registry is only connected to from localhost since packets cannot be rewritten to ::1 and we can bind our proxy to only listen to ::1. However, hostNetwork comes with other security issues, notably that the pod has the ability to take over or listen to any port on the system. 
 
 <!-- Network policies are not considered in the host IP or Host Network setup so if someone wanted to block certain namespaces from the Zarf registry they would no longer be able to. TODO: I need to verify this.  -->
 
@@ -276,9 +276,6 @@ proposal:
   make use of the proposal?
 -->
 
-If an administrator with an existing Kubernetes cluster, configured with dual-stack networking, wants their cluster to use the IPv6 setup then he can run `zarf init --ipv6`.
-
-If an administrator wants to stop using the IPv6 setup then he runs `zarf init` without the `--ipv6` flag and their cluster will go back to the IPv4 setup.
 
 ### Version Skew Strategy
 
@@ -315,7 +312,7 @@ Code complexity, the injector and init package needs to support two paths, one f
 
 When a node is added to the cluster, the proxy will not exist, and will not be able to start since the CRI will have no access to the registry on that node. Users will need to re-run `zarf init` in order to get new nodes up and running. A potential solution would be to have a small controller in the cluster that detects when the registry is spun up and calls the injector if so. Another option would be to mirror the proxy image to each new node with something like [spegel](https://github.com/spegel-org/spegel), however spegel only works with certain distros and must use containerd.
 
-There is inherent downtime with this solution when a proxy is restarted. A solution that continously pulls images, such as a gitlab runner, is likely to notice the downtime when `zarf init` is run. 
+There is inherent downtime with this solution when a proxy is restarted. A solution that continously pulls images, such as a gitlab runner, may notice the downtime when `zarf init` is run. The proxy will likely not be restarted often, but will at least be restarted during `zarf init`. 
 
 ## Alternatives
 
@@ -325,7 +322,7 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-One alternative would be to add TLS to the current nodeport solution by providing certs to Containerd. Containerd has the ability to hot reload certs so using a daemonset to edit the filesystem on the host would allow Zarf to automatically configure a secure connection. This would have the advantage of avoiding hostPort or hostNetwork, though the daemonset would need the ability to edit files on the host node. 
+One alternative would be to add TLS to the current nodeport solution by providing certs to Containerd. Containerd has the ability to hot reload certs so using a daemonset to edit the containerd config on the host nodes to point to self signed certificates would allow Zarf to automatically configure a secure connection. This would have the advantage of avoiding hostPort or hostNetwork, though we would need to give the daemonset would need the ability to edit files on the host node. The main drawback of this solution is that it's not CRI agnostic, it would not work with CRI-o for example. 
 
 In a later stage, the proxy component could be replaced by a component similar to the Rust Zarf injector (or even the Zarf injector itself - a proxy based on the Rust Tokyo library - already part of the used libraries - is only a few lines of code).
 
