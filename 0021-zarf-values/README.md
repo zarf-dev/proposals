@@ -104,7 +104,7 @@ The motivation for this centers around the long-lived desire to have Zarf Variab
 
 ## Proposal
 
-The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts with a new `values` field under `charts`. The `values` field will be a list of objects containing a `sourcePath` and `targetPath`. `sourcePath` will map package level values into the chart value key specified by the `targetPath`. If `targetPath` is omitted then the `sourcePath` values will map directly into the root values of the chart.
+The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts with a new `values` field under `charts`. The `values` field will be a list of objects that contain a required `sourcePath` and optional `targetPath`. `sourcePath` will map package level values into the chart value key specified by the `targetPath`. If `targetPath` is omitted then the `sourcePath` values will map directly into the root values of the chart.
 
 The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today. Zarf `files` and `manifests` would optionally allow Go templating to be able to take advantage of values as well.
 
