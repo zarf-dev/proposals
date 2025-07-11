@@ -151,7 +151,7 @@ A new flag called `--registry-proxy` will be added to `zarf init` and will chang
 
 A user can run `--registry-proxy` during `zarf init` and their choice will be saved to the cluster and used on subsequent runs during `init`. If a user wants to switch back to the localhost nodeport solution they must run `zarf init --registry-proxy=false`. If a user runs `zarf init` without the `--registry-proxy` flag on an already initalized cluster, it will keep using the registry connect method that the cluster is currently using, whether that is the registry proxy or nodeport solution. 
 
-When a node is added to the cluster, the daemonset will attempt to create a new proxy image however, there will be no injector on the node for the proxy to pull from. Users will need to re-run `zarf init` in order for the proxy to pull an image. To solve this we could have a small controller in the cluster that monitors the proxy daemonset for the status ErrImagePull. When a proxy pod is in the ErrImagePull status is spins up an injector on that node. Care will be needed to ensure there is not a race condition if `zarf init` is also re-run at the same time a node is added.
+When a node is added to the cluster, the daemonset will attempt to create a new proxy image however, there will be no injector on the node for the proxy to pull from. Users will need to re-run `zarf init` in order for the proxy to pull an image. To solve this we could have a small controller in the cluster that monitors the proxy daemonset for the status ErrImagePull. When a proxy pod is in the ErrImagePull status is spins up an injector on that node. We would still need the original injector during the first `zarf init` as a controller could not be spun up without avoiding the chicken and egg problem. 
 
 ### User Stories (Optional)
 
@@ -316,7 +316,7 @@ There is an extra process required to make new nodes work with the registry
 
 There is inherent downtime with this solution when a proxy is restarted. A solution that continously pulls images, such as a gitlab runner, may notice the downtime when `zarf init` is run. The proxy will likely not be restarted often, but will at least be restarted during `zarf init`.
 
-Extra compute will be used in the cluster to run the registry proxy. Likely, it will not need much and we can limit it to X CPU and Y Memory <- TODO
+Extra compute will be used in the cluster to run the registry proxy. This pod will not need much compute power, it will be limited to X CPU and Y Memory by default <- TODO
 
 ## Alternatives
 
