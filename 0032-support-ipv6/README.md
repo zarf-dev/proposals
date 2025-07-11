@@ -147,9 +147,11 @@ below is for the real nitty-gritty.
 
 A new flag called `--registry-proxy` will be added to `zarf init` and will change how the registry is connected to within the cluster. When `--registry-proxy` is used Zarf will replace the nodeport service with a clusterIP serivce and a `DaemonSet` running a proxy on each node to forward the registry. The proxy will use `hostIP` and `hostPort` in IPV4 and dual IP stacks, and hostNetwork in IPv6 only clusters. A `DaemonSet` will be requried both for the injector and long lived registry. 
 
-![Host Port Diagram](image.png)
+![Registry proxy Diagram](image.png)
 
 A user can run `--registry-proxy` during `zarf init` and their choice will be saved to the cluster and used on subsequent runs during `init`. If a user wants to switch back to the localhost nodeport solution they must run `zarf init --registry-proxy=false`. If a user runs `zarf init` without the `--registry-proxy` flag on an already initalized cluster, it will keep using the registry connect method that the cluster is currently using, whether that is the registry proxy or nodeport solution. 
+
+When a node is added to the cluster, the daemonset will attempt to create a new proxy image however, there will be no injector on the node for the proxy to pull from. Users will need to re-run `zarf init` in order for the proxy to pull an image. To solve this we could have a small controller in the cluster that monitors the proxy daemonset for the status ErrImagePull. When a proxy pod is in the ErrImagePull status is spins up an injector on that node. Care will be needed to ensure there is not a race condition if `zarf init` is also re-run at the same time a node is added.
 
 ### User Stories (Optional)
 
@@ -308,11 +310,13 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
-Code complexity, the injector and init package needs to support two paths, one for nodeports and one for host proxy.
+Code complexity, at least in the short the injector and init package needs to support two paths, one for nodeports and one for host proxy.
 
-When a node is added to the cluster, the proxy will not exist, and will not be able to start since the CRI will have no access to the registry on that node. Users will need to re-run `zarf init` in order to get new nodes up and running. A potential solution would be to have a small controller in the cluster that detects when the registry is spun up and calls the injector if so. Another option would be to mirror the proxy image to each new node with something like [spegel](https://github.com/spegel-org/spegel), however spegel only works with certain distros and must use containerd.
+There is an extra process required to make new nodes work with the registry
 
-There is inherent downtime with this solution when a proxy is restarted. A solution that continously pulls images, such as a gitlab runner, may notice the downtime when `zarf init` is run. The proxy will likely not be restarted often, but will at least be restarted during `zarf init`. 
+There is inherent downtime with this solution when a proxy is restarted. A solution that continously pulls images, such as a gitlab runner, may notice the downtime when `zarf init` is run. The proxy will likely not be restarted often, but will at least be restarted during `zarf init`.
+
+Extra compute will be used in the cluster to run the registry proxy. Likely, it will not need much and we can limit it to X CPU and Y Memory <- TODO
 
 ## Alternatives
 
