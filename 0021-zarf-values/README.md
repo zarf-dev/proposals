@@ -296,7 +296,7 @@ other-component:
 
 This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for now.  Because of this, the feature will need to be clearly disambiguated from Variables/Constants/Templates in documentation and, while this feature should not introduce many breaking changes being implemented alongside the existing featureset, the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping to assist with disambiguation.  If the feature gains traction and is accepted by the community, a deprecation plan for the original Zarf Variables/Constants/Templates should be created.  Likely this plan would not break `charts.variables` in existing packages and would simply prevent furutre packages from using this feature.
 
-The schema should validate during package create that `.components[x].charts[x].values[x].sourcePath/targetPath` being with a `.` to avoid user error. 
+The schema should validate during package create that `.components[x].charts[x].values[x].sourcePath/targetPath` begin with a `.` to avoid user error. 
 
 This feature also could open up Zarf packages to being less declarative - especially if a package author opens up security-critical Helm values in their charts.  This caveat should be clearly documented as a concern which should also recommend a policy engine be used to enforce security-critical values within the cluster itself.
 
