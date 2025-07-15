@@ -79,7 +79,7 @@ any additional information provided beyond the standard ZEP template.
 - [Infrastructure Needed (Optional)](#infrastructure-needed-optional)
 <!-- /toc -->
 
-## FIXME Summary
+## Summary
 
 <!--
 This section is key for creating high-quality, user-focused documentation
@@ -96,12 +96,14 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-- Add feature flags / feature gates to Zarf.
-- Model release stages (alpha, beta, GA) and deprecation processes
-- Centralize implementation (easily find flags and associated docs) and docs in code
-- Generate 1:1 mapping to the website docs.
+This ZEP proposes Feature Flags for Zarf, intended to provide a configuration model for features throughout the stages
+of release and deprecation, eg. "alpha", "beta", "GA", "deprecated". It introduces a ctx-based API, similar to previous
+usages of feature flags in Zarf, a centralized location where all CLI feature flags are **declared** so that users may
+easily find Flags and their documentation in code. Additionally, centralizing where Flags are declared allows us to
+automate site documentation that corresponds one to one with the docs in code. Inspiration for the Flag fields is taken
+from the Kubernetes project.
 
-## FIXME Motivation
+## Motivation
 
 <!--
 This section is for explicitly listing the motivation, goals, and non-goals of
@@ -114,12 +116,15 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-- Feature flags provides a lot of benefits.
-- Maintainer flexibility is paramount. Low impact to add things and can iterate on 
-- Specifically, this lets users may opt-in to specific features
-- Documentation benefits, so that significant features can easily be tracked. Currently this information is available in Github commits. 
+Feature flags have been discussed often in Zarf as a step on the path to v1.0.0 and we believe they provide significant
+enough benefits to offset the complexity they add. Maintainer flexibility is the foremost benefit, allowing for 
+experimental features to be added and iterated on. Allowing users to opt-in for alpha previews and beta testing also
+provides additional ways for Zarf maintainers to get feedback and shape features into a complete state before they are
+made fully available. There's also documentation benefits. By associating features to their release version, users may
+more easily track which minimum version is required to get the functionality they need. Currently this information can
+be dug up in GitHub releases and commits, but is not modeled explicitly in the codebase. 
 
-### FIXME Goals
+### Goals
 
 <!--
 List the specific goals of the ZEP. What is it trying to achieve? How will we
@@ -128,22 +133,21 @@ know that this has succeeded?
 
 - Make new features opt-in.
 - Have a clear and documented reference for users on which versions of Zarf introduce new features.
-- Runtime level feature configuration
+- Runtime-level feature configuration
+- Stretch goal: multiple avenues of configuration (code, env vars, flags, config files)
 
-### FIXME Non-Goals
+### Non-Goals
 
 <!--
 What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
-- (TODO move to risks) One critical pitfall to avoid with feature flags is creating _unexpected_ behavior, both for end users and maintainers.
-Unclear state about which flags are enabled and not, and with and without defaults. We have some solutions below under
-risks and mitigations on how to account for this.
-- Configuration nightmares (needing)
-- Forever features (endless reworks never making it to GA)
-- Not _build time_ configuration. Those are handled by build flags. 
+- Elaborate configuration nightmares, where users don't know what is enabled or multiple flags are intertwined.
+- Forever features that are endless reworked and never make it to GA.
+- _Build time_ feature flags. Go already provides these via build flags - features should be runtime configurable
+whenever possible.
 
-## FIXME Proposal
+## TODO Proposal
 <!--
 This is where you explain the specifics of the proposal. Provide enough detail
 for reviewers to clearly understand what you're proposing, but avoid including
@@ -152,9 +156,10 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-- Add feature flags / feature gates to Zarf. (See implementation below)
-- Model release stages (alpha, beta, GA) and deprecation processes in the implementation. These flags can be queried, and modified at runtime via a global or drawn from ctx for maximal flexibility.
-- Centralize implementation within the CLI to provide a clear implementation guidance on how to declare feature flags. (easily find flags and associated docs) and docs in code
+- Add feature flags API to Zarf. (See implementation below)
+- Model release stages (alpha, beta, GA) and deprecation processes in the implementation. These flags can be queried,
+and modified at runtime via a global or drawn from ctx for maximal flexibility. (TODO Storage and retrieval implications)
+- Centralize implementation within the CLI to provide a clear implementation guidance on how to declare feature flags.
 - TODO Discuss global API
 - Generate 1:1 mapping to the website docs.
 
@@ -177,7 +182,7 @@ by disabling the feature before it's fully removed.
 - As a Zarf user I want to continue using Zarf without my critical workflows getting disrupted by experimental features.
 - As a Zarf user I want deeper clarity if a feature that I use will be deprecated.
 
-### TODO Risks and Mitigations
+### FIXME Risks and Mitigations
 <!--
 What are the risks of this proposal, and how do we mitigate? Think broadly.
 For example, consider both security and how this will impact the larger
@@ -188,7 +193,13 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-- Developer experience (DX) and user experience (UX) are both critical feature flag adoption
+- One critical pitfall to avoid with feature flags is creating _unexpected_ behavior, both for end users and maintainers.
+  Unclear state about which flags are enabled and not, and with and without defaults. We have some solutions below under
+  risks and mitigations on how to account for this.
+- Developer experience (DX) and user experience (UX) are both critical feature flag adoption.
+- User feedback is key.
+- Rollout considerations, like can we _backport_ flags to previous features so that they can be associated with verions
+or disabled? 
 
 ## FIXME Design Details
 <!--
@@ -199,6 +210,7 @@ proposal will be implemented, this is the place to discuss that.
 -->
 
 ### Types
+Below is the proposed data model for Feature Flags, including the `Flag` type and supporting fields in the `flag` pkg.
 ```
 pkg flag 
 ...
@@ -235,13 +247,8 @@ type Flag struct {
 }
 ```
 
-TODO: 
-- Having a central location for flags is ideal, both to generate documentation from and to give users a centralized place
-to reference flag defaults in code.
-- maybe map[Name("myFeature")]Flag
-- Each entry is fully documented, has an owner, has a ZEP if it needs it.
-
 ### API
+Below are descriptions of each function in the flag API and their intended UX.
 
 #### With()
 ```
@@ -249,10 +256,13 @@ pkg flag
 ...
 
 // With takes a context and a slice of one or many flags, setting the context on each. Duplicated flags will not error
-and are treated as idempotent. If flags are duplicated with different fields, the value from the "latest" flag at the
-tail slice will take precedence and merge over the prior field. The value of the field is not compared.
-TODO Example [{name: "foo", version:  }]
+// and are treated as idempotent. If flags are duplicated with different fields, the value from the "latest" flag at the
+// tail slice will take precedence and merge over the prior field. The value of the field is not compared.
+// TODO Example [{name: "foo", version:  }]
 func With(ctx, []Flag) (context.Context, error) { ... }
+
+// DISCUSS: Instead of merging two flags and taking the latest, should we instead treat flags as a unique set, and error
+// if passed a duplicate flag?
 ```
 
 #### IsEnabled()
@@ -260,8 +270,7 @@ func With(ctx, []Flag) (context.Context, error) { ... }
 pkg flag 
 ...
 
-// IsEnabled allows users to optimistically check a flag from ctx without regard for errors. Useful in control flow and
-// non-critical applications.
+// IsEnabled allows users to optimistically check a flag from ctx without regard for errors. Useful for control flow.
 func IsEnabled(ctx, flagName) bool { ... }
 ```
 
@@ -313,11 +322,17 @@ func All(ctx) (map[flagName string]Flag)
 have a flag store/collection instance on ctx which is what we query? Currently we just assume it's going to be a
 bare collection type, e.g. slice or map, but supporting atomic updates would be better with an abstraction.
 
-### TODO Feature flags for agent
 
-### TODO Docs for users
+### TODO DISCUSS Other details:
+- Having a central location for flags is ideal, both to generate documentation from and to give users a centralized place
+  to reference flag defaults in code.
+- maybe map[Name("myFeature")]Flag
+- Each entry is fully documented, has an owner, has a ZEP if it needs it.
+
+### TODO Site Docs Automation
 - Generate docs.zarf.dev page with `make docs-and-schema` 
-- Parse flags in defaults table, generate markdown.
+- Parse flags in defaults table, generate markdown table from the list.
+- K8s website has a good example here (link)
 
 ### TODO Test Plan
 
@@ -419,13 +434,11 @@ Revision 1 of this doc is intended to include Summary, Motivation, Proposal and 
 The reason why this is all done at once, is because we have prior art with feature flagging (TODO link to PR) and this
 proposal is intended to generalize and provide long term support for this approach.
 
-## Drawbacks
-
+## TODO Drawbacks
 <!--
 Why should this ZEP _not_ be implemented?
 -->
 
-TODO:
 - Contributor friction and increased lead time on new features (what if this is a positive because of the design work)
 - Yet Another Process (yap yap yap)
 - Increased end user complexity and config surface area (effective docs makes this better but doesn't solve it.)
@@ -441,7 +454,9 @@ information to express the idea and why it was not acceptable.
 -->
 
 ### Value-based flag merges on flags.With()
-This is overkill, we don't need to compare for highest version or latest feature (e.g. beta takes precedence over alpha).
+This is overkill, we don't need to compare for highest version or latest feature (e.g. beta takes precedence over alpha)
+for each field every time a flag is declared multiple times. A flag should be declared once, and if it is declared
+multiple times, take the latest.
 
 ## (TODO) Infrastructure Needed (Optional)
 
