@@ -64,8 +64,6 @@ any additional information provided beyond the standard ZEP template.
   - [Non-Goals](#non-goals)
 - [Proposal](#proposal)
   - [User Stories (Optional)](#user-stories-optional)
-    - [Story 1](#story-1)
-    - [Story 2](#story-2)
   - [Risks and Mitigations](#risks-and-mitigations)
 - [Design Details](#design-details)
   - [Test Plan](#test-plan)
@@ -81,7 +79,7 @@ any additional information provided beyond the standard ZEP template.
 - [Infrastructure Needed (Optional)](#infrastructure-needed-optional)
 <!-- /toc -->
 
-## Summary
+## FIXME Summary
 
 <!--
 This section is key for creating high-quality, user-focused documentation
@@ -98,7 +96,12 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-## Motivation
+- Add feature flags / feature gates to Zarf.
+- Model release stages (alpha, beta, GA) and deprecation processes
+- Centralize implementation (easily find flags and associated docs) and docs in code
+- Generate 1:1 mapping to the website docs.
+
+## FIXME Motivation
 
 <!--
 This section is for explicitly listing the motivation, goals, and non-goals of
@@ -111,25 +114,36 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-### Goals
+- Feature flags provides a lot of benefits.
+- Maintainer flexibility is paramount. Low impact to add things and can iterate on 
+- Specifically, this lets users may opt-in to specific features
+- Documentation benefits, so that significant features can easily be tracked. Currently this information is available in Github commits. 
+
+### FIXME Goals
 
 <!--
 List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-### Non-Goals
+- Make new features opt-in.
+- Have a clear and documented reference for users on which versions of Zarf introduce new features.
+- Runtime level feature configuration
+
+### FIXME Non-Goals
 
 <!--
 What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
-One critical pitfall to avoid with feature flags is creating _unexpected_ behavior, both for end users and maintainers.
+- (TODO move to risks) One critical pitfall to avoid with feature flags is creating _unexpected_ behavior, both for end users and maintainers.
 Unclear state about which flags are enabled and not, and with and without defaults. We have some solutions below under
 risks and mitigations on how to account for this.
+- Configuration nightmares (needing)
+- Forever features (endless reworks never making it to GA)
+- Not _build time_ configuration. Those are handled by build flags. 
 
-## Proposal
-
+## FIXME Proposal
 <!--
 This is where you explain the specifics of the proposal. Provide enough detail
 for reviewers to clearly understand what you're proposing, but avoid including
@@ -137,6 +151,12 @@ too many specifics like API designs or implementation details. Focus on the
 desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
+
+- Add feature flags / feature gates to Zarf. (See implementation below)
+- Model release stages (alpha, beta, GA) and deprecation processes in the implementation. These flags can be queried, and modified at runtime via a global or drawn from ctx for maximal flexibility.
+- Centralize implementation within the CLI to provide a clear implementation guidance on how to declare feature flags. (easily find flags and associated docs) and docs in code
+- TODO Discuss global API
+- Generate 1:1 mapping to the website docs.
 
 ### User Stories (Optional)
 
@@ -147,13 +167,17 @@ the system. The goal here is to make this feel real for users without getting
 bogged down.
 -->
 
-#### Story 1
+- As a Zarf maintainer I want to add a new feature, get feedback, make revisions over time before fully releasing and 
+maintaining it.
+- As a Zarf maintainer I want to deprecate features with clarity on when they will be removed as well as trialing removal
+by disabling the feature before it's fully removed.
 
-#### Story 2
 
-### Risks and Mitigations
-Developer experience (DX) and user experience (UX) are both critical to sucessfully  are both critical to sucessfully  are both critical to sucessfully are both critical to successful feature flag adoption
+- As a Zarf user I want to get involved in new experimental features, and opt-in to provide alpha feedback or beta testing.
+- As a Zarf user I want to continue using Zarf without my critical workflows getting disrupted by experimental features.
+- As a Zarf user I want deeper clarity if a feature that I use will be deprecated.
 
+### TODO Risks and Mitigations
 <!--
 What are the risks of this proposal, and how do we mitigate? Think broadly.
 For example, consider both security and how this will impact the larger
@@ -164,8 +188,9 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-## Design Details
+- Developer experience (DX) and user experience (UX) are both critical feature flag adoption
 
+## FIXME Design Details
 <!--
 This section should contain enough information that the specifics of your
 change are understandable. This may include API specs (though not always
@@ -173,16 +198,18 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-flags.go takes a context and returns a context?
-
+### Types
 ```
-pkg flag
+pkg flag 
+...
 
-type FeatureName string
+type Name string
+type Description string
+
+# TODO Validate Since matches semver
 type Since string
 
 type Stage string
-
 var (
   StageAlpha Stage = "alpha"
   StageBeta Stage = "beta"
@@ -191,50 +218,108 @@ var (
 )
 
 type Flag struct {
-  Name    FeatureName
+  # Name stores the name of the feature flag.
+  Name
+  # Description describes how the flag is used.
+  Description
+  # Enabled is set if a feature is set.
   Enabled bool
+  # Default is set if a feature is enabled by default, without being set by users.
   Default bool
-  # Since is set when a feature is first introduced in alpha
+  # Since is the version a feature is first introduced in alpha stage.
   Since
-  # Until is set when features are fully deprecated
+  # Until is the version when a deprecated feature is fully removed. Historical versions included.
   Until
-  Stage  
+  # Stage describes what level of done-ness a feature is. TODO describe this better
+  Stage
 }
 ```
 
-Having a central location for flags is ideal, both to generate documentation from and to give users a centralized place
-to reference flag defaults in code. maybe map[FeatureName("myFeature")]Flag
-Each entry is fully documented, has an owner, has a ZEP if it needs it.
+TODO: 
+- Having a central location for flags is ideal, both to generate documentation from and to give users a centralized place
+to reference flag defaults in code.
+- maybe map[Name("myFeature")]Flag
+- Each entry is fully documented, has an owner, has a ZEP if it needs it.
 
-API
+### API
+
+#### With()
 ```
+pkg flag 
+...
+
+// With takes a context and a slice of one or many flags, setting the context on each. Duplicated flags will not error
+and are treated as idempotent. If flags are duplicated with different fields, the value from the "latest" flag at the
+tail slice will take precedence and merge over the prior field. The value of the field is not compared.
+TODO Example [{name: "foo", version:  }]
+func With(ctx, []Flag) (context.Context, error) { ... }
+```
+
+#### IsEnabled()
+```
+pkg flag 
+...
+
 // IsEnabled allows users to optimistically check a flag from ctx without regard for errors. Useful in control flow and
-// non-critical contexts like 
-flags.IsEnabled(ctx, flagName) bool
+// non-critical applications.
+func IsEnabled(ctx, flagName) bool { ... }
 ```
 
+#### From()
 ```
-// With takes a context and a slice of flags, setting the context on each
-flags.With(ctx, []Flag) (context.Context, error)
-```
+pkg flag 
+...
 
-```
 // From takes a ctx and the name of a flag, and returns it from the ctx object. If the doesn't exist, then it will
 // return an error.
-flags.From(ctx, flagName) (Flag, error)
+func From(ctx, flagName) (Flag, error) { ... }
 
 // alt, ok + empty flag on false? I feel like "ok" has gone out of style. dogsledding the flag itself isn't the worst UX
 // though. Kinda just expect Flag, error if we're returning a struct type.
-From(ctx, flagName) (bool, Flag)
+func From(ctx, flagName) (bool, Flag) { ... }
 
-e.g.
-if ok, _ := foo(); ok {
-  ...		
-}
+// e.g.
+// if ok, _ := foo(); ok {
+//   ...		
+// }
 ```
 
+#### All()
+```
+pkg flag 
+...
 
-### Test Plan
+// From takes a ctx and returns all flags from the ctx object.
+func All(ctx) ([]Flag)
+
+TODO alt
+func All(ctx) (map[flagName string]Flag)
+
+// NOTE: Getting back an empty collection here is not considered an error. The intended way to check for no flags is
+// if len(flags) == 0 {...}
+```
+
+### TODO DISCUSS: Global API
+- Enable globals? Potentially an abandoned idea.
+- Proposal:
+- Allow for global flags and have the API fallback to globals if no ctx is provided or ctx is empty?
+- Globals have advantages for developer ease of use in the SDK. e.g. get sensible defaults for loading up Zarf as a library, don't worry about enabling anything yourself.
+- Also if maintainers rely on enabling feature flags at specific versions then this keeps SDK to CLI parity.
+- Without global defaults we have to flip the boolean from enabled to disabled when providing a beta feature by default.
+- A major drawback with ctx is that it's difficult to inspect for users. "where did this flag come from?"
+- Maybe this is a good nudge to get features into GA sooner. More to discuss here.
+- Implementation:
+- Not unlike logger. Atomically store a reference to a set of flags. Making the API transparent is harder. Should we
+have a flag store/collection instance on ctx which is what we query? Currently we just assume it's going to be a
+bare collection type, e.g. slice or map, but supporting atomic updates would be better with an abstraction.
+
+### TODO Feature flags for agent
+
+### TODO Docs for users
+- Generate docs.zarf.dev page with `make docs-and-schema` 
+- Parse flags in defaults table, generate markdown.
+
+### TODO Test Plan
 
 <!--
 **Note:** *Not required until targeted at a release.*
@@ -250,6 +335,12 @@ when drafting this test plan.
 [ ] I/we understand the owners of the involved components may require updates to
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
+
+- Create unit test file and tables for each feature flag function.
+- Test errors in unit test cases as well
+- TODO e2e testing. This may require a test flag for a mock feature. A/B test before and after flag is enabled? should
+be pretty lightweight
+- TODO Infra implications for more testing
 
 ### Graduation Criteria
 
@@ -310,6 +401,8 @@ TODO Should we consider build flags as well with feature flags? Optimistically w
 Go codepaths, but that assumption may not always hold. What if a new feature adds a full component or requires signific
 resources like configuration?
 
+BK: Backporting features to flags?
+
 ## Implementation History
 
 <!--
@@ -322,12 +415,22 @@ Major milestones might include:
 - the version of Zarf where the ZEP graduated to general availability
 - when the ZEP was retired or superseded
 -->
+Revision 1 of this doc is intended to include Summary, Motivation, Proposal and a first stab at an API implementation.
+The reason why this is all done at once, is because we have prior art with feature flagging (TODO link to PR) and this
+proposal is intended to generalize and provide long term support for this approach.
 
 ## Drawbacks
 
 <!--
 Why should this ZEP _not_ be implemented?
 -->
+
+TODO:
+- Contributor friction and increased lead time on new features (what if this is a positive because of the design work)
+- Yet Another Process (yap yap yap)
+- Increased end user complexity and config surface area (effective docs makes this better but doesn't solve it.)
+- Increased contributor complexity when having to support backwards compatibility during new feature rollout and
+deprecation strategy for the backwards compatible feature. (Again, this is kinda looking like a GOOD constraint)
 
 ## Alternatives
 
@@ -337,6 +440,9 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
+### Value-based flag merges on flags.With()
+This is overkill, we don't need to compare for highest version or latest feature (e.g. beta takes precedence over alpha).
+
 ## (TODO) Infrastructure Needed (Optional)
 
 <!--
@@ -345,4 +451,4 @@ cloud infrastructure for testing or GitHub details. Listing these here
 allows the process to get these resources to be started right away.
 -->
 
-TODO Implementation considerations for Test plan
+TODO Implementation considerations for Test plan. Esp. additional e2e tests.
