@@ -120,9 +120,14 @@ Feature flags have been discussed often in Zarf as a step on the path to v1.0.0 
 enough benefits to offset the complexity they add. Maintainer flexibility is the foremost benefit, allowing for 
 experimental features to be added and iterated on. Allowing users to opt-in for alpha previews and beta testing also
 provides additional ways for Zarf maintainers to get feedback and shape features into a complete state before they are
-made fully available. There's also documentation benefits. By associating features to their release version, users may
-more easily track which minimum version is required to get the functionality they need. Currently this information can
-be dug up in GitHub releases and commits, but is not modeled explicitly in the codebase. 
+made fully available.
+
+There's also documentation benefits. By associating features to their release version, users may
+more easily track which minimum version is required to get the functionality they need. Currently, this information can
+be dug up in GitHub releases and commits, but is not modeled explicitly in the codebase.
+
+Lastly, Zarf's ZEP process is deeply tied to a staged (alpha, beta, GA) release flow, and feature flags offer an
+opportunity to model and encourage that flow in the codebase itself.
 
 ### Goals
 
@@ -156,12 +161,13 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
+(TODO paragraph form not outline)
 - Add feature flags API to Zarf. (See implementation below)
-- Model release stages (alpha, beta, GA) and deprecation processes in the implementation. These flags can be queried,
-and modified at runtime via a global or drawn from ctx for maximal flexibility. (TODO Storage and retrieval implications)
+- Model release and deprecation stages (alpha, beta, GA, deprecated) in the implementation. These flags can be queried,
+and modified at runtime from ctx for maximal flexibility. (TODO Storage and retrieval implications)
 - Centralize implementation within the CLI to provide a clear implementation guidance on how to declare feature flags.
-- TODO Discuss global API
-- Generate 1:1 mapping to the website docs.
+- TODO Discuss global fallback to ctx in API
+- Automate docs.zarf.dev page with 1:1 mapping to flags as they're declared and documented in code.
 
 ### User Stories (Optional)
 
