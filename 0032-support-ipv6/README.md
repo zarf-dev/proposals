@@ -145,13 +145,13 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-A new flag called `--registry-proxy` will be added to `zarf init` and will change how the registry is connected to within the cluster. When `--registry-proxy` is used Zarf will replace the nodeport service with a clusterIP serivce and a `DaemonSet` running a proxy on each node to forward the registry. The proxy will use `hostIP` and `hostPort` in IPV4 and dual IP stacks, and hostNetwork in IPv6 only clusters. A `DaemonSet` will be requried both for the injector and long lived registry. 
+A new flag called `--registry-proxy` will be added to `zarf init` and will change how the registry is connected to within the cluster. When `--registry-proxy` is used Zarf will replace the nodeport service with a clusterIP service and a `DaemonSet` running a proxy on each node to forward the registry. The proxy will use `hostIP` and `hostPort` in IPV4 and dual IP stacks, and hostNetwork in IPv6 only clusters. A `DaemonSet` will be required both for the injector and long lived registry. 
 
 ![Registry proxy Diagram](image.png)
 
-A user can run `--registry-proxy` during `zarf init` and their choice will be saved to the cluster and used on subsequent runs during `init`. If a user wants to switch back to the localhost nodeport solution they must run `zarf init --registry-proxy=false`. If a user runs `zarf init` without the `--registry-proxy` flag on an already initalized cluster, it will keep using the registry connect method that the cluster is currently using, whether that is the registry proxy or nodeport solution. 
+A user can run `--registry-proxy` during `zarf init` and their choice will be saved to the cluster and used on subsequent runs during `init`. If a user wants to switch back to the localhost nodeport solution they must run `zarf init --registry-proxy=false`. If a user runs `zarf init` without the `--registry-proxy` flag on an already initialized cluster, it will keep using the registry connect method that the cluster is currently using, whether that is the registry proxy or nodeport solution. 
 
-When a node is added to the cluster, the daemonset will attempt to create a new proxy image however, there will be no injector on the node for the proxy to pull from. Users will need to re-run `zarf init` in order for the proxy to pull an image. To solve this we could have a small controller in the cluster that monitors the proxy daemonset for the status ErrImagePull. When a proxy pod is in the ErrImagePull status is spins up an injector on that node. We would still need the original injector during the first `zarf init` as a controller could not be spun up without avoiding the chicken and egg problem. 
+When a node is added to the cluster, the daemonset will attempt to create a new proxy image however, there will be no injector on the node for the proxy to pull from. Users will need to re-run `zarf init` in order for the proxy to pull an image. To solve this we could have a small controller in the cluster that monitors the proxy daemonset for the status `ErrImagePull` or `ImagePullBackOff`. When a proxy pod is in one of these statuses we spin up the injector daemonset and wait for the proxy daemonset to be healthy. We would still need the original injector during the first `zarf init` as a controller could not be spun up without avoiding the chicken and egg problem. 
 
 ### User Stories (Optional)
 
@@ -182,7 +182,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-hostPort can be used in the daemonset on IPV4, which will limit the connections to the proxy to only those on the actual node, however since IPv6 does not support rewriting packets to ::1 the the hostPort strategy will not work. IPv6 will have to use hostNetwork instead. We can still guarentee that the registry is only connected to from localhost since packets cannot be rewritten to ::1 and we can bind our proxy to only listen to ::1. However, hostNetwork comes with other security issues, notably that the pod has the ability to take over or listen to any port on the system. 
+hostPort can be used in the daemonset on IPV4, which will limit the connections to the proxy to only those on the actual node, however since IPv6 does not support rewriting packets to ::1 the the hostPort strategy will not work. IPv6 will have to use hostNetwork instead. We can still guarantee that the registry is only connected to from localhost since packets cannot be rewritten to ::1 and we can bind our proxy to only listen to ::1. However, hostNetwork comes with other security issues, notably that the pod has the ability to take over or listen to any port on the system. 
 
 <!-- Network policies are not considered in the host IP or Host Network setup so if someone wanted to block certain namespaces from the Zarf registry they would no longer be able to. TODO: I need to verify this.  -->
 
@@ -195,7 +195,7 @@ Practical risks:
   - Kind - works
   - K3D - works
   - microk8s - works
-  - talos - works, but needs to make the Zarf namespace privalleged
+  - talos - works, but needs to make the Zarf namespace privileged
   - k0s - almost certainly works, but I need to get PVCs working on it to test 100%  
   - k3s - tbd
   - RKE2 - tbd
@@ -218,6 +218,8 @@ Initially the proxying component will be based on an existing container image us
 `zarf init` will fail if both `--registry-proxy` and `--registry-url` are used.
 
 TLS will be run between the proxy and the registry. Zarf will create it's own certificates to start for the alpha release. By the beta release Zarf will accept certs if given, otherwise it will create it's own. 
+
+In order for the controller to start the injection it will need the configmap payloads in the cluster. To achieve this the payload configmaps will no longer be deleted from the cluster during `zarf init`. This amounts to about an additional ~32mb of configmaps stored in the cluster permanently. 
  
 ### Test Plan
 
@@ -314,7 +316,7 @@ Code complexity, at least in the short the injector and init package needs to su
 
 There is an extra process required to make new nodes work with the registry
 
-There is inherent downtime with this solution when a proxy is restarted. A solution that continously pulls images, such as a gitlab runner, may notice the downtime when `zarf init` is run. The proxy will likely not be restarted often, but will at least be restarted during `zarf init`.
+There is inherent downtime with this solution when a proxy is restarted. A solution that continuously pulls images, such as a gitlab runner, may notice the downtime when `zarf init` is run. The proxy will likely not be restarted often, but will at least be restarted during `zarf init`.
 
 Extra compute will be used in the cluster to run the registry proxy. This pod will not need much compute power, it will be limited to X CPU and Y Memory by default <- TODO
 
@@ -326,7 +328,7 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-One alternative would be to add TLS to the current nodeport solution by providing certs to Containerd. Containerd has the ability to hot reload certs so using a daemonset to edit the containerd config on the host nodes to point to self signed certificates would allow Zarf to automatically configure a secure connection. This would have the advantage of avoiding hostPort or hostNetwork, though we would need to give the daemonset would need the ability to edit files on the host node. The main drawback of this solution is that it's not CRI agnostic, it would not work with CRI-o for example. 
+One alternative would be to add TLS to the current nodeport solution by providing certs to Containerd. Containerd has the ability to hot reload certs so using a daemonset to edit the containerd config on the host nodes to point to self signed certificates would allow Zarf to automatically configure a secure connection. This would have the advantage of avoiding hostPort or hostNetwork, however the pod would need to run in privileged mode to allow it to edit files. Additionally, this solution would not be CRI agnostic, it would only work with containerd. Potentially, it could be expanded to work with other CRI's however it would require a CRI specific implementation for each new CRI and there CRI would need to support reloading the certificates without being restarted. 
 
 In a later stage, the proxy component could be replaced by a component similar to the Rust Zarf injector (or even the Zarf injector itself - a proxy based on the Rust Tokyo library - already part of the used libraries - is only a few lines of code).
 
