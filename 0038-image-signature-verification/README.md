@@ -99,7 +99,7 @@ Container image signature verification is a critical component of supply chain s
 ### Non-Goals
 
 - Support other signature verification systems beyond Cosign (such as Notary or Docker Content Trust)
-- Automatic signature discovery or verification
+- Automatic signature verification for common registries/configurations
 
 ## Proposal
 
