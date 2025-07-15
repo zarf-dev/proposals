@@ -312,7 +312,7 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
-Code complexity, at least in the short the injector and init package needs to support two paths, one for nodeports and one for host proxy.
+Code complexity, at least in the short term as the injector and init package needs to support two paths, one for the nodeport service and one for host proxy.
 
 There is an extra process required to make new nodes work with the registry
 
