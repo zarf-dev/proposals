@@ -316,7 +316,7 @@ Code complexity, at least in the short term as the injector and init package nee
 
 There is an extra process required to make new nodes work with the registry
 
-There is inherent downtime with this solution when a proxy is restarted. A solution that continuously pulls images, such as a gitlab runner, may notice the downtime when `zarf init` is run. The proxy will likely not be restarted often, but will at least be restarted during `zarf init`.
+There is inherent downtime with this solution when a proxy is restarted. A solution that continuously pulls images, such as a gitlab runner, may notice if a proxy registry is down. This should only happen when a user manually intervenes, or when the version of the proxy container is updated and the image is rolled during `zarf init`.
 
 Extra compute will be used in the cluster to run the registry proxy. This pod will not need much compute power, it will be limited to X CPU and Y Memory by default <- TODO
 
@@ -328,7 +328,7 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-One alternative would be to add TLS to the current nodeport solution by providing certs to Containerd. Containerd has the ability to hot reload certs so using a daemonset to edit the containerd config on the host nodes to point to self signed certificates would allow Zarf to automatically configure a secure connection. This would have the advantage of avoiding hostPort or hostNetwork, however the pod would need to run in privileged mode to allow it to edit files. Additionally, this solution would not be CRI agnostic, it would only work with containerd. Potentially, it could be expanded to work with other CRI's however it would require a CRI specific implementation for each new CRI and there CRI would need to support reloading the certificates without being restarted. 
+One alternative would be to add TLS to the current nodeport solution by providing certs to Containerd. Containerd has the ability to hot reload certs so using a daemonset to edit the containerd config on the host nodes to point to self signed certificates would allow Zarf to automatically configure a secure connection. This would have the advantage of avoiding hostPort or hostNetwork, however the pod would need to run in privileged mode to allow it to edit files. Additionally, this solution would not be CRI agnostic, it would only work with containerd. Potentially, it could be expanded to work with other CRI's however it would require a CRI specific implementation for each new CRI and the CRI would need to support reloading the certificates without being restarted. 
 
 In a later stage, the proxy component could be replaced by a component similar to the Rust Zarf injector (or even the Zarf injector itself - a proxy based on the Rust Tokyo library - already part of the used libraries - is only a few lines of code).
 
