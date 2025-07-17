@@ -145,7 +145,7 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-A new flag called `--registry-proxy` will be added to `zarf init` and will change how the registry is connected to within the cluster. When `--registry-proxy` is used Zarf will replace the nodeport service with a clusterIP service and a `DaemonSet` running a proxy on each node to forward the registry. The proxy will use `hostIP` and `hostPort` in IPV4 and dual IP stacks, and hostNetwork in IPv6 only clusters. A `DaemonSet` will be required both for the injector and long lived registry. This process works and is more secure because calls to localhost are no longer getting re-routed
+A new flag called `--registry-proxy` will be added to `zarf init` and will change how the registry is connected to within the cluster. When `--registry-proxy` is used Zarf will replace the nodeport service with a clusterIP service and a `DaemonSet` running a proxy on each node to forward the registry. The proxy will use `hostIP` and `hostPort` in IPV4 and dual IP stacks, and hostNetwork in IPv6 only clusters. A `DaemonSet` will be required both for the injector and long lived registry. This process works because calls from the kubelet to localhost no longer will get re-routed off of the node. The kubelet calls the proxy pod on each node, and the proxy then reaches out to the registry. The connection from the proxy to the registry will be secured over mTLS so no unencrypted traffic will leave the node. 
 
 ![Registry proxy Diagram](image.png)
 
