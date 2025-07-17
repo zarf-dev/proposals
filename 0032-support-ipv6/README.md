@@ -98,7 +98,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-The default Zarf registry uses a nodeport service on 127.0.0.1. The registry is on localhost as the most popular container runtime interfaces (CRI) allow insecure connections to localhost by default. However, Connecting to nodeport services using localhost is blocked by certain distros, IPV6 stacks, and NFTables. This ZEP proposes introducing a hostNetwork or hostPort proxy daemonset to enable the default registry for these use cases.   
+The default Zarf registry uses a nodeport service on 127.0.0.1. This was done as the most popular container runtime interfaces (CRI) allow insecure connections to localhost by default. However, Connecting to nodeport services using localhost is blocked by certain distros, IPv6 single stack clusters, and NFTables. This ZEP proposes introducing a hostNetwork or hostPort proxy daemonset which will improve the registry security posture and enable it for these use cases.
 
 ## Motivation
 
@@ -113,18 +113,18 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-Kubeneretes 1.33 has made [NFTables](https://kubernetes.io/blog/2025/02/28/nftables-kube-proxy/) generally available. The NFTables designers have made the explicit choice to stop making Nodeport services accessible one 127.0.0.1 (https://kubernetes.io/docs/reference/networking/virtual-ips/#migrating-from-iptables-mode-to-nftables). NFtables are not on by default, however we can expect distros, especially secure or performant distros, to start adopting NFTables by defualt in the coming months or years. It's important that the Zarf registry will work by default in these distros. 
+Kubernetes 1.33 has made [NFTables](https://kubernetes.io/blog/2025/02/28/nftables-kube-proxy/) generally available. The NFTables designers have made the explicit choice to stop making Nodeport services accessible one 127.0.0.1 (https://kubernetes.io/docs/reference/networking/virtual-ips/#migrating-from-iptables-mode-to-nftables). NFtables are not on by default, however we can expect distros, especially secure or performant distros, to start adopting NFTables by default in the coming months or years. It's important that the Zarf registry will work by default in these distros. 
 
-The current nodeport service solution does support IPv6. There is a mandate ([wayback machine link because white house site is flaky ATM](https://web.archive.org/web/20250116092323/https://www.whitehouse.gov/wp-content/uploads/2020/11/M-21-07.pdf)) for government agencys to migrate to IPv6 single stack by end of fiscal year (FY) 2025. Given how often Zarf is used in government environments it's important IPv6 is enabled. TODO: are IPV6 address free in some cloud environments like AWS? 
+The current nodeport service solution does not support IPv6 as IPv6 does not enable route_localnet which is required to call nodeport services using [::1] ([#90236](https://github.com/kubernetes/kubernetes/issues/90236#issuecomment-624721859)). There is a mandate ([wayback machine link because white house site is flaky ATM](https://web.archive.org/web/20250116092323/https://www.whitehouse.gov/wp-content/uploads/2020/11/M-21-07.pdf)) for government agency's to migrate to IPv6 single stack by end of fiscal year (FY) 2025. Given how often Zarf is used in government environments it's important IPv6 is enabled. TODO: are IPV6 address free in some cloud environments like AWS? 
 
-The nodeport solution does not work by default on certain distros such as talos and OpenShift (I need to verify openshift works with IPv6)
+The nodeport solution does not work by default on certain distros such as talos and OpenShift (I need to verify that openshift works with the hostport solution).
 
-The registry proxy solution comes with security advantages. The registry will only be accessible from within the cluster or the loopback address on the node. This is an advantage over the nodeport solution where the registry is accessible externally to anyone who can connect a node. Additionally, we will secure the call from socat to the registry with TLS. This way the only unecrypted traffic from the registry is from the kubelet to the proxy, and is exclusively on the host.  
+The registry proxy solution comes with security advantages. The registry will only be accessible from within the cluster or the loopback address on the node. This is an advantage over the nodeport solution where the registry is accessible externally to anyone who can connect a node. Additionally, we will secure the call from socat to the registry with TLS. This way the only unencrypted traffic from the registry is from the kubelet to the proxy, and is exclusively on the host.  
 
 ### Goals
 
 
-* Create a simple way for users to initalize Zarf with the internal registry in a cluster using IPv6 or NFtables.
+* Create a simple way for users to initialize Zarf with the internal registry in a cluster using IPv6 or NFtables.
 
 ### Non-Goals
 
@@ -145,7 +145,7 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-A new flag called `--registry-proxy` will be added to `zarf init` and will change how the registry is connected to within the cluster. When `--registry-proxy` is used Zarf will replace the nodeport service with a clusterIP service and a `DaemonSet` running a proxy on each node to forward the registry. The proxy will use `hostIP` and `hostPort` in IPV4 and dual IP stacks, and hostNetwork in IPv6 only clusters. A `DaemonSet` will be required both for the injector and long lived registry. 
+A new flag called `--registry-proxy` will be added to `zarf init` and will change how the registry is connected to within the cluster. When `--registry-proxy` is used Zarf will replace the nodeport service with a clusterIP service and a `DaemonSet` running a proxy on each node to forward the registry. The proxy will use `hostIP` and `hostPort` in IPV4 and dual IP stacks, and hostNetwork in IPv6 only clusters. A `DaemonSet` will be required both for the injector and long lived registry. This process works and is more secure because calls to localhost are no longer getting re-routed
 
 ![Registry proxy Diagram](image.png)
 
@@ -188,7 +188,11 @@ hostPort can be used in the daemonset on IPV4, which will limit the connections 
 
 Increased attack vector, if someone were to gain access to the proxy pod in the daemonset, they could break the registry or potentially forward malicious content. There are additional concerns with the IPv6 solution where pods will have `hostNetwork: true`. An attacker who has taken over the registry proxy pod would have the ability to bind to any free port on the node. For now we are using the default alpine socat image which includes a shell. In the future we could use a different image for the proxy that has no shell to limit this possibility. 
 
-<!-- The daemonset pod will not be monitored by a sidecar / istio? TODO: figure this out. Also does the isitio host mode change this? -->
+<!-- The daemonset pod will not be monitored by a sidecar / istio? TODO: figure this out. Also does the istio host mode change this? -->
+
+Some distros will disable hostPorts / hostNetworks by default and users will need to use admin permissions to allow these features. For example, Openshift requires a privileged service account set with `./oc adm policy add-scc-to-user privileged -z my-zarf-sa -n zarf` while Talos requires `kubectl label namespace zarf pod-security.kubernetes.io/enforce=privileged --overwrite` to make the Zarf namespace privileged. Zarf should document what is required to make it work in different clusters ([#3686](https://github.com/zarf-dev/zarf/issues/3686)). Likewise, some clusters will have kyverno policies that disable hostPort and hostNetwork. Zarf already assumes that the user is a cluster admin, however if we wanted to change this assumption in the future it will now be more difficult for certain distros.
+
+Some users may rely on their nodeport solutions being used outside of the cluster. In this case, they would no longer be the default, and they would have to setup their own service to connect to the registry. 
 
 Practical risks:
 - Some distros may disallow this
