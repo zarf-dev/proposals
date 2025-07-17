@@ -190,9 +190,9 @@ Increased attack vector, if someone were to gain access to the proxy pod in the 
 
 <!-- The daemonset pod will not be monitored by a sidecar / istio? TODO: figure this out. Also does the istio host mode change this? -->
 
-Some distros will disable hostPorts / hostNetworks by default and users will need to use admin permissions to allow these features. For example, Openshift requires a privileged service account set with `./oc adm policy add-scc-to-user privileged -z my-zarf-sa -n zarf` while Talos requires `kubectl label namespace zarf pod-security.kubernetes.io/enforce=privileged --overwrite` to make the Zarf namespace privileged. Zarf should document what is required to make it work in different clusters ([#3686](https://github.com/zarf-dev/zarf/issues/3686)). Likewise, some clusters will have kyverno policies that disable hostPort and hostNetwork. Zarf already assumes that the user is a cluster admin, however if we wanted to change this assumption in the future it will now be more difficult for certain distros.
+The baseline [pod security standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) recommend that pods baseline pods should set hostPort or HostNetwork. Users with controllers, such as Kyverno, that enforce these standards will need to make an exemption. Additionally, some distros will disable hostPorts / hostNetworks by default and users will need to use admin permissions to allow these features. For example, Openshift requires hostPort pods to be run with a privileged service account while Talos requires `kubectl label namespace zarf pod-security.kubernetes.io/enforce=privileged --overwrite` to make the Zarf namespace privileged. If the hostPort proxy becomes the default registry configuration, Zarf must document which settings are required to enable the hostPort solution to make it work in different clusters ([#3686](https://github.com/zarf-dev/zarf/issues/3686)). Zarf already assumes that the user is a cluster admin, however if we wanted to change this assumption in the future this proposal will make it more difficult for some clusters.
 
-Some users may rely on their nodeport solutions being used outside of the cluster. In this case, they would no longer be the default, and they would have to setup their own service to connect to the registry. 
+Some users may rely on calling the nodeport service outside of the cluster. In this case, they would no longer be able to do this by default. They would instead have to setup their own service to connect to the registry. 
 
 Practical risks:
 - Some distros may disallow this
@@ -203,7 +203,7 @@ Practical risks:
   - k0s - almost certainly works, but I need to get PVCs working on it to test 100%  
   - k3s - tbd
   - RKE2 - tbd
-  - openshift - tbd
+  - openshift - more testing to do. HostNetwork works, but I'm having trouble with IPv4. At least need to run `oc adm policy add-scc-to-user privileged -z my-zarf-sa -n zarf`
 - Some CNIs may disallow host network or host port
   - flannel - works
   - calico - works
