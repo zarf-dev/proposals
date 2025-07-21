@@ -149,11 +149,13 @@ A new flag called `--registry-proxy` will be added to `zarf init` and will chang
 
 ![Registry proxy Diagram](image.png)
 
-A user can run `--registry-proxy` during `zarf init` and their choice will be saved to the cluster and used on subsequent runs during `init`. If a user wants to switch back to the localhost NodePort solution they must run `zarf init --registry-proxy=false`. If a user runs `zarf init` without the `--registry-proxy` flag on an already initialized cluster, it will keep using the registry connect method that the cluster was used during the initial init, whether that is the registry proxy or NodePort solution. 
+A user can run `--registry-proxy` during `zarf init` and their choice will be saved to the cluster and used on subsequent runs during `init`. If a user wants to switch back to the localhost NodePort solution they must run `zarf init --registry-proxy=false`. If a user runs `zarf init` without the `--registry-proxy` flag on an already initialized cluster, Zarf will continue using the registry setup that was used during the initial init, whether that is the registry proxy or NodePort solution. 
 
-When a node is added to the cluster, the daemonset will attempt to create a new proxy image however, there will be no injector on the node for the proxy to pull from. To solve this there will be a small controller in the cluster that monitors pods in the proxy daemonset for the status `ErrImagePull` or `ImagePullBackOff`. When a proxy pod is in one of these statuses it will spin up the injector daemonset and wait for the proxy daemonset to be healthy. This would not replace the the initial injection process during `zarf init` as the controller will be spun up after the first injection happens to avoid the chicken and egg problem. 
+The proxy and the registry will connect over mTLS. Zarf will create a certificate authority along with a client and server certificate using the authority. These certs, including the certificate authority will be created by Zarf. Users will be able to specify a path to a custom certificate authority file with the flag `--registry-certificate-authority`.
 
-TLS will be run between the proxy and the registry. Zarf will create the certificates using the native [certificate signing requests](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/) built into Kubernetes and mount them into the proxy and registry. Certificates will be signed by the certificate authority (CA) in the cluster, so the host will error when trying to connect to the TLS enabled registry, for example during image pushes, unless the user has configured their host to work with the CAs in their cluster. Because of this the port-forward in the cluster will go through the proxy daemonset by default and to avoid TLS. To enable signing certificates with the registry over TLS during port forwards, the flag `--enable-port-forward-registry-tls` will be introduced to `zarf init`. 
+When the registry proxy setup is used there will be two new controllers in the cluster. One controller will ensure that the registry proxy can startup on new nodes. Another controller will automatically rotate the certificates used for mTLS between the registry and proxy. 
+
+ using the native [certificate signing requests](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/) built into Kubernetes and mount them into the proxy and registry. Certificates will be signed by the certificate authority (CA) in the cluster, so the host will error when trying to connect to the TLS enabled registry, for example during image pushes, unless the user has configured their host to work with the CAs in their cluster. Because of this the port-forward in the cluster will go through the proxy daemonset by default and to avoid TLS. To enable signing certificates with the registry over TLS during port forwards, the flag `--enable-port-forward-registry-tls` will be introduced to `zarf init`. 
 
 ### User Stories (Optional)
 
@@ -194,7 +196,9 @@ Increased attack vector, if someone were to gain access to the proxy pod in the 
 
 The baseline [pod security standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) recommend that pods baseline pods should set hostPort or HostNetwork. Users with controllers that enforce these standards, such as Kyverno, will need to make an exemption. Additionally, some distros will disable hostPorts / hostNetworks by default and users will need to use admin permissions to allow these features. For example, Openshift requires hostPort pods to be run with a privileged service account while Talos requires `kubectl label namespace zarf pod-security.kubernetes.io/enforce=privileged --overwrite` to make the Zarf namespace privileged. For this feature to be considered stable, Zarf must document which settings are required to enable the hostPort solution to make it work in different clusters ([#3686](https://github.com/zarf-dev/zarf/issues/3686)).
 
-Some users may rely on calling the NodePort service outside of the cluster. In this case, they would no longer be able to do this by default. They would instead have to setup their own service to connect to the registry. 
+Some users may rely on calling the NodePort service outside of the cluster. In this case, they would no longer be able to do this by default. They would instead have to setup their own service to connect to the registry. This is a reasonable tradeoff for better security by default.
+
+The root CA, the server (registry) certificate, and the client (proxy) certificate will all be stored in the cluster in the same format as secrets created with [kubectl create secret tls](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_secret_tls/). Both the public and private key for each of these certs and the CA will be in the cluster. Users will need ensure there are tight controls on these secrets to avoid them being maliciously updated or leaked.
 
 Practical risks:
 - Some distros may disallow this
@@ -221,9 +225,14 @@ proposal will be implemented, this is the place to discuss that.
 
 Initially the proxying component will be based on an existing container image using the `socat` binary ([Alpine socat](https://hub.docker.com/r/alpine/socat)); this is a small and simple image.
 
-`zarf init` will fail if both `--registry-proxy` and `--registry-url` are used. Similarly, init will fail if is true `--enable-port-forward-registry-tls` and `--registry-proxy` is false.
+`zarf init` will fail if both `--registry-proxy` and `--registry-url` are used. Similarly, init will fail `--registry-certificate-authority` is not empty and `--registry-proxy` is false.
 
-In order for the controller to monitor the cluster and start the injection process when a new node is added to the cluster it will need the configmap payloads in the cluster. To achieve this the payload configmaps will no longer be deleted from the cluster during `zarf init` when the registry proxy solution is used. This amounts to about an additional ~32mb of configmaps stored in the cluster permanently. 
+When a node is added to the cluster, the daemonset will attempt to create a new proxy image however, there will be no injector on the node for the proxy to pull from. To solve this there will be a small controller in the cluster that monitors pods in the proxy daemonset for the status `ErrImagePull` or `ImagePullBackOff`. When a proxy pod is in one of these statuses it will spin up the injector daemonset and wait for the proxy daemonset to be healthy. This would not replace the the initial injection process during `zarf init` as the controller will be spun up after the first injection happens to avoid the chicken and egg problem. 
+
+In order for the controller to start the injection process when a new node is added to the cluster it will need the configmap payloads already in the cluster. To achieve this the payload configmaps will no longer be deleted from the cluster during `zarf init` when the registry proxy solution is used. This amounts to about an additional ~32mb of configmaps stored in the cluster permanently.
+
+The registry will now force mtls connections with a certificate authority that the host using the Zarf CLI is unlikely to recognize. To enable mtls Zarf will pull the CA and the same client cert that socat is using to configure TLS from the cluster before making any calls to the internal registry.
+
  
 ### Test Plan
 
@@ -339,6 +348,10 @@ information to express the idea and why it was not acceptable.
 One alternative would be to add TLS to the current NodePort solution by providing certs to Containerd. Containerd has the ability to hot reload certs so using a daemonset to edit the containerd config on the host nodes to point to self signed certificates would allow Zarf to automatically configure a secure connection. This would have the advantage of avoiding hostPort or hostNetwork, however the pod would need to run in privileged mode to allow it to edit files. Additionally, this solution would not be CRI agnostic, it would only work with containerd. Potentially, it could be expanded to work with other CRI's however it would require a CRI specific implementation for each new CRI and the CRI would need to support reloading the certificates without being restarted. 
 
 In a later stage, the proxy component could be replaced by a component similar to the Rust Zarf injector (or even the Zarf injector itself - a proxy based on the Rust Tokyo library - already part of the used libraries - is only a few lines of code).
+
+## Use certificate signing requests
+
+Instead of custom code to create and sign certificates we could use the Kubernetes [certificate signing requests](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/) built in resources. This was rejected because Kubernetes certificate signing requests use a [dedicated certificate authority](https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/#configuring-your-cluster-to-provide-signing) that is cluster wide. It would provide users a native route to build a custom certificate authority, however they would have to commit to using it cluster wide, and each user would have to figure out how their specific Kubernetes distribution accepts CA certificates. Additionally, because the certification process is intended to be small and simple, there is not much value in using the Kubernetes flow. 
 
 
 ## Infrastructure Needed (Optional)
