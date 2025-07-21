@@ -115,7 +115,7 @@ or other references to show the community's interest in the ZEP.
 
 Kubernetes 1.33 has made [NFTables](https://kubernetes.io/blog/2025/02/28/nftables-kube-proxy/) generally available. The NFTables designers have made the explicit choice to stop making NodePort services accessible on 127.0.0.1 (https://kubernetes.io/docs/reference/networking/virtual-ips/#migrating-from-iptables-mode-to-nftables). NFTables is not enabled by default, however we can expect distros, especially security-focused or performance-oriented distros, to start adopting NFTables by default in the coming months or years. It's important that the Zarf registry will work by default in these distros. 
 
-The current NodePort service solution does not support IPv6 as IPv6 does not enable route_localnet which is required to call NodePort services using [::1] ([#90236](https://github.com/kubernetes/kubernetes/issues/90236#issuecomment-624721859)). There is a mandate ([wayback machine link because white house site is flaky ATM](https://web.archive.org/web/20250116092323/https://www.whitehouse.gov/wp-content/uploads/2020/11/M-21-07.pdf)) for government agencies to migrate to IPv6 single stack by end of fiscal year (FY) 2025. Given how often Zarf is used in government environments it's important IPv6 is enabled. TODO: are IPV6 address free in some cloud environments like AWS? 
+The current NodePort service solution does not support IPv6 as IPv6 does not enable route_localnet which is required to call NodePort services using [::1] ([#90236](https://github.com/kubernetes/kubernetes/issues/90236#issuecomment-624721859)). There is a mandate ([wayback machine link because white house site is flaky ATM](https://web.archive.org/web/20250116092323/https://www.whitehouse.gov/wp-content/uploads/2020/11/M-21-07.pdf)) for government agencies to migrate to IPv6 single stack by end of fiscal year (FY) 2025. Given how often Zarf is used in government environments it's important IPv6 is enabled. TODO: are IPV6 addresses free in some cloud environments like AWS? 
 
 The NodePort solution does not work by default on certain distros such as talos and OpenShift (I need to verify that openshift works with the hostport solution).
 
@@ -133,7 +133,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-* Remove current mechanism for bootstrapping Zarf in IPv4-only or IPv4/IPv6 dual-stack clusters (that is, using a `Service` of type `NodePort` and the "the route localnet hack"). At least in the short term
+* Remove current mechanism for bootstrapping Zarf in IPv4-only or IPv4/IPv6 dual-stack clusters (that is, using a `Service` of type `NodePort` and the "the rout_localnet hack"). At least in the short term
 
 ## Proposal
 
@@ -154,8 +154,6 @@ A user can run `--registry-proxy` during `zarf init` and their choice will be sa
 The proxy and the registry will connect over mTLS. Zarf will create a certificate authority along with a client and server certificate using the authority. These certs, including the certificate authority will be created by Zarf. Users will be able to specify a path to a custom certificate authority file with the flag `--registry-certificate-authority`.
 
 When the registry proxy setup is used there will be two new controllers in the cluster. One controller will ensure that the registry proxy can startup on new nodes. Another controller will automatically rotate the certificates used for mTLS between the registry and proxy. 
-
- using the native [certificate signing requests](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/) built into Kubernetes and mount them into the proxy and registry. Certificates will be signed by the certificate authority (CA) in the cluster, so the host will error when trying to connect to the TLS enabled registry, for example during image pushes, unless the user has configured their host to work with the CAs in their cluster. Because of this the port-forward in the cluster will go through the proxy daemonset by default and to avoid TLS. To enable signing certificates with the registry over TLS during port forwards, the flag `--enable-port-forward-registry-tls` will be introduced to `zarf init`. 
 
 ### User Stories (Optional)
 
@@ -186,7 +184,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-hostPort can be used in the daemonset on IPv4, which will limit the connections to the proxy to only those on the actual node, however since IPv6 does not support rewriting packets to [::1] the hostPort strategy will not work. IPv6 will have to use hostNetwork instead. We can still guarantee that the registry is only connected to localhost since packets cannot the proxy will bind to [::1] and localhost packets cannot be re-routed in IPv6. However, hostNetwork comes with other security issues, notably that the pod has the ability to take over or listen to any port on the system. 
+hostPort can be used in the daemonset on IPv4, which will limit the connections to the proxy to only those on the actual node, however since IPv6 does not support rewriting packets to [::1] the hostPort strategy will not work. IPv6 will have to use hostNetwork instead. The proxy will still guarantee that the registry is only connected to localhost by binding the connection to [::1]. However, hostNetwork comes with other security issues, notably that the pod has the ability to take over or listen to any port on the system. 
 
 <!-- Network policies are not considered in the host IP or Host Network setup so if someone wanted to block certain namespaces from the Zarf registry they would no longer be able to. TODO: I need to verify this.  -->
 
@@ -194,7 +192,7 @@ Increased attack vector, if someone were to gain access to the proxy pod in the 
 
 <!-- The daemonset pod will not be monitored by a sidecar / istio? TODO: figure this out. Also does the istio host mode change this? -->
 
-The baseline [pod security standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) recommend that pods baseline pods should set hostPort or HostNetwork. Users with controllers that enforce these standards, such as Kyverno, will need to make an exemption. Additionally, some distros will disable hostPorts / hostNetworks by default and users will need to use admin permissions to allow these features. For example, Openshift requires hostPort pods to be run with a privileged service account while Talos requires `kubectl label namespace zarf pod-security.kubernetes.io/enforce=privileged --overwrite` to make the Zarf namespace privileged. For this feature to be considered stable, Zarf must document which settings are required to enable the hostPort solution to make it work in different clusters ([#3686](https://github.com/zarf-dev/zarf/issues/3686)).
+The baseline [pod security standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) recommend that pods baseline pods should not set hostPort or HostNetwork. Users with controllers that enforce these standards, such as Kyverno, will need to make an exemption. Additionally, some distros will disable hostPorts / hostNetworks by default and users will need to use admin permissions to allow these features. For example, Openshift requires hostPort pods to be run with a privileged service account while Talos requires `kubectl label namespace zarf pod-security.kubernetes.io/enforce=privileged --overwrite` to make the Zarf namespace privileged. For this feature to be considered stable, Zarf must document which settings are required to enable the hostPort solution to make it work in different clusters ([#3686](https://github.com/zarf-dev/zarf/issues/3686)).
 
 Some users may rely on calling the NodePort service outside of the cluster. In this case, they would no longer be able to do this by default. They would instead have to setup their own service to connect to the registry. This is a reasonable tradeoff for better security by default.
 
@@ -279,7 +277,7 @@ If this feature will eventually be deprecated, plan for it:
 
 Alpha: The `--registry-proxy` flag is introduced and E2E tested. It uses mTLS between the proxy and the registry. The proxy daemonset handles new nodes introduced to the cluster automatically.
 Beta: Maintainers have validated that this is a solution Zarf should support long term. A path is introduced for users to sign certificates with their own CA. 
-Stable: The feature hsa been validated and users are happy with CLI experience. The Zarf documentation provides information on how common distros can be configured to allow hostPort or hostNetwork. 
+Stable: The feature has been validated and users are happy with CLI experience. The Zarf documentation provides information on how common distros can be configured to allow hostPort or hostNetwork. 
 
 ### Upgrade / Downgrade Strategy
 
