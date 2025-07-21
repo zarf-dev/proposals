@@ -133,7 +133,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-* Remove current mechanism for bootstrapping Zarf in IPv4-only or IPv4/IPv6 dual-stack clusters (that is, using a `Service` of type `NodePort` and the "the rout_localnet hack"). At least in the short term
+* Remove current mechanism for bootstrapping Zarf in IPv4-only or IPv4/IPv6 dual-stack clusters (that is, using a `Service` of type `NodePort` and the "the route_localnet hack"). At least in the short term
 
 ## Proposal
 
@@ -184,7 +184,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-hostPort can be used in the daemonset on IPv4, which will limit the connections to the proxy to only those on the actual node, however since IPv6 does not support rewriting packets to [::1] the hostPort strategy will not work. IPv6 will have to use hostNetwork instead. The proxy will still guarantee that the registry is only connected to localhost by binding the connection to [::1]. However, hostNetwork comes with other security issues, notably that the pod has the ability to take over or listen to any port on the system. 
+hostPort and hostIP can be used in the daemonset on IPv4, which will limit the connections to the proxy to only those on the actual node. However, IPv6 clusters cannot use the hostPort strategy because the kernel does not support rewriting packets from ::1 (localhost) to a different IP address, this is the same fundamental limitation that affects NodePort services on IPv6 localhost connections. IPv6 clusters will have to use hostNetwork instead. The proxy will still guarantee that calls outside the node will not reach the registry by listening only on [::1], However, hostNetwork comes with other security concerns, notably that it gives the pod the ability to take over or listen to any port on the system. 
 
 <!-- Network policies are not considered in the host IP or Host Network setup so if someone wanted to block certain namespaces from the Zarf registry they would no longer be able to. TODO: I need to verify this.  -->
 
