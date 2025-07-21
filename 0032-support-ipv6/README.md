@@ -113,18 +113,19 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-Kubernetes 1.33 has made [NFTables](https://kubernetes.io/blog/2025/02/28/nftables-kube-proxy/) generally available. The NFTables designers have made the explicit choice to stop making NodePort services accessible on 127.0.0.1 (https://kubernetes.io/docs/reference/networking/virtual-ips/#migrating-from-iptables-mode-to-nftables). NFTables is not enabled by default, however we can expect distros, especially security-focused or performance-oriented distros, to start adopting NFTables by default in the coming months or years. It's important that the Zarf registry will work by default in these distros. 
+Kubernetes 1.33 has made [NFTables](https://kubernetes.io/blog/2025/02/28/nftables-kube-proxy/) generally available. The NFTables designers have made the explicit choice to stop making NodePort services accessible on 127.0.0.1 (https://kubernetes.io/docs/reference/networking/virtual-ips/#migrating-from-iptables-mode-to-nftables). NFTables is not enabled by default now, however we can expect security-focused or performance-oriented users to start adopting NFTables in the coming months or years. It's important that the Zarf registry will work by default in these distros. 
 
 The current NodePort service solution does not support IPv6 as IPv6 does not enable route_localnet which is required to call NodePort services using [::1] ([#90236](https://github.com/kubernetes/kubernetes/issues/90236#issuecomment-624721859)). There is a mandate ([wayback machine link because white house site is flaky ATM](https://web.archive.org/web/20250116092323/https://www.whitehouse.gov/wp-content/uploads/2020/11/M-21-07.pdf)) for government agencies to migrate to IPv6 single stack by end of fiscal year (FY) 2025. Given how often Zarf is used in government environments it's important IPv6 is enabled. TODO: are IPV6 addresses free in some cloud environments like AWS? 
 
 The NodePort solution does not work by default on certain distros such as talos and OpenShift (I need to verify that openshift works with the hostport solution).
 
-The registry proxy solution comes with security advantages. The registry will only be accessible from within the cluster or the loopback address on the node. This is an advantage over the NodePort solution where the registry is accessible externally to anyone who can connect a node. Additionally, we will secure the call from socat to the registry with TLS. This way the only unencrypted traffic from the registry is from the kubelet to the proxy, and is exclusively on the host.  
+The registry proxy solution comes with security advantages. The registry will only be accessible from within the cluster or the loopback address on the node. This is an advantage over the NodePort solution where the registry is accessible externally to anyone who can connect to a node. Additionally, we will secure the call from the proxy to the registry with mTLS. This way the only unencrypted traffic during a call to the registry is from the kubelet to the proxy, and therefore never leave the host.
 
 ### Goals
 
 
 * Create a simple way for users to initialize Zarf with the internal registry in a cluster using IPv6 or NFTables.
+* Encrypt all cross-network traffic to the registry over mTLS
 
 ### Non-Goals
 
@@ -133,7 +134,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-* Remove current mechanism for bootstrapping Zarf in IPv4-only or IPv4/IPv6 dual-stack clusters (that is, using a `Service` of type `NodePort` and the "the route_localnet hack"). At least in the short term
+* Remove current mechanism for bootstrapping Zarf using a `Service` of type `NodePort` and the "the route_localnet hack". At least in the short term
 
 ## Proposal
 
@@ -145,15 +146,15 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-A new flag called `--registry-proxy` will be added to `zarf init` and will change how the registry is connected to within the cluster. When `--registry-proxy` is used Zarf will replace the NodePort service with a clusterIP service and a `DaemonSet` running a proxy on each node to forward the registry. The proxy will use `hostIP` and `hostPort` in IPV4 and dual IP stacks, and hostNetwork in IPv6 only clusters. A `DaemonSet` will be required both for the injector and long lived registry. This process works because calls from the kubelet to localhost no longer will get re-routed off of the node. The kubelet calls the proxy pod on each node, and the proxy then reaches out to the registry. The connection from the proxy to the registry will be secured over mTLS so no unencrypted traffic will leave the node. 
+A new flag called `--registry-proxy` will be added to `zarf init`. When `--registry-proxy` is used Zarf will create a `DaemonSet` running a proxy on each node that will connect directly to the registry service. The registry service will be of type clusterIP rather than of type NodePort. The proxy will use `hostIP` and `hostPort` in IPv4 and dual IP stacks, and `hostNetwork` in IPv6 only clusters. A `DaemonSet` will be required both for the injector and long lived proxy. This process works because calls from the kubelet to localhost no longer will get re-routed off of the node. The kubelet calls the proxy pod on each node, and the proxy then reaches out to the registry.
 
 ![Registry proxy Diagram](image.png)
 
 A user can run `--registry-proxy` during `zarf init` and their choice will be saved to the cluster and used on subsequent runs during `init`. If a user wants to switch back to the localhost NodePort solution they must run `zarf init --registry-proxy=false`. If a user runs `zarf init` without the `--registry-proxy` flag on an already initialized cluster, Zarf will continue using the registry setup that was used during the initial init, whether that is the registry proxy or NodePort solution. 
 
-The proxy and the registry will connect over mTLS. Zarf will create a certificate authority along with a client and server certificate using the authority. These certs alongside a self signed certificate authority will be created automatically by Zarf. These certificates will be automatically rotated during `zarf init` if they have less than half of their total duration remaining. Users will be able to specify their own certificates through flags on `zarf init`: `--registry-server-cert-file`, `--registry-server-key-file`, `--registry-client-key-file`, and `--registry-client-cert-file`. 
+The proxy and the registry will connect over mTLS. Zarf will create a certificate authority along with a client and server certificate using the authority. These certificates will be automatically rotated during `zarf init` if they have less than half of their total duration remaining. Users will be able to specify their own certificates through flags on `zarf init`: `--registry-server-cert-file`, `--registry-server-key-file`, `--registry-client-key-file`, and `--registry-client-cert-file`. 
 
-A controller will run in the cluster to spin up the injector when the proxy daemonset is failing to pull it's image. This is important for when a new node is added to the cluster as the injector will not be present for the daemonset to bootstrap itself.  
+A controller will run in the cluster that watches when the proxy daemonset fails to pull an image and spins up the injector when this happens. This is important because when a new node is added to the cluster the injector will not be present for the daemonset to bootstrap itself, and the proxy image will not be cached on the node.
 
 ### User Stories (Optional)
 
@@ -166,7 +167,7 @@ bogged down.
 
 #### Story 1
 
-As a administrator of a Kubernetes cluster who wants a greater security posture when using the Zarf in cluster registry, I run `zarf init --registry-proxy`.
+As an administrator of a Kubernetes cluster who wants a greater security posture when using the Zarf in cluster registry, I run `zarf init --registry-proxy`.
 
 ### Risks and Mitigations
 
@@ -184,15 +185,15 @@ hostPort and hostIP can be used in the daemonset on IPv4, which will limit the c
 
 <!-- Network policies are not considered in the host IP or Host Network setup so if someone wanted to block certain namespaces from the Zarf registry they would no longer be able to. TODO: I need to verify this.  -->
 
-Increased attack vector, if someone were to gain access to the proxy pod in the daemonset, they could break the connection to the registry or return malicious content. The socat image that we use should have no shell to help mitigate this.
+Increased attack vector, if someone were to gain access to the proxy pod in the daemonset, they could break the connection to the registry or return malicious content. To make an attack like this more difficult the image used in the proxy should have no shell.
 
 <!-- The daemonset pod will not be monitored by a sidecar / istio? TODO: figure this out. Also does the istio host mode change this? -->
 
-The baseline [pod security standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) recommends that pods should not set hostPort or HostNetwork. Users with controllers that enforce these standards, such as Kyverno, will need to make an exemption. Additionally, some distros will disable hostPort and hostNetwork by default and users will need to use admin permissions to allow these features. For example, Openshift requires hostPort pods to be run with a privileged service account while Talos requires that the namespace be privileged. For this feature to be considered stable, the Zarf documentation must include instructions for which settings to change to enable hostPort / hostNetwork on the most common Kubernetes distributions. This is related to  ([#3686](https://github.com/zarf-dev/zarf/issues/3686)).
+The baseline [pod security standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) recommends that pods should not set hostPort or HostNetwork. Users with controllers that enforce these standards, such as Kyverno, will need to make an exemption. Additionally, some distros will disable hostPort and hostNetwork by default and users will need to use admin permissions to allow these features. For example, Openshift requires hostPort pods to be run with a privileged service account while Talos requires that the namespace be privileged for hostPort to be enabled. For this feature to be considered stable, the Zarf documentation must include instructions for which settings to change to enable hostPort / hostNetwork on the most common Kubernetes distributions. Zarf currently has no distro specific documentation, but plans to add this, see ([#3686](https://github.com/zarf-dev/zarf/issues/3686)).
 
 The registry is no longer accessible from outside of the cluster by default. Some users may rely on this, and will instead have to setup their own exposed service to connect to the registry.
 
-The root CA, the server (registry) certificate, and the client (proxy) certificate will all be stored in the cluster in the same format as secrets created with [kubectl create secret tls](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_secret_tls/). Both the public and private key for each of these certs and the CA will be in the cluster. Users will need ensure there are tight controls on these secrets to avoid them being maliciously updated or leaked.
+The root CA, the server (registry) certificate, and the client (proxy) certificate will all be stored in the cluster in the same format as secrets created with [kubectl create secret tls](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_secret_tls/). Users will need ensure there are tight controls on these secrets to avoid them being maliciously updated or leaked.
 
 Practical risks:
 - Some distros may disallow this
@@ -219,13 +220,13 @@ proposal will be implemented, this is the place to discuss that.
 
 Initially the proxying component will be based on an existing container image using the `socat` binary ([Alpine socat](https://hub.docker.com/r/alpine/socat)); this is a small and simple image.
 
-`zarf init` will fail if both `--registry-proxy` and `--registry-url` are used. Similarly, init will fail `--registry-certificate-authority` is not empty and `--registry-proxy` is false.
+`zarf init` will fail if both `--registry-proxy` and `--registry-url` are used. Similarly, init will fail if any of the `--registry-*-file` flags are not empty and `--registry-proxy` is not true.
 
 When a node is added to the cluster, the daemonset will attempt to create a new proxy image however, there will be no injector on the node for the proxy to pull from. To solve this there will be a small controller in the cluster that monitors pods in the proxy daemonset for the status `ErrImagePull` or `ImagePullBackOff`. When a proxy pod is in one of these statuses it will spin up the injector daemonset and wait for the proxy daemonset to be healthy. This would not replace the the initial injection process during `zarf init` as the controller will be spun up after the first injection happens to avoid the chicken and egg problem. 
 
-In order for the controller to start the injection process when a new node is added to the cluster it will need the configmap payloads already in the cluster. To achieve this the payload configmaps will no longer be deleted from the cluster during `zarf init` when the registry proxy solution is used. This amounts to about an additional ~32mb of configmaps stored in the cluster permanently.
+In order for the controller to start the injection process when a new node is added to the cluster it will need the configmap payloads already in the cluster. To achieve this the payload configmaps will no longer be deleted from the cluster during `zarf init` when the registry proxy solution is used. This amounts to about an additional 32mb of configmaps stored in the cluster permanently.
 
-The registry will now force mTLS connections with a certificate authority that the host using the Zarf CLI is unlikely to recognize. To enable mTLS from the host to the internal registry Zarf will configure any https requests to use the CA and client certificates by pulling them from the cluster.
+In order to allow the Zarf CLI to connect to the internal registry over mTLS Zarf will configure any https requests to the registry to use the CA and client certificates by pulling them from the cluster.
 
  
 ### Test Plan
@@ -354,25 +355,3 @@ This was rejected for simplicity, however this is something we can evaluate as t
 Instead of custom code to create and sign certificates we could use the Kubernetes [certificate signing requests](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/) built in resources. This would avoid having to maintain and rotate the certificate authority for the client and server certificates.
 
 This was rejected because the list of [Kubernetes signers](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#kubernetes-signers) is limited in what type of certificates they allow. Kubernetes does allow for a [custom signers](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#custom-signers), but a controller is required to support a custom signer and it would still have to own a CA. 
-
-## Infrastructure Needed (Optional)
-
-<!--
-Use this section if you need things from the project. Examples include a new repo,
-cloud infrastructure for testing or GitHub details. Listing these here
-allows the process to get these resources to be started right away.
--->
-
-
-<!-- 
-FIXME: delete these notes
-- ClusterIP works from the node, but cluster DNS does not. You cannot use http://zarf-registry.zarf.svc.cluster.local:5000/v2 from the node for example. 
-- What if the service needs to be re-created and it's created with a different clusterIP
-  - If an image is pushed to an OCI registry and the domain changes, the image doesn't change.
-  - There should
-- What about the automatic port forward to 127.0.0.1:31999 on commands like `zarf tools registry ls 127.0.0.1:31999/path`. Likely we will have a DNS name that replicates it. 
-- I believe we'll have to make config for several different container runtime interfaces so we can give a cert without trusting the cert at the node level
-- I need to evaluate the proxy method to the local host registry and see if it can be better secured
-- I'll need to check the use of different signing keys
-- I will need to test the difference that a proxy makes. For example, does a proxy make openshift work? Does a proxy make things work with NFtables instead of IP tables.   -->
-
