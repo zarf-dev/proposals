@@ -1,20 +1,20 @@
 schema-version: 1.0.0
 
-title: Support IPv6
+title: Registry Proxy
 zep-number: 0032
 authors:
   - "vincent.touchard@collibra.com"
+  - "@AustinAbro321"
 status: provisional
-creation-date: 2025-06-05
+creation-date: 2025-07-21
 reviewers:
   - "christopher.jackson@collibra.com"
-  - "@AustinAbro321"
 approvers:
-  - TBD
+  - @zarf-dev
 
-see-also:
-  - "/0033-registry-proxy"
-replaces: []
+see-also: []
+replaces:
+  - 0032-support-ipv6
 
 # The target maturity stage in the current dev cycle for this ZEP.
 stage: alpha
@@ -22,10 +22,10 @@ stage: alpha
 # The most recent milestone for which work toward delivery of this ZEP has been
 # done. This can be the current (upcoming) milestone, if it is being actively
 # worked on.
-latest-milestone: "v0.39"
+latest-milestone: ""
 
 # The milestone at which this feature was, or is targeted to be, at each stage.
 milestone:
-  alpha: "v0.39"
-  beta: "v0.40"
+  alpha: "TBD"
+  beta: "TBD"
   stable: "v1.0"
