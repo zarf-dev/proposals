@@ -134,7 +134,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-* Remove current mechanism for bootstrapping Zarf using a `Service` of type `NodePort` and the "route_localnet hack". At least in the short term
+* Remove current mechanism for bootstrapping Zarf using a `Service` of type `NodePort` and the "route_localnet hack". At least in the short term.
 
 ## Proposal
 
@@ -183,11 +183,7 @@ How will UX be reviewed, and by whom?
 
 hostPort and hostIP can be used in the daemonset on IPv4, which will limit the connections to the proxy to only those on the actual node. However, IPv6 clusters cannot use hostPort on localhost because the kernel does not support rewriting packets from ::1 to a different IP address, this is the same limitation that affects NodePort services on IPv6 localhost connections. IPv6 clusters will have to use hostNetwork instead. The proxy will still guarantee that calls outside the node will not reach the registry by listening only on [::1], However, hostNetwork comes with other security concerns, notably that it gives the pod the ability to take over or listen to any port on the system. 
 
-<!-- Network policies are not considered in the host IP or Host Network setup so if someone wanted to block certain namespaces from the Zarf registry they would no longer be able to. TODO: I need to verify this.  -->
-
 Increased attack vector, if someone were to gain access to the proxy pod in the daemonset, they could break the connection to the registry or return malicious content. To make an attack like this more difficult the image used in the proxy should have no shell.
-
-<!-- The daemonset pod will not be monitored by a sidecar / istio? TODO: figure this out. Also does the istio host mode change this? -->
 
 The baseline [pod security standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) recommends that pods should not set hostPort or HostNetwork. Users with controllers that enforce these standards, such as Kyverno, will need to make an exemption. Additionally, some distros will disable hostPort and hostNetwork by default and users will need to use admin permissions to allow these features. 
 For example, OpenShift requires hostPort or hostNetwork pods to be run with a privileged service account while Talos requires that the namespace be privileged for hostPort to be enabled. For this feature to be considered stable, the Zarf documentation must include instructions for which settings to change to enable hostPort / hostNetwork on the most common Kubernetes distributions. Zarf currently has no distro specific documentation, but plans to add this, see ([#3686](https://github.com/zarf-dev/zarf/issues/3686)).
@@ -203,9 +199,9 @@ Practical risks:
   - microk8s - works
   - talos - works, but needs to make the Zarf namespace privileged
   - k0s - almost certainly works, but I need to get PVCs working on it to test 100%  
-  - k3s - tbd
-  - RKE2 - tbd
-  - OpenShift - HostNetwork works, but hostPort does not. At least need to run `oc adm policy add-scc-to-user privileged -z default -n zarf`
+  - k3s - works
+  - RKE2 - works
+  - OpenShift - HostNetwork works, but hostPort does not. Requires `oc adm policy add-scc-to-user privileged -z default -n zarf` to allow hostNetwork to work.
 - Some CNIs may disallow host network or host port
   - flannel - works
   - calico - works
@@ -224,7 +220,7 @@ Initially the proxying component will be based on an existing container image us
 `zarf init` will fail if both `--registry-proxy` and `--registry-url` are used. Similarly, init will fail if any of the `--registry-*-file` flags are not empty and `--registry-proxy` is not true.
 
 Running the injector as a daemonset in the airgap requires an image baked into every node, but there is not a distro agnostic way to verify this. The nodeport injector only needs to find one running pod and it can schedule itself on the same node using the same image.
-It is not valid to assume a multi-node cluster has a pod running on each node so the DaemonSet injector cannot use this strategy. It is, however, valid to assume that every node has access to the pause image as the pause image is required to run any pod. There is no guaranteed method of determining the pause image used by the distribution without direct access to the node or CRI. Zarf will make a best guess by iterating through the `.status.images` field of each node in the cluster. The `status.images` field contains `names` and `sizeBytes` as subfields. The first choice will be the smallest image with `pause` in the name. If there is no image with `pause` in the name, Zarf will fallback to the smallest image on any node.
+It is not valid to assume a multi-node cluster has a pod running on each node so the DaemonSet injector cannot use this strategy. However, every node has a field `.status.images`, which can be used to check for an image that's shared across all nodes. Additionally, every node must have access to a pause image, which usually has pause in the name and is extremely small ~300kb. If there's no image shared across nodes Zarf will grab the smallest image with "pause" in the name. If there's no image with "pause" in its name Zarf will fallback to the smallest image on any node.
 
 The long lived injector means that the payload configmaps will no longer be deleted from the cluster during `zarf init --registry-proxy`. This amounts to about an additional 32mb of configmaps stored in the cluster permanently.
 
@@ -368,8 +364,8 @@ In order to solve the problem of spinning up the proxy on a new node, Zarf could
 
 This was rejected in favor of keeping the injector as a long-lived sidecar process. While the controller method should work, the registry pod might fail for other reasons and the spun up injector could confuse users. The total compute required by the cluster would be less with this method, however the upper resource limits that Zarf could claim on any single node would be higher with this method, as a node could have both the controller and temporary injector on it.
 
-### Accept injector image as flag
+### Stricter process for determining injector image.
 
-Zarf will try it's best to find the pause image. We could instead add an optional flag, `--injector-image`, that allows users to submit their own image, that they know is reachable from the cluster. The documentation for this flag, could recommend to look through the `.status.images` field on a node with a running pod and select the pause image from that. 
+Zarf will try it's best to find an image all nodes have access too for the injector daemonset. Zarf could instead add an optional flag, `--injector-image`, that allows users to submit their own image, that they know is reachable from the cluster or that all nodes have access to. Zarf could also spin up a test daemonset that it knows will fail, but would force the kubelet to pull the pause image on every node for cases where the pause image has a different name. 
 
 This was rejected because we believe our image selection logic will work in the vast majority of the cases, and we'd like to avoid making the user experience more complicated. However, if we receive feedback from a user that the logic does not work for a certain use case, then this may be worth coming back to and adding. 
