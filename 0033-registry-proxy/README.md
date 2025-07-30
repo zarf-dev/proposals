@@ -146,9 +146,8 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-A new `--registry-proxy` flag will be added to zarf init. Enabling this flag causes Zarf to create a DaemonSet running a proxy on each node that will connect directly to the registry service. Both the injector and proxy will require DaemonSets, and the injector will be long lived. 
-The proxy will use `hostIP` and `hostPort` in IPv4 and dual IP stacks, and `hostNetwork` in IPv6 only clusters. 
-The kubelet connects to the proxy directly within the node using hostPort or hostNetwork and the proxy forwards calls traffic to the registry. Once this feature is stable, `--registry-proxy` will default to true. 
+A new `--registry-proxy` flag will be added to zarf init. Enabling this flag causes Zarf to create a DaemonSet running a proxy on each node that will connect directly to the registry service. Both the injector and proxy will require DaemonSets, and the injector will be long lived. Once this feature is stable, `--registry-proxy` will default to true. 
+The proxy will with either use hostIP and hostPort or hostNetwork. hostPort is preferred as it presents a lower security risk. hostNetwork will be required when redirecting traffic from localhost to a different IP is disabled, such as in IPv6 single stack clusters or in some distros with custom IP table rules, such as OpenShift. HostPort will be used by for IPv4 and dual stack cluster, while hostNetwork will be used for IPv6 clusters. There will also be a Zarf package variable that allows users to use hostNetwork.  
 
 ![Registry proxy Diagram](image.png)
 
@@ -181,9 +180,30 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-hostPort and hostIP can be used in the daemonset on IPv4, which will limit the connections to the proxy to only those on the actual node. However, IPv6 clusters cannot use hostPort on localhost because the kernel does not support rewriting packets from ::1 to a different IP address, this is the same limitation that affects NodePort services on IPv6 localhost connections. IPv6 clusters will have to use hostNetwork instead. The proxy will still guarantee that calls outside the node will not reach the registry by listening only on [::1], However, hostNetwork comes with other security concerns, notably that it gives the pod the ability to take over or listen to any port on the system. 
+hostPort works by adding rules to the NAT table so that any traffic destined for port 5000 on the node is forwarded to the pod IP at port 5000. This can be confirmed by running `iptables -t nat -L` on a node with a pod that has `hostPort: 5000` and `hostIP: 127.0.0.1`. Since hostIP is set to 127.0.0.1 traffic is only redirected if it's destination is localhost.
+```bash
+target     prot opt source               destination         
+CNI-HOSTPORT-SETMARK  tcp  --  10.244.0.0/24        localhost            tcp dpt:5000
+CNI-HOSTPORT-SETMARK  tcp  --  localhost            localhost            tcp dpt:5000
+DNAT       tcp  --  anywhere             localhost            tcp dpt:5000 to:10.244.0.6:5000
+```
+HostNetwork works by binding directly to the node. This can be confirmed by running `lsof -i :5000` on a node with a hostNetwork pod binding to port 5000.
+```bash
+COMMAND    PID     USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME
+zarf-inje 2161     1000    6u  IPv6 3568888      0t0  TCP *:5000 (LISTEN)
+```
+hostNetwork doesn't have an equivalent option to hostIP, which lets hostPort drop connections that aren't destined for 127.0.0.1. To achieve the same effect, the proxy will be configured to only process requests if the destination is localhost.
 
-Increased attack vector, if someone were to gain access to the proxy pod in the daemonset, they could break the connection to the registry or return malicious content. To make an attack like this more difficult the image used in the proxy should have no shell.
+hostPort and hostNetwork both present an attack vector. If someone were to gain access to the proxy pod in the daemonset, they could break the connection to the registry or return malicious content. If hostNetwork is enabled they could also listen to any port on the node. To make this attack more difficult the image used in the proxy should have minimal binaries and no shell. Additionally, the container will use the following security context:
+```yaml
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+```
 
 The baseline [pod security standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/) recommends that pods should not set hostPort or HostNetwork. Users with controllers that enforce these standards, such as Kyverno, will need to make an exemption. Additionally, some distros will disable hostPort and hostNetwork by default and users will need to use admin permissions to allow these features. 
 For example, OpenShift requires hostPort or hostNetwork pods to be run with a privileged service account while Talos requires that the namespace be privileged for hostPort to be enabled. For this feature to be considered stable, the Zarf documentation must include instructions for which settings to change to enable hostPort / hostNetwork on the most common Kubernetes distributions. Zarf currently has no distro specific documentation, but plans to add this, see ([#3686](https://github.com/zarf-dev/zarf/issues/3686)).
@@ -215,7 +235,7 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-Initially the proxying component will be based on an existing container image using the `socat` binary ([Alpine socat](https://hub.docker.com/r/alpine/socat)); this is a small and simple image.
+Initially, the proxying component will be based on an existing container image using the `socat` binary ([Alpine socat](https://hub.docker.com/r/alpine/socat)). This may evolve to a custom proxy that we create using go. A custom proxy could be useful to run alongside `zarf connect registry` so that tls can be enabled.
 
 `zarf init` will fail if both `--registry-proxy` and `--registry-url` are used. Similarly, init will fail if any of the `--registry-*-file` flags are not empty and `--registry-proxy` is not true.
 
@@ -346,11 +366,6 @@ information to express the idea and why it was not acceptable.
 One alternative would be to add TLS to the current NodePort solution by providing certs to Containerd. Containerd has the ability to hot reload certs so using a daemonset to edit the containerd config on the host nodes to point to self signed certificates would allow Zarf to automatically configure a secure connection. This would have the advantage of avoiding hostPort or hostNetwork, however the pod would need to run in privileged mode to edit files on the host node. 
 
 This was rejected because the solution would be brittle and not CRI agnostic. This would only work with containerd. Potentially, it could be expanded to work with other CRI's however it would require a CRI specific implementation for each new CRI and the CRI would need to support reloading the certificates without being restarted. Additionally, containerd config can differ across distros, for example, k3s has specific instructions on [configuring containerd](https://docs.k3s.io/advanced#configuring-containerd). 
-
-### Different proxy tool
-The proxy component could be replaced by a simple custom tool. Zarf could create a simple custom proxy using go. This may be useful if we decide to make `zarf connect registry` a special case and run connections through that to a tls enabled proxy. 
-
-This was rejected for simplicity, however this is something we can evaluate as the proposal matures.
 
 ### Use certificate signing requests to generate certificates
 
