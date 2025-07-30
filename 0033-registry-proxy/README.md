@@ -65,7 +65,6 @@ any additional information provided beyond the standard ZEP template.
 - [Proposal](#proposal)
   - [User Stories (Optional)](#user-stories-optional)
     - [Story 1](#story-1)
-    - [Story 2](#story-2)
   - [Risks and Mitigations](#risks-and-mitigations)
 - [Design Details](#design-details)
   - [Test Plan](#test-plan)
@@ -98,7 +97,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-The Zarf registry uses a NodePort service on 127.0.0.1. This was done as the most popular container runtime interfaces (CRI) allow insecure connections to localhost by default. However, connection to NodePort services via localhost is blocked by certain distros, IPv6 single stack clusters, and NFTables. This ZEP proposes introducing a hostNetwork or hostPort proxy daemonset. This solution will improve the registry's security posture and enable support for these use cases."
+The Zarf registry uses a NodePort service on 127.0.0.1. This was done as the most popular container runtime interfaces (CRI) allow insecure connections to localhost by default. However, connection to NodePort services via localhost is blocked by certain distros, IPv6 single stack clusters, and NFTables. This ZEP proposes introducing a hostNetwork or hostPort proxy daemonset. This solution will improve the registry's security posture and enable support for these use cases.
 
 ## Motivation
 
@@ -147,13 +146,13 @@ below is for the real nitty-gritty.
 -->
 
 A new `--registry-proxy` flag will be added to zarf init. Enabling this flag causes Zarf to create a DaemonSet running a proxy on each node that will connect directly to the registry service. Both the injector and proxy will require DaemonSets, and the injector will be long lived. Once this feature is stable, `--registry-proxy` will default to true. 
-The proxy will with either use hostIP and hostPort or hostNetwork. hostPort is preferred as it presents a lower security risk. hostNetwork will be required when redirecting traffic from localhost to a different IP is disabled, such as in IPv6 single stack clusters or in some distros with custom IP table rules, such as OpenShift. HostPort will be used by for IPv4 and dual stack cluster, while hostNetwork will be used for IPv6 clusters. There will also be a Zarf package variable that allows users to use hostNetwork.  
+The proxy will either use hostIP and hostPort or hostNetwork. hostPort is preferred as it presents lower security risk. hostNetwork will be required when redirecting traffic from localhost to a different IP is disabled, such as in IPv6 single stack clusters or in some distros with custom IP table rules, such as OpenShift. HostPort will be used for IPv4 and dual stack clusters, while hostNetwork will be used for IPv6 clusters. There will also be a Zarf package variable that allows users to use hostNetwork.  
 
 ![Registry proxy Diagram](image.png)
 
 A user can run `--registry-proxy` during `zarf init` and their choice will be saved to the cluster and used on subsequent runs during `init`. If a user wants to switch back to the localhost NodePort solution they must run `zarf init --registry-proxy=false`. If a user runs `zarf init` without the `--registry-proxy` flag on an already initialized cluster, Zarf will continue using the registry setup that was used during the initial init, whether that is the registry proxy or NodePort solution. 
 
-The proxy and the registry will connect over mTLS. Zarf will create a certificate authority along with a client and server certificate using the authority. If a certificate has less than half of it's total lifecycle remaining, then it will be rotated automatically during `zarf init`. Users will be able to specify their own certificates through flags on `zarf init`: `--registry-server-cert-file`, `--registry-server-key-file`, `--registry-client-key-file`, and `--registry-client-cert-file`. 
+The proxy and the registry will connect over mTLS. Zarf will create a certificate authority along with a client and server certificate using the authority. If a certificate has less than half of its total lifecycle remaining, then it will be rotated automatically during `zarf init`. Users will be able to specify their own certificates through flags on `zarf init`: `--registry-server-cert-file`, `--registry-server-key-file`, `--registry-client-key-file`, and `--registry-client-cert-file`. 
 
 ### User Stories (Optional)
 
@@ -180,7 +179,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-hostPort works by adding rules to the NAT table so that any traffic destined for port 5000 on the node is forwarded to the pod IP at port 5000. This can be confirmed by running `iptables -t nat -L` on a node with a pod that has `hostPort: 5000` and `hostIP: 127.0.0.1`. Since hostIP is set to 127.0.0.1 traffic is only redirected if it's destination is localhost.
+hostPort works by adding rules to the NAT table so that any traffic destined for port 5000 on the node is forwarded to the pod IP at port 5000. This can be confirmed by running `iptables -t nat -L` on a node with a pod that has `hostPort: 5000` and `hostIP: 127.0.0.1`. Since hostIP is set to 127.0.0.1 traffic is only redirected if its destination is localhost.
 ```bash
 target     prot opt source               destination         
 CNI-HOSTPORT-SETMARK  tcp  --  10.244.0.0/24        localhost            tcp dpt:5000
@@ -344,7 +343,7 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
-The injection process is more likely fail and may require user input, see [Design Details](#design-details)
+The injection process is more likely to fail and may require user input, see [Design Details](#design-details)
 
 Extra user complexity and feature maintenance, users will need to figure out which solution is best for them between hostPort and nodePort. There may be a future where Zarf drops nodeport support, but that's unclear without allowing time for user feedback.
 
@@ -371,7 +370,7 @@ This was rejected because the solution would be brittle and not CRI agnostic. Th
 
 Instead of custom code to create and sign certificates we could use the Kubernetes [certificate signing requests](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/) built in resources. The idea being that we could avoid having to maintain and rotate the certificate authority for the client and server certificates.
 
-This was rejected because the list of [Kubernetes signers](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#kubernetes-signers) is limited in what type of certificates they allow. Kubernetes does allow for a [custom signers](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#custom-signers), but a controller is required to support a custom signer and it would still have to own it's CA. 
+This was rejected because the list of [Kubernetes signers](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#kubernetes-signers) is limited in what type of certificates they allow. Kubernetes does allow for a [custom signers](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#custom-signers), but a controller is required to support a custom signer and it would still have to own its CA. 
 
 ### Dynamically manage injector lifecycle with controller
 
@@ -381,6 +380,6 @@ This was rejected in favor of keeping the injector as a long-lived sidecar proce
 
 ### Stricter process for determining injector image.
 
-Zarf will try it's best to find an image all nodes have access too for the injector daemonset. Zarf could instead add an optional flag, `--injector-image`, that allows users to submit their own image, that they know is reachable from the cluster or that all nodes have access to. Zarf could also spin up a test daemonset that it knows will fail, but would force the kubelet to pull the pause image on every node for cases where the pause image has a different name. 
+Zarf will try its best to find an image all nodes have access to for the injector daemonset. Zarf could instead add an optional flag, `--injector-image`, that allows users to submit their own image, that they know is reachable from the cluster or that all nodes have access to. Zarf could also spin up a test daemonset that it knows will fail, but would force the kubelet to pull the pause image on every node for cases where the pause image has a different name. 
 
 This was rejected because we believe our image selection logic will work in the vast majority of the cases, and we'd like to avoid making the user experience more complicated. However, if we receive feedback from a user that the logic does not work for a certain use case, then this may be worth coming back to and adding. 
