@@ -163,9 +163,9 @@ var User Mode = "user"
 type Name string
 type Description string
 type Enabled bool
-# Validate Since matches semver
+// Validate Since matches semver
 type Since string
-# Validate Until matches semver
+// Validate Until matches semver
 type Until string
 
 type Stage string
@@ -177,18 +177,18 @@ var (
 )
 
 type Feature struct {
-  # Name stores the name of the feature flag.
+  // Name stores the name of the feature flag.
   Name
-  # Description describes how the flag is used.
+  // Description describes how the flag is used.
   Description
-  # Enabled describes whether a feature is explicitly enabled or disabled. A feature that does not exist in any set
-  # is considered disabled.
+  // Enabled describes whether a feature is explicitly enabled or disabled. A feature that does not exist in any set
+  // is considered disabled.
   Enabled
-  # Since is the version a feature is first introduced in alpha stage.
+  // Since is the version a feature is first introduced in alpha stage.
   Since
-  # Until is the version when a deprecated feature is fully removed. Historical versions included.
+  // Until is the version when a deprecated feature is fully removed. Historical versions included.
   Until
-  # Stage describes what level of done-ness a feature is. TODO describe this better
+  // Stage describes what level of done-ness a feature is. TODO describe this better
   Stage
 }
 ```
@@ -196,11 +196,11 @@ type Feature struct {
 ### API
 Below are descriptions of each function in the feature API and their intended UX.
 
-#### Enabled()
+#### IsEnabled()
 ```
 // Enabled allows users to optimistically check for a feature. Useful for control flow. Any user-enabled or disabled
 // features take precedence over the default setting.
-func Enabled(name Name) bool {
+func IsEnabled(name Name) bool {
   ...
 }
 ```
