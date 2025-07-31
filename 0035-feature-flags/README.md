@@ -69,23 +69,22 @@ longer appropriate, updates to the list must be approved by the remaining approv
 - [Infrastructure Needed (Optional)](#infrastructure-needed-optional)
 <!-- /toc -->
 
-## FIXME Summary
+## Summary
 
-This ZEP proposes Feature Flags for the Zarf CLI and SDK layer. Features are intended to provide a configuration model
-for users to enable and disable logical features (e.g. a new API or behavior) throughout the stages of release and
-deprecation, eg. `alpha`, `beta`, `ga`, `deprecated`. It introduces a new go package `feature` implementing storage and
-and API for using features. `feature` also contains a centralized location where all features are **declared**, ensuring
-users and maintainers can easily find features and their associated documentation in code. Inspiration for the Feature 
-model and implementation is drawn from the Kubernetes project, with various changes made to scale back the
-implementation to Zarf's needs.
+This ZEP proposes Feature Flags for Zarf's CLI and SDK. Features are intended to provide a configuration model for users
+to enable and disable logical features (e.g. a new API or behavior) throughout the stages of release and deprecation,
+eg. `alpha`, `beta`, `ga`, `deprecated`. It introduces a new go package `feature` implementing storage and API for using
+features. `feature` also contains a centralized location where default features are _declared_, ensuring users and
+maintainers can easily find features and their associated documentation in code. Inspiration for the Feature model is
+drawn from the Kubernetes project, with various changes made to scale back the implementation to Zarf's needs.
 
 ## Motivation
 
-Feature flags have been discussed often in Zarf as a step on the path to v1.0.0 and we believe they provide significant
+Feature flags have often been discussed in Zarf as a step on the path to v1.0.0. We believe they provide significant
 enough benefits to offset the complexity they add. Maintainer flexibility is the foremost benefit, allowing for 
-experimental features to be added and iterated on. Allowing users to opt-in for alpha previews and beta testing also
-provides additional ways for Zarf maintainers to get feedback and shape features into a complete state before they are
-made fully available.
+experimental features to be added and iterated on. Making opt-in alpha previews and beta testing also provides
+additional ways for Zarf maintainers to get feedback and shape features into a complete state before they are made
+fully available. We hope this increases trust in and awareness of new features and encourages further experimentation.
 
 There's also documentation benefits. By associating features to their release version, users may
 more easily track which minimum version is required to get the functionality they need. Currently, this information can
@@ -98,14 +97,16 @@ opportunity to model and encourage that flow in the codebase itself.
 
 - Allow CLI and SDK users to opt in to new features with a comprehensive UX.
 - Have a clear and documented reference for users on which versions of Zarf introduce or deprecate features.
-- Discourage forever-features which never graduate to GA.
+- Encourage community feedback on features, helping them graduate out of beta to GA.
 - Give users a clear signal when a deprecated feature will be removed soon and must be explicitly re-enabled.
 
 ### Non-Goals
 
 - Elaborate configuration nightmares, where users don't know what is enabled or multiple flags are intertwined.
-- _Build time_ feature flags. Go already provides these via build flags - features should be runtime configurable
-whenever possible.
+- _Build time_ feature flags. Go already provides build flags - features offers code-level runtime configuration.
+- Mutable user-set flags. This is an explicit design decision to keep complexity low for maintainers and SDK users. If
+the need for mutable flags arises in the future, it is possible to ease the restrictions in Set and add merge behavior.
+(See "Value-based Merges of Feature Structs" under Alternatives)
 
 ## Proposal
 
@@ -115,9 +116,6 @@ features are declared in the Zarf codebase, while also providing clear implement
 maintainers to declare new features. CLI users will be offered multiple avenues of configuration: with CLI flags,
 environment variables, and config files. Finally, the docs.zarf.dev page will document 1:1 each feature as they're
 declared in code (as a stretch goal, this will be fully automated).
-
-- TODO/NOTE: Discuss global fallback to ctx in API: this section was removed while we evaluate global features, runtime
-features with ctx, and potentially supporting both. Answering this question is critical to the SDK user experience.
 
 ### User Stories (Optional)
 
