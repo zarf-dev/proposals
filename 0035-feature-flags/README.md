@@ -285,8 +285,23 @@ package feature
 
 func init() {
     features := [
-        {Name: "foo", Enabled: true, Since: "v0.60.0", Stage: GA},
-        {Name: "bar", Enabled: false, Since: "v0.52.0", Until: "v0.62.0", Stage: Deprecated},
+        // Owner: @zarf-maintainers
+        {
+            Name: "foo",
+            Description: "foo does the thing of course",
+            Enabled: true,
+            Since: "v0.60.0",
+            Stage: GA
+        },
+        // Owner: @zarf-maintainers
+        {
+            Name: "bar",
+            Description: "bar was honestly always a bit buggy, use baz instead" 
+            Enabled: false,
+            Since: "v0.52.0",
+            Until: "v0.62.0",
+            Stage: Deprecated
+        },
     ]
     
     err := StoreDefault(features)
