@@ -198,19 +198,19 @@ func Enabled(name Name) bool {
 }
 ```
 
-#### Store() and StoreDefault()
+#### Set() and SetDefault()
 ```
-// Store takes a slice of one or many flags, inserting the features onto user-configured features. If a feature name is
-// provided that is already a part of the set, then Store will return an error. 
+// Set takes a slice of one or many flags, inserting the features onto user-configured features. If a feature name is
+// provided that is already a part of the set, then Set will return an error. 
 // TODO: Should we allow users to call this multiple times even if we don't allow them to overwrite features?
-func Store(features []Feature) error {
+func Set(features []Feature) error {
   ...
 }
 
-// StoreDefault takes a slice of one or many flags, inserting the features onto the default feature set. If
-// a feature name is provided that is already a part of the set, then StoreDefault will return an error. This function
+// SetDefault takes a slice of one or many flags, inserting the features onto the default feature set. If
+// a feature name is provided that is already a part of the set, then SetDefault will return an error. This function
 // can only be called once.
-func StoreDefault(features []Feature) error {
+func SetDefault(features []Feature) error {
   ...
 }
 ```
@@ -304,7 +304,7 @@ func init() {
         },
     ]
     
-    err := StoreDefault(features)
+    err := SetDefault(features)
     if err != nil {
         panic(err)
     }
@@ -313,11 +313,10 @@ func init() {
 
 ### SDK: Setting User flags
 ```
-features := [
+feature.Set([
     {Name: "foo", Enabled: false},
     {Name: "bar", Enabled: true},
-]
-feature.Store(features)
+])
 
 // My beautiful Zarf-enabled application
 ```
