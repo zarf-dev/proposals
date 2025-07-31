@@ -71,13 +71,13 @@ longer appropriate, updates to the list must be approved by the remaining approv
 
 ## FIXME Summary
 
-FIXME(mentions ctx api, rework)
-This ZEP proposes Feature Flags for Zarf, intended to provide a configuration model for features throughout the stages
-of release and deprecation, eg. "alpha", "beta", "GA", "deprecated". It introduces a ctx-based API, similar to previous
-usages of feature flags in Zarf, a centralized location where all CLI feature flags are **declared** so that users may
-easily find Flags and their documentation in code. Additionally, centralizing where Flags are declared allows us to
-automate site documentation that corresponds one to one with the docs in code. Inspiration for the Feature fields is 
-drawn from the Kubernetes project.
+This ZEP proposes Feature Flags for the Zarf CLI and SDK layer. Features are intended to provide a configuration model
+for users to enable and disable logical features (e.g. a new API or behavior) throughout the stages of release and
+deprecation, eg. `alpha`, `beta`, `ga`, `deprecated`. It introduces a new go package `feature` implementing storage and
+and API for using features. `feature` also contains a centralized location where all features are **declared**, ensuring
+users and maintainers can easily find features and their associated documentation in code. Inspiration for the Feature 
+model and implementation is drawn from the Kubernetes project, with various changes made to scale back the
+implementation to Zarf's needs.
 
 ## Motivation
 
@@ -141,29 +141,24 @@ by disabling the feature before it's fully removed.
 - Rollout considerations, like can we _backport_ flags to previous features so that they can be associated with verions
 or disabled? 
 
-## FIXME Design Details
-<!--
-This section should contain enough information that the specifics of your
-change are understandable. This may include API specs (though not always
-required) or even code snippets. If there's any ambiguity about HOW your
-proposal will be implemented, this is the place to discuss that.
--->
+## Design Details
 
 ### Types
 Below is the proposed data model for Features, including the `Feature` type and supporting fields in the `feature` pkg.
 ```
 pkg feature 
 ...
+// Mode describes the two different ways that Features can be set. These are used as keys for All()'s return map.
+type Mode string
+var Default Mode = "default"
+var User Mode = "user"
 
 type Name string
 type Description string
-
 type Enabled bool
-type Default bool
-
-# TODO Validate Since matches semver
+# Validate Since matches semver
 type Since string
-# TODO Validate Until matches semver
+# Validate Until matches semver
 type Until string
 
 type Stage string
@@ -179,10 +174,9 @@ type Feature struct {
   Name
   # Description describes how the flag is used.
   Description
-  # Enabled is set if a feature is set.
+  # Enabled describes whether a feature is explicitly enabled or disabled. A feature that does not exist in any set
+  # is considered disabled.
   Enabled
-  # Default is set if a feature is enabled by default, without being set by users.
-  Default
   # Since is the version a feature is first introduced in alpha stage.
   Since
   # Until is the version when a deprecated feature is fully removed. Historical versions included.
@@ -195,84 +189,91 @@ type Feature struct {
 ### API
 Below are descriptions of each function in the feature API and their intended UX.
 
-#### WithDefault()
+#### Enabled()
 ```
-// WithDefault takes a context and a slice of one or many flags, inserting the features onto the default feature set. If
+// Enabled allows users to optimistically check for a feature. Useful for control flow. Any user-enabled or disabled
+// features take precedence over the default setting.
+func Enabled(name Name) bool {
+  ...
+}
+```
+
+#### StoreDefault() and StoreUser()
+```
+// StoreDefault takes a slice of one or many flags, inserting the features onto the default feature set. If
 // a feature name is provided that is already a part of the set, then WithDefault will return an error. 
-// TODO Example [{Name: "foo", Enabled true, Default: "v0.63.0", Since: "v0.60.0", Stage: GA}]
-func WithDefault(ctx context.Context, features []Feature) (context.Context, error) {
+// Example: 
+// [{Name: "foo", Enabled true, Since: "v0.60.0", Stage: GA},
+//  {Name: "bar", Enabled false, Since: "v0.52.0", Until: "v0.62.0", Stage: Deprecated}]
+func WithDefault(ctx context.Context, features []Feature) error {
   ...
 }
 ```
 
-#### With()
+#### Get(), GetDefault(), GetUser()
 ```
-// With takes a context and a slice of one or many flags, inserting the features onto the feature set. If a feature name
-// is provided that is already a part of the set, then With will return an error. 
-// TODO Example [{Name: "foo", Enabled true, Default: "v0.63.0", Since: "v0.60.0", Stage: GA}]
-func With(ctx context.Context, features []Feature) (context.Context, error) {
+// Get takes a flag Name and returns the Feature struct. If the doesn't exist then it will error. It will check both the
+// default set and the user set, and if a flag exists in both it will return the user data for it.
+func Get(name Name) (Feature, error) {
+  ...
+}
+
+// GetDefault takes a flag Name and returns the Feature struct from the default set.
+func GetDefault(name Name) (Feature, error) {
+  ...
+}
+
+// GetUser takes a flag Name and returns the Feature struct from the user set.
+func GetUser(name Name) (Feature, error) {
   ...
 }
 ```
 
-#### IsEnabled()
+#### All(), AllDefault(), and AllUser()
 ```
-// IsEnabled allows users to optimistically check a feature from ctx without erroring. Useful for control flow.
-func IsEnabled(ctx context.Context, name Name) bool {
-  ...
-}
-```
-
-#### From()
-```
-// From takes a ctx and the Name of a flag, and returns a full Feature type from the ctx object. If the doesn't exist,
-// then it will error.
-func From(ctx context.Context, name Name) (Feature, error) {
-  ...
-}
-```
-
-#### All(), AllDefault(), and AllEnabled()
-```
-// All takes a ctx and returns all flags from the ctx object.
-func All(ctx context.Context) map[Name]Feature {
+// All returns all flags from both Default and User.
+func All() map[Mode]map[Name]Feature {
   ...
 }
 
-// NOTE: Getting back an empty collection from these functions is not considered an error. The intended way to check
-for no flags is
-// if len(All(ctx)) == 0 {
-  ...
-}
-
-// AllDefault takes a ctx and returns all features with Default set, e.g. features that have not been modified by users.
-func AllDefault(ctx context.Context) map[Name]Feature {
+// AllDefault returns all features with from the Default set for this version of Zarf. 
+func AllDefault() map[Name]Feature {
    ...
 }
 
-// AllEnabled takes a ctx and returns all features that have been enabled by users.
-func AllEnabled(ctx context.Context) map[Name]Feature {
+// AllUser returns all features that have been enabled by users.
+func AllUser() map[Name]Feature {
    ...
 }
 
+
+// EXAMPLE
+// Getting back an empty collection from these functions is not considered an error. The intended way to check is:
+m := All()
+if len(m[User]) == 0 {
+  ...
+}
 ```
 
-### TODO DISCUSS: Global API
-- Enable globals? Potentially an abandoned idea.
-- Proposal:
-- Allow for global flags and have the API fallback to globals if no ctx is provided or ctx is empty?
-- Globals have advantages for developer ease of use in the SDK. e.g. get sensible defaults for loading up Zarf as a library, don't worry about enabling anything yourself.
-- Also if maintainers rely on enabling feature flags at specific versions then this keeps SDK to CLI parity.
-- Without global defaults we have to flip the boolean from enabled to disabled when providing a beta feature by default.
-- A major drawback with ctx is that it's difficult to inspect for users. "where did this flag come from?"
-- Maybe this is a good nudge to get features into GA sooner. More to discuss here.
-- Implementation:
-- Not unlike logger. Atomically store a reference to a set of flags. Making the API transparent is harder. Should we
-have a flag store/collection instance on ctx which is what we query? Currently we just assume it's going to be a
-bare collection type, e.g. slice or map, but supporting atomic updates would be better with an abstraction.
+### Global Feature Storage 
+While CLI users are unaffected, global feature state has advantages for developer ease of use in the SDK. They can get
+sensible defaults for loading up Zarf as a library, without worrying about any ceremony before calling the SDK.
+(See "Ctx-based Flags that can be Updated at Runtime" under Abandoned Ideas)
+
+Very similar to the global default logger implementation, the intent is to atomically store and load the state in a
+private package var and provide a managed thread-safe API.
+
+```
+// Atoms wrapping the default and user-set collections of Features. These do not require mutexes because they will each
+// be modified very few times, with the public API for each ensuring there only an empty set can be written to.
+// Alternatively these could be sync.Maps but they're not written to enough where it matters.
+// e.g. These atoms are write once, ready many (WORM).
+var default = atomic.Value // map[Name]Feature
+var user    = atomic.Value // map[Name]Feature
+```
 
 ### CLI: Enabling and Disabling Flags
-- Three approaches: `CLI Flags`, `Env Vars`, and `zarf-config.yaml`, with precedence in that order.
+- Three approaches: `CLI Flags`, `Env Vars`, and `zarf-config.{yaml,toml}`, with precedence in that order.
 - TODO CLI UX for Listing Flags: `zarf <COMMAND> -h` (K8s uses -h)
 - CLI UX enable: `--feature-enable="Foo,Bar,Baz"`
 - CLI UX disable: `--feature-disable="Fizz,Buzz,Qux"`
@@ -284,7 +285,7 @@ bare collection type, e.g. slice or map, but supporting atomic updates would be 
 ### SDK: Enabling and Disabling flags
 - TODO, SDK examples pending API rework
 
-### TODO Site Docs Automation
+### Strech Goal: Site Docs Automation
 - Generate docs.zarf.dev page with `make docs-and-schema` 
 - Each entry should be fully documented with an owner and optionally an attached ZEP. We can enforce this with automation
 - Parse flags in defaults table, generate markdown table from the list.
@@ -307,6 +308,7 @@ when drafting this test plan.
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
+#### TODO Update the test plan after merge with more concrete details from the impl stage
 - Create unit test file and tables for each feature flag function.
 - Test errors in unit test cases as well
 - TODO e2e testing. This may require a test flag for a mock feature. A/B test before and after flag is enabled? should
@@ -315,27 +317,22 @@ be pretty lightweight
 
 ### Graduation Criteria
 
-<!--
-**Note:** *Not required until you're targeting a release.*
+#### Alpha
+An alpha release of Features would contain the package in internal and would be mostly tested. Potentially, maintainers
+could offer the configuration layer in a hidden and undocumented way. The main advantage to this is just getting to
+exercise the implementation and its tests in a full release, rather than just existing on a branch. There is no real
+utility for users to do so, though releasing it in an Alpha state, perhaps with something cute like `zarf say` printing
+at the start of each run would give users the chance to trial the user experience and give us feedback.
 
-Define what needs to happen for this feature to move from alpha to beta to GA
-(General Availability). Focus on key signals or criteria that show the feature
-is ready for each stage.
+#### Beta
+A beta version of this feature would be feature-complete in a sense and fully tested. It should also be accompanied by
+public config documentation on the CLI as well as a docs.zarf.dev article on all available features and the ways they
+can be enabled or disabled. Trialing another alpha or beta feature with the feature API at this stage should be a
+consideration, so we can get real user feedback at this point.
 
-Consider the following stages when setting graduation criteria:
-- Alpha: Feature is behind a feature flag, basic tests in place.
-- Beta: Gather feedback from users, complete core features, add more tests.
-- GA: Prove real-world usage, complete rigorous testing, gather feedback.
-
-In general, features should wait at least two releases between Beta and GA to
-allow time for feedback. For features moving to GA, include conformance tests
-to ensure stability and compatibility.
-
-#### Deprecation
-If this feature will eventually be deprecated, plan for it:
-- Announce deprecation and support policy.
-- Wait at least two versions before fully removing it.
--->
+#### GA
+Shipping to GA means proving production usage, offering as rigorous testing as possible, potentially with e2e tests,
+as well as gathering extensive feedback from the community on its usage.
 
 ### Upgrade / Downgrade Strategy
 
@@ -368,35 +365,35 @@ proposal:
 - Does this proposal involve coordinating behavior between components?
   - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
 -->
-TODO
+#### Create-time Feature State vs. Deploy-time Feature State
+One significant open question which is what behavior to expect when creating a package with enabled or disabled
+features, and whether those same feature should be set at deploy time. Much of this is the responsibility of maintainers
+to manage within changes to create and deploy and the implementation of new features. However, _identifying_ at
+deploy-time which features were enabled at create-time would be impossible without some addition to Zarf packages.
+
+A potential solution is to serialize the state of all features (both enabled and disabled)
 
 ## Implementation History
 
-<!--
-Major milestones in the lifecycle of a ZEP should be tracked in this section.
-Major milestones might include:
-- the `Summary` and `Motivation` sections being merged, signaling acceptance of the ZEP
-- the `Proposal` section being merged, signaling agreement on a proposed design
-- the date implementation started
-- the first Zarf release where an initial version of the ZEP was available
-- the version of Zarf where the ZEP graduated to general availability
-- when the ZEP was retired or superseded
--->
 Revision 1 of this doc is intended to include Summary, Motivation, Proposal and a first stab at an API implementation.
 The reason why this is all done at once, is because we have prior art with feature flagging (TODO link to PR) and this
 proposal is intended to generalize and provide long term support for this approach.
 
 Revision 2 encapsulates feedback on the various design decision, and completes the API for the new impl. considerations.
 Namely, storing multiple feature sets, offering API facilities to query for these separately, and doing using a
-global API (not through ctx injection). Not solved in this revision is docs automation, as this may become a stretch goal.
+global API (not through ctx injection). Not solved in this revision is docs automation, which is considered a stretch
+goal.
 
 ## Drawbacks
 
-- Contributor friction and increased lead time on new features (what if this is a positive because of the design work)
-- Yet Another Process (yap yap yap)
-- Increased end user complexity and config surface area (effective docs makes this better but doesn't solve it.)
+- Yet Another Process
+- Increased complexity and config surface area for end-users. Effective docs makes this better but doesn't solve it.
+- Features add some contributor friction and increased lead time on new features. However, this can also be framed as a
+positive, because it encourages the design work necessary to see a feature through alpha, beta, and ga - exactly what
+the ZEP process is intended to encourage.
 - Increased contributor complexity when having to support backwards compatibility during new feature rollout and
-deprecation strategy for the backwards compatible feature. (Again, this is kinda looking like a GOOD constraint)
+deprecation strategy for the backwards compatible feature. Similar to contributor friction, this design work could be
+seen as a _positive_ forcing function, not just a drawback.
 
 ## Alternatives
 
@@ -406,18 +403,58 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-### Value-based flag merges on flags.With()
-This is overkill, we don't need to compare for highest version or latest feature (e.g. beta takes precedence over alpha)
-for each field every time a flag is declared multiple times. A flag should be declared once, and if it is declared
-multiple times, take the latest.
+### Value-based Merges of Feature Structs
+During revision 1 of the proposal, we discussed whether the API should compare for highest version or latest feature
+(e.g. beta takes precedence over alpha) for each field every time a flag is declared multiple times. Merge functions are
+useful in many cases, but overkill in this situation. Default features are declared centrally and should be set at most
+once. Version control can be used to update these declaratively, rather than relying on multiple declarations merging
+during runtime. Any attempt to declare a flag more than once will error.
 
+Users are afforded a similar UX, where duplicated flags return an error. However, there is one key and difference: if a
+user sets a different state on a _default_ flag then the user-set state will take precedence. Feature flags wouldn't be
+very useful for users if they couldn't enable or disabled. While this is more of an implementation detail, it is
+important for UX in cases where features are _disabled_ by default and a user wants
+to reenable it. Take for example a deprecated feature. The opposite is also true, where a feature may have graduated to
+beta and is enabled by default -- users will be able to explicitly _disable_ the flag via any of the available config
+paths (CLI flags, environment variables, or `zarf-config.{yaml,toml}`)
 
-### TODO Using an Off-the-Shelf Library or Pre-exisitng Solution
-TODO
+### Ctx-based Flags that can be Updated at Runtime
+The original version of this proposal, and the original implementation it was based off of, used an implementation and API
+for feature flags based on the ctx object. This has certain advantages like forgoing global feature state in favor of
+dependency injection. This was relatively lightweight and worked well for flagging out the logging overhaul. What we
+found however, is that for all of its advantages in avoiding global state for SDK users, it was neither intuitive or
+discoverable UX for those same SDK users. In order to get defaults, SDK users calling into a random part of the API
+would have to know that the feature library exists and set the defaults themselves. Errors could be provided downstream
+if an expected flag did not exist, but adding this ceremony just to avoid managed global state is a poor tradeoff in API
+design and developer experience.
 
-## (TODO) Future Work
+### Using an Off-the-Shelf Library or Pre-existing Solution
 
-### TODO
+It's fair to say that Feature Flags are a known space, and even a solved problem in many ways. Many libraries exist,
+whether fully-fledged multi-language specs and APIs like OpenFeature or mature project-specific implementations like
+K8s' Feature Gates. This raises a clear question of: why roll your own implementation then?
+
+In both of the mentioned cases, these implementations bring on complexity outside the scope of what the Zarf project
+needs. OpenFeature for example provides abstractions for different feature providers in a common API and spec, and this
+is particularly useful for server-based web applications and services in a connected environment. K8s' feature gates
+provide runtime-dynamic configuration and multiple feature flags under specific gates.
+
+In an attempt to get exactly what we need and nothing more, we've taken significant inspiration from K8s in how to
+_model_ the fields on our Feature type. The release stages very closely mirror the ZEP and KEP processes, and the version
+fields `Since` and `Until` directly mirror K8s features. The main way we diverge is simplifying both API and the storage
+for a smaller project like Zarf.
+
+Our Hope Integrate with existing config layer
+
+## Future Work
+
+### Docs Automation
+In the current iteration, documentation for new features will be created and maintained by hand. This is currently how
+the Kubernetes does so as well, though automation would be ideal. The flip side is that once a feature is declared and
+documented, the overall change area should be relatively low throughout its lifecycle. As a note for future
+implementation, centralizing Features declarations and using a consistent doccomment format should make site automation
+relatively simple, keeping the website updated with `make docs-and-schema` should help keep the site one to one with
+what is available in code.
 
 ## (TODO) Infrastructure Needed (Optional)
 
