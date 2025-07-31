@@ -131,15 +131,24 @@ by disabling the feature before it's fully removed.
 - As a Zarf user I want to continue using Zarf without my critical workflows getting disrupted by experimental features.
 - As a Zarf user I want deeper clarity if a feature that I use will be deprecated.
 
-### FIXME Risks and Mitigations
+### Risks and Mitigations
 
-- One critical pitfall to avoid with feature flags is creating _unexpected_ behavior, both for end users and maintainers.
-  Unclear state about which flags are enabled and not, and with and without defaults. We have some solutions below under
-  risks and mitigations on how to account for this.
-- Developer experience (DX) and user experience (UX) are both critical feature flag adoption.
-- User feedback is key.
-- Rollout considerations, like can we _backport_ flags to previous features so that they can be associated with verions
-or disabled? 
+#### Feature Sourcing
+One critical pitfall to avoid with feature flags is creating _unexpected_ behavior, both for end users and maintainers.
+Unclear state about which flags are enabled and not, and with and without defaults. State is managed plainly, a feature
+can be set as enabled or disabled, and if no feature is set it is disabled by default. Clearly delineating Default vs. 
+User-set (see "Global Feature Storage") makes the source of features clear.
+
+#### UX and DX
+User experience (UX) and developer experience (DX) and are both critical feature flag adoption. We've chosen to
+implement features through multiple avenues of configuration to assist users in however they wish to run Zarf to aid in
+UX. DX is made as expressive as possible through the API, with the ability to optimistically check for a flag with
+`feature.Enabled(Name)` as well as query for the flags whether by source or all at once. User feedback remains key here.
+
+#### Backporting Considerations
+Once Features are shipped, we have the option to backport flags for existing features. To avoid breaking changes, these
+backported features should be enabled by default. There isn't a particular urgency to add flags for an existing stable
+(but still in alpha or beta) feature, but it is an option available to maintainers once Features is released.
 
 ## Design Details
 
