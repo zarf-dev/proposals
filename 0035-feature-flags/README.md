@@ -198,14 +198,19 @@ func Enabled(name Name) bool {
 }
 ```
 
-#### StoreDefault() and StoreUser()
+#### Store() and StoreDefault()
 ```
+// Store takes a slice of one or many flags, inserting the features onto user-configured features. If a feature name is
+// provided that is already a part of the set, then Store will return an error. 
+// TODO: Should we allow users to call this multiple times even if we don't allow them to overwrite features?
+func Store(features []Feature) error {
+  ...
+}
+
 // StoreDefault takes a slice of one or many flags, inserting the features onto the default feature set. If
-// a feature name is provided that is already a part of the set, then WithDefault will return an error. 
-// Example: 
-// [{Name: "foo", Enabled true, Since: "v0.60.0", Stage: GA},
-//  {Name: "bar", Enabled false, Since: "v0.52.0", Until: "v0.62.0", Stage: Deprecated}]
-func WithDefault(ctx context.Context, features []Feature) error {
+// a feature name is provided that is already a part of the set, then StoreDefault will return an error. This function
+// can only be called once.
+func StoreDefault(features []Feature) error {
   ...
 }
 ```
@@ -272,6 +277,36 @@ var default = atomic.Value // map[Name]Feature
 var user    = atomic.Value // map[Name]Feature
 ```
 
+
+### Maintainers: Setting the Default Flags
+```
+package feature
+...
+
+func init() {
+    features := [
+        {Name: "foo", Enabled: true, Since: "v0.60.0", Stage: GA},
+        {Name: "bar", Enabled: false, Since: "v0.52.0", Until: "v0.62.0", Stage: Deprecated},
+    ]
+    
+    err := StoreDefault(features)
+    if err != nil {
+        panic(err)
+    }
+}
+```
+
+### SDK: Setting User flags
+```
+features := [
+    {Name: "foo", Enabled: false},
+    {Name: "bar", Enabled: true},
+]
+feature.Store(features)
+
+// My beautiful Zarf-enabled application
+```
+
 ### CLI: Enabling and Disabling Flags
 - Three approaches: `CLI Flags`, `Env Vars`, and `zarf-config.{yaml,toml}`, with precedence in that order.
 - TODO CLI UX for Listing Flags: `zarf <COMMAND> -h` (K8s uses -h)
@@ -282,10 +317,7 @@ var user    = atomic.Value // map[Name]Feature
 - Config UX enable: TODO, take a look at how these flow thru viper
 - Config UX disable: TODO, take a look at how these flow thru viper
 
-### SDK: Enabling and Disabling flags
-- TODO, SDK examples pending API rework
-
-### Strech Goal: Site Docs Automation
+### Stretch Goal: Site Docs Automation
 - Generate docs.zarf.dev page with `make docs-and-schema` 
 - Each entry should be fully documented with an owner and optionally an attached ZEP. We can enforce this with automation
 - Parse flags in defaults table, generate markdown table from the list.
@@ -444,7 +476,9 @@ _model_ the fields on our Feature type. The release stages very closely mirror t
 fields `Since` and `Until` directly mirror K8s features. The main way we diverge is simplifying both API and the storage
 for a smaller project like Zarf.
 
-Our Hope Integrate with existing config layer
+Should our needs change in the future, then we have clear boundaries in the config layer for CLI users, and a
+straightforward store/load API with clear guarantees for users. Any API migration could maintain backwards compatibility
+with the existing API relatively easily while migrating over to a new implementation.
 
 ## Future Work
 
