@@ -5,10 +5,11 @@ zep-number: 0032
 authors:
   - "vincent.touchard@collibra.com"
   - "@AustinAbro321"
-status: provisional
+status: implementable
 creation-date: 2025-07-21
 reviewers:
   - "christopher.jackson@collibra.com"
+  - "@zaf-dev"
 approvers:
   - @zarf-dev
 
