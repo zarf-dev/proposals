@@ -510,13 +510,3 @@ documented, the overall change area should be relatively low throughout its life
 implementation, centralizing Features declarations and using a consistent doccomment format should make site automation
 relatively simple, keeping the website updated with `make docs-and-schema` should help keep the site one to one with
 what is available in code.
-
-## (TODO) Infrastructure Needed (Optional)
-
-<!--
-Use this section if you need things from the project. Examples include a new repo,
-cloud infrastructure for testing or GitHub details. Listing these here
-allows the process to get these resources to be started right away.
--->
-
-TODO Implementation considerations for Test plan. Esp. additional e2e tests.
