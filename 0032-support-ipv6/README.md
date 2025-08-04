@@ -98,6 +98,8 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
+**NOTE** This ZEP is superseded by [0033-registry-proxy](../0033-registry-proxy/)
+
 This ZEP proposes to implement support in Zarf for deploying into Kubernetes clusters configured with IPv6 networking and where IPv4 is not supported.
 
 ## Motivation
