@@ -128,7 +128,7 @@ components:
 # zarf-config.yaml
 package:
   create:
-    cosignOpts:
+    cosignVerifyOpts:
       "registry1.dso.mil/ironbank/*":
         certificate-chain: cosign-ca-bundle.pem
         cert: cosign-certificate.pem
@@ -149,12 +149,12 @@ package:
 
 ### Configuration Structure
 
-The image signature verification feature will be implemented by adding a new `cosignOpts` field to the `package.create` section of the Zarf package configuration. This field will contain a map of glob patterns to verification options (seen with `cosign verify -h`).
+The image signature verification feature will be implemented by adding a new `cosignVerifyOpts` field to the `package.create` section of the Zarf package configuration. This field will contain a map of glob patterns to verification options (seen with `cosign verify -h`).
 
 ```yaml
 package:
   create:
-    cosignOpts:
+    cosignVerifyOpts:
       "registry1.dso.mil/ironbank/*":
         certificate-chain: cosign-ca-bundle.pem
         cert: cosign-certificate.pem
@@ -209,10 +209,10 @@ Once the verification process is complete, Zarf will record the images that it s
 
 ### CLI Integration
 
-The `cosignOpts` configuration will also be accessible through the Zarf CLI using the `--cosignOpts` flag, which will accept a JSON string containing the verification options:
+The `cosignVerifyOpts` configuration will also be accessible through the Zarf CLI using the `--cosignVerifyOpts` flag, which will accept a JSON string containing the verification options:
 
 ```bash
-zarf package create . --cosignOpts='{"registry.dso.mil/*": {"certificate-chain": "cosign-ca-bundle.pem", "cert": "cosign-certificate.pem"}}'
+zarf package create . --cosignVerifyOpts='{"registry.dso.mil/*": {"certificate-chain": "cosign-ca-bundle.pem", "cert": "cosign-certificate.pem"}}'
 ```
 
 This allows users to specify verification options without modifying the Zarf configuration file in scripts or pipelines.
@@ -244,9 +244,9 @@ Pending review / community input these changes would move out of alpha and becom
 
 This feature adds a new optional configuration field and does not modify any existing behavior, so no special upgrade or downgrade strategy is required. Existing packages will continue to work without modification.
 
-To make use of the new feature, package creators will need to add the `cosignOpts` field to their Zarf package create configuration. This can be done without affecting the rest of the configuration.
+To make use of the new feature, package creators will need to add the `cosignVerifyOpts` field to their Zarf package create configuration. This can be done without affecting the rest of the configuration.
 
-If a user downgrades to a version of Zarf that doesn't support image signature verification, packages that include the `cosignOpts` field will still work, but the verification options will be ignored.
+If a user downgrades to a version of Zarf that doesn't support image signature verification, packages that include the `cosignVerifyOpts` field will still work, but the verification options will be ignored.
 
 ### Version Skew Strategy
 
