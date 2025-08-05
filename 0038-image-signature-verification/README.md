@@ -45,7 +45,7 @@ The latest instructions for this template can be found in [this repo](/NNNN-zep-
 longer appropriate, updates to the list must be approved by the remaining approvers.
 -->
 
-# ZEP-NNNN: Your short, descriptive title
+# ZEP-0038: Image Signature Verification
 
 <!--
 Keep the title short simple and descriptive. It should clearly convey what
@@ -149,7 +149,7 @@ package:
 
 ### Configuration Structure
 
-The image signature verification feature will be implemented by adding a new `cosignOpts` field to the `package.create` section of the Zarf package configuration. This field will contain a map of glob patterns to verification options.
+The image signature verification feature will be implemented by adding a new `cosignOpts` field to the `package.create` section of the Zarf package configuration. This field will contain a map of glob patterns to verification options (seen with `cosign verify -h`).
 
 ```yaml
 package:
@@ -204,6 +204,8 @@ During package creation, when Zarf pulls a container image, it will check if the
 The verification process will use the Cosign library to perform the actual verification mapping the configured verification options to the Cosign CLI options.
 
 If verification fails, Zarf will provide a clear error message indicating which image failed verification and why.
+
+Once the verification process is complete, Zarf will record the images that it successfully verified in the package `build` metadata.
 
 ### CLI Integration
 
