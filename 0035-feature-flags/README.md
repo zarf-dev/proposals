@@ -188,7 +188,7 @@ type Feature struct {
   Since
   // Until is the version when a deprecated feature is fully removed. Historical versions included.
   Until
-  // Stage describes what level of done-ness a feature is. TODO describe this better
+  // Stage describes the lifecycle of a feature, as well as its production-readiness.
   Stage
 }
 ```
@@ -209,7 +209,6 @@ func IsEnabled(name Name) bool {
 ```
 // Set takes a slice of one or many flags, inserting the features onto user-configured features. If a feature name is
 // provided that is already a part of the set, then Set will return an error. 
-// TODO: Should we allow users to call this multiple times even if we don't allow them to overwrite features?
 func Set(features []Feature) error {
   ...
 }
@@ -285,7 +284,7 @@ var user    = atomic.Value // map[Name]Feature
 ```
 
 
-### Maintainers: Setting the Default Flags
+### Maintainers: Setting the Default Features
 ```
 package feature
 ...
@@ -318,7 +317,7 @@ func init() {
 }
 ```
 
-### SDK: Setting User flags
+### SDK: Setting User Features
 ```
 feature.Set([
     {Name: "foo", Enabled: false},
@@ -328,45 +327,54 @@ feature.Set([
 // My beautiful Zarf-enabled application
 ```
 
-### CLI: Enabling and Disabling Flags
-- Three approaches: `CLI Flags`, `Env Vars`, and `zarf-config.{yaml,toml}`, with precedence in that order.
-- TODO CLI UX for Listing Flags: `zarf <COMMAND> -h` (K8s uses -h)
-- CLI UX enable: `--feature-enable="Foo,Bar,Baz"`
-- CLI UX disable: `--feature-disable="Fizz,Buzz,Qux"`
-- Env UX enable: `ZARF_FEATURE_ENABLE="Foo,Bar,Baz" zarf p create ...`
-- Env UX disable: `ZARF_FEATURE_DISABLE="Fizz,Buzz,Qux" zarf p create ...`
-- Config UX enable: TODO, take a look at how these flow thru viper
-- Config UX disable: TODO, take a look at how these flow thru viper
+### CLI: Enabling and Disabling Features
+There are two approaches main approaches here, made available by Zarf's use of Viper: `CLI Flags`, `Env Vars`, and
+`zarf-config.{yaml,toml}`. Note that in terms of precedence, `Flags` > `ENV` > `config`. Unfortunately, due to how viper
+works, providing any flags in one will fully overwrite the features set in another source.
 
-### Stretch Goal: Site Docs Automation
+#### Flags
+
+CLI UX: `--features="axolotl-mode=true,foo=false"`
+
+#### Env Vars
+Env UX: `ZARF_FEATURES="{ \"axolotl-mode\": \"true\", \"foo\": \"false\" }"`
+
+#### zarf-config.{yaml,toml}
+```toml
+# toml
+[features]
+axolotl-mode = true
+baz = false
+```
+
+```yaml
+# yaml
+features:
+  axolotl-mode: true
+  baz: false
+```
+
+### Beta: Listing Flags via CLI
+- Listing Flags: `zarf <COMMAND> -h` (K8s uses -h)
+
+### Stretch Goal: Docs Website Automation
 - Generate docs.zarf.dev page with `make docs-and-schema` 
 - Each entry should be fully documented with an owner and optionally an attached ZEP. We can enforce this with automation
 - Parse flags in defaults table, generate markdown table from the list.
-- K8s website has a good example here (link)
+- K8s website has a good example [here](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/)
 
-### TODO Test Plan
+### Test Plan
 
-<!--
-**Note:** *Not required until targeted at a release.*
-The goal is to ensure that we don't accept proposals with inadequate testing.
-
-All code is expected to have adequate tests (eventually with coverage
-expectations). Please adhere to the [Zarf testing guidelines][testing-guidelines]
-when drafting this test plan.
-
-[testing-guidelines]: https://docs.zarf.dev/contribute/testing/
--->
-
-[ ] I/we understand the owners of the involved components may require updates to
+[x] I/we understand the owners of the involved components may require updates to
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
-#### TODO Update the test plan after merge with more concrete details from the impl stage
+Alpha
 - Create unit test file and tables for each feature flag function.
 - Test errors in unit test cases as well
-- TODO e2e testing. This may require a test flag for a mock feature. A/B test before and after flag is enabled? should
-be pretty lightweight
-- TODO Infra implications for more testing
+
+Beta
+- A simple E2E test for the CLI layer.
 
 ### Graduation Criteria
 
@@ -429,13 +437,16 @@ A potential solution is to serialize the state of all features (both enabled and
 ## Implementation History
 
 Revision 1 of this doc is intended to include Summary, Motivation, Proposal and a first stab at an API implementation.
-The reason why this is all done at once, is because we have prior art with feature flagging (TODO link to PR) and this
+The reason why this is all done at once, is because we have prior art with feature flagging (see: [#3161](https://github.com/zarf-dev/zarf/pull/3161/files#diff-6dd2605b49635ac81205f236a685b87d5741c31776eabd12e1b8507b8517db7eR39-R41)) and this
 proposal is intended to generalize and provide long term support for this approach.
 
 Revision 2 encapsulates feedback on the various design decision, and completes the API for the new impl. considerations.
 Namely, storing multiple feature sets, offering API facilities to query for these separately, and doing using a
 global API (not through ctx injection). Not solved in this revision is docs automation, which is considered a stretch
 goal.
+
+Revision 3 sets Features to Alpha as it's now implemented. Cleans up TODOs and updates the CLI configuration to match
+what we found when implementing Features. Also further scopes out Beta vs. Alpha.
 
 ## Drawbacks
 
