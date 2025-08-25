@@ -328,7 +328,7 @@ feature.Set([
 ```
 
 ### CLI: Enabling and Disabling Features
-There are two approaches main approaches here, made available by Zarf's use of Viper: `CLI Flags`, `Env Vars`, and
+There are two main approaches here, made available by Zarf's use of Viper: `CLI Flags`, `Env Vars`, and
 `zarf-config.{yaml,toml}`. Note that in terms of precedence, `Flags` > `ENV` > `config`. Unfortunately, due to how viper
 works, providing any flags in one will fully overwrite the features set in another source.
 
