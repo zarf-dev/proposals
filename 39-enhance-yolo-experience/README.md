@@ -128,12 +128,180 @@ The most significant change to Zarf would be how it handles packaging at create,
 
 ## Design Details
 
-<!--
-This section should contain enough information that the specifics of your
-change are understandable. This may include API specs (though not always
-required) or even code snippets. If there's any ambiguity about HOW your
-proposal will be implemented, this is the place to discuss that.
--->
+- Schema changes
+- CLI Flag
+
+### `ZarfPackageConfig` Schema Changes
+
+1. Make the `yolo: bool` property of zarf.yaml accept string values of "true" and "false" (or enable zarf template variables to accept non-string values). This will allow me to use zarf package templates to create either a Yolo package or a regular zarf package.
+
+```
+kind: ZarfPackageConfig
+metadata:
+  name: dynamic-packaging
+  description: Build packages in both Yolo and Airgap mode with a single config
+  version: '###ZARF_PKG_TMPL_CUSTOM_VERSION###'
+  yolo: '###ZARF_PKG_TMPL_YOLO###'
+```
+
+**--OR--**
+
+Get rid of the the `yolo: bool` metadata property all together. I think this makes the most sense, as users should be taking advantage of OCI layering or tagging or something similar to multi-architecture builds but for Yolo environments. This probably deserves its own section to discuss.
+
+2. Add a Yolo property to `only` so that components are only included when a zarf package is either Yolo or not Yolo.
+
+```
+components:
+  - name: Yolo-extras
+    required: true
+    description: "This component is only included in Yolo packages."
+    only:
+      yolo: true
+```
+
+3. Enable Yolo-only variables. Sometimes I need a variable defined with Yolo mode but not for normal airgap packages. An obvious example would be ImagePullSecrets, since Zarf agent will handle that for all packages, but in Yolo-mode, this could be handled separately. Setting an ImagePullSecret variable lets me require a secret at deploy time, and being able to specify that the variable is only required on Yolo packages lets me define all variables regardless of package type.
+
+```
+constants:
+  - name: YOLO_LABEL
+    description: "Label to apply to resources in Yolo packages"
+    only:
+        yolo: true
+  - name: AIRGAP_LABEL
+    description: "Label to apply to resources in airgap packages"
+    only:
+        yolo: false
+
+variables:
+  - name: IMAGE_PULL_SECRET
+    description: "Used only with Yolo-mode. Any airgap packages that reference this variable will probably fail."
+    only:
+        yolo: true
+```
+
+4. Enable Yolo-only actions. If a component's `only` property supported a yolo-only value, I could still run into a situation where a component that is to be included in a either yolo or airgap-only mode contains a specific action (or action set) which may only be required exclusively in Yolo-mode.
+
+```
+actions:
+  onDeploy:
+    after:
+    - cmd: echo "This command is for Yolo-only packages"
+       only:
+         yolo: true
+```
+
+5. Enable Yolo-only valuesFiles. If a chart's `valuesFiles` property has a list item which is an object instead of a string, parse the path from a `path` property and determine inclusion based on `only` property of the object.
+
+```
+valuesFiles:
+  - ./path/to/values.yaml
+  - path: ./path/to/yolo/values.yaml
+    only:
+      yolo: true
+```
+
+---
+
+The result of these proposed changes could result in a Zarf package config of the following:
+
+```
+kind: ZarfPackageConfig
+metadata:
+  name: dynamic-packaging
+  description: Build packages in both Yolo and Airgap mode with a single config
+  version: '###ZARF_PKG_TMPL_CUSTOM_VERSION###'
+  yolo: '###ZARF_PKG_TMPL_YOLO###'
+
+constants:
+  - name: YOLO_LABEL
+    description: "Label to apply to resources in Yolo packages"
+    only:
+        yolo: true
+  - name: AIRGAP_LABEL
+    description: "Label to apply to resources in airgap packages"
+    only:
+        yolo: false
+
+variables:
+  - name: IMAGE_PULL_SECRET
+    description: "Used only with Yolo-mode. Any airgap packages that reference this variable will probably fail."
+    only:
+        yolo: true
+
+components:
+  - name: Yolo-extras
+    required: true
+    description: "This component is only included in Yolo packages."
+    only:
+      yolo: true
+    charts:
+      - name: chart
+        namespace: zarf
+        version: 0.0.1
+        localPath: ./path/to/chart
+        only:
+          yolo: true
+        valuesFiles:
+          - ./path/to/values.yaml
+          - path: ./path/to/yolo/values.yaml
+            only:
+              yolo: true
+        variables:
+          - description: The chart values
+            name: VALUES
+            path: "$"
+            only:
+              yolo: false
+    actions:
+      onDeploy:
+        after:
+        - cmd: echo "This command is for Airgap-only packages"
+          only:
+            yolo: false
+        - wait:
+          only:
+            yolo: true
+            network:
+              address: "some address only reachable when connected to internet"
+
+    images: []
+```
+
+The biggest concern here is the scope of each `only` property, which could be nested as we drill down into the package manifest, and may not be an intuitive solution for users. On the other hand, supporting the `only` property at arbitrary YAML paths does provide exceptional composability with regard to templating package builds and generating build pipelines, not just for Yolo/Airgap, but for multiple platforms, architectures, os, or any other arbitrary criteria.
+
+Looking at the example above, what happens when a component is marked `yolo`, but a chart within the component is marked `airgap`? Should zarf throw an error or a warning, or should zarf silently ignore that configuration (someone might have an odd but legitimate reason to configure something like that...)?
+
+This also begs the question, what should Zarfs approach be to managing the `only` filter on any other objects or any future objects which get added to the schema? Should this filter be optional and implemented on a per feature basis, or should it be required with generalized unit tests?
+
+### Package Create Options
+
+There are multiple considerations for build-time CLI options depending on whether or not the `metadata.yolo` property is removed or improved. If the property is retained, then there isn't a required change at build-time, as using `--set` with a tempalte variable would suffice.
+
+TODO: If it is removed, or the decision is made to expand the options for creating multi-architecture style packages for airgap/yolo environments, there will be way more options to consider and risks it would entail. This section should be dedicated for that discussion.
+
+#### OCI Layers?
+
+#### Multi-Architecture?
+
+#### Multiple tagged images?
+
+#### Yolo Flavor support?
+
+### Handling Images
+
+#### Yolo deployments of Airgap packages and vice versa
+
+When a package is destined for a Yolo environment, there shouldn't be a requirement to remove all images/data. If I already have an airgap package, I should be able to deploy it to a Yolo environment and have it just ignore pushing images/data, or push images/data if the environment has zarf initialized. Similarly, If a package has no image or data injections, it should be able to deploy to airgap or yolo.
+
+I guess the question I have is; what are the scenerios where an airgap package would fail in a Yolo environment or vice versa? Is it possible to simply capture these edge cases and provide options to work around them? There may be more nuanced issues I'm not aware of, but I wanted to pose the question and suggest such an explanation be added to future documentation on this feature.
+
+#### Handle remote vs local images when yolo is specified
+
+Assume I have a zarf package that is configured with images which are accessible over the internet. With an airgap package, I build the package locally and we are done. With a Yolo package, (assuming images are ignored), those image URLs would simply not be mutated. Since the images are remotely available to the environment, k8s should still be able to pull them down.
+
+Now consider some of the images are only available locally or are private. Zarf would be able to package a normal airgap package, but fail in a yolo mode. Would it be worth discussing how zarf can be made aware of these differences?
+
+Consider for example a mixed environment, 3 local/private images and 3 public images included in a zarf package. A Yolo-only environment would always fail, because those packages need to be reachable. Airgap works as expected. But is there a use case for a yolo deployment to a zarf initialized, connected environment? In this case, zarf packages could include only private/local images, and any public images could be ignored and pulled at deploy time in the environment? This would requre zarf to be smart enough to determine this information at build-time.
 
 ### Test Plan
 
