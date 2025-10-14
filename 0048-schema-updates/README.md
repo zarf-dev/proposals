@@ -152,12 +152,15 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-During Zarf's lifetime there it will introduce, deprecate, and remove ZarfPackageConfig API versions. Once an API version is deprecated, users will still be able to preform all package operations such as create, publish, and deploy, but will receive warnings that they must upgrade. Once an API version is removed users will no preform any package operations with that package. 
+During Zarf's lifetime it will introduce, deprecate, and remove ZarfPackageConfig API versions. Once a version is deprecated users will still be able to preform all package operations such as create, publish, and deploy, but will receive warnings that they should upgrade. Once an API version is removed Zarf will error if a user tries to preform any package operations with that package. 
 
-A new command `zarf dev convert` will be introduced to allow users to convert from one schema to another. By default the command will take the current schema and migrate it to the latest schema. It will accept an optional API version, so a user could run `zarf dev convert v1beta1`. Convert will not allow users to go back in versions so running `zarf dev convert v1alpha1` on a `v1beta1` schema will error. 
+A new command `zarf dev convert` will be introduced to allow users to convert from one API version to another. By default the command will take the current version and migrate it to the latest schema. It will accept an optional API version, so a user could run `zarf dev convert v1beta1`. Convert will not allow changing from a newer version to an older version so running `zarf dev convert v1alpha1` on a `v1beta1` schema will error. 
 <!-- FIXME, add cobra command docs -->
 
-Fields on an API version may be deprecated, but must not be removed until the next API version.
+Deprecated fields on an API version, must not be removed until the next API version. 
+
+Functions in Zarf will always accept the latest API version. This will result in several breaking changes in the SDK, about ~30 public functions accept an object from the v1alpha1 package as of late 2025. This breaking change should be acceptable since common flows usually involve loading a package through another functions such as `load.PackageDefinition` or `packager.LoadPackage()`. 
+<!-- ^func (\([^)]+\) )?[A-Z][a-zA-Z0-9_]*\([^)]*\bv1alpha1\. with exclude **/internal/**  to figure out the amount of v1alpha1 uses in public functions -->
 
 ### User Stories (Optional)
 
@@ -178,7 +181,7 @@ As a package creator, I want to create packages using the newer API version, how
 
 #### Story 3
 
-As a package creator, I want to update my package definition to the latest schema so I run `zarf dev convert .` with a zarf.yaml in my current directory and it automatically updates my package.  
+As a package creator, I want to update my package definition to the latest schema so I run `zarf dev convert` with a zarf.yaml in my current directory and it automatically updates my package.  
 
 ### Risks and Mitigations
 
@@ -210,7 +213,7 @@ How Zarf will determine converting fields between schemas.
 - If a field is removed without a 1:1 replacement then convert behavior will differ depending on the use case
   - If a conversion is internal, (I.E. converting a v1alpha1 package to v1beta1 so that it can be used in packager functions) then fields without a 1:1 replacement must be added to the package as annotations. 
   <!-- FIXME is there a character limit for annotations? This could become problematic if a package is pushed to OCI with too large of an annotation. For example, a package with a lot of variables -->
-  <!-- FIXME Also worth looking into having private fields on the v1beta1 schema such as variables or data injections that can only be set during conversion, and have getter functions.  -->  
+  <!-- FIXME One option could be having private fields, however when those are used you lose the ability marshal / unmarshal to yaml. There might be a way around this with custom marshalers   -->  
   - If the conversion is user facing (I.E. `zarf dev convert`), then the conversion will fail, and the user will be asked to remove the field. The error message should suggest an alternative, and may link to documentation.
     - Alternatively, there may be situations where a conversion mostly works, but isn't 1:1. For example, the v1beta1 schema will add the field `.apiVersion` to `.cluster.wait`. The convert function would add a key for this field in the new zarf.yaml, but will leave it empty. Since this will be a required field in the new schema the package will fail on create if this field is not filled out. These decisions will be situational depending on the fields, the goal is to have the best user experience for `zarf dev convert`.  
   - If a field is introduced in the v1beta1 package and does not have a direct replacement, then the field will not exist in the v1alpha1 package. If this has potential to break a deployment, then the deploy should error.
@@ -227,12 +230,6 @@ Once the latest schema is introduced packages will contain multiple files repres
 ### Minimum Zarf version requirements
 
 Zarf should introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes how the deploy process is done, then the package should not be deployable on versions of Zarf without that feature. A new field `build.MinimumDeployVersion` will be introduced in version X. Once this field is introduced, Zarf will check against this field to ensure it can deploy packages. 
-
-### SDK impacts
-
-When a new schema version is introduced, every function in Zarf will move to the type that represents that version. This will result in several breaking changes in the SDK, about ~30 public functions accept a v1alpha1 type as of this writing. We believe this is acceptable as users will generally not create their own package from scratch, but load them through another function such as `load.PackageDefinition` or `packager.LoadPackage()` so their flows will not be effected. In cases where users do want to manually create their packages, before calling any public functions, they will need to call a converter function to continue using the v1alpha1 type.
-<!-- ^func (\([^)]+\) )?[A-Z][a-zA-Z0-9_]*\([^)]*\bv1alpha1\. with exclude **/internal/**  to figure out the amount of v1alpha1 uses in public functions -->
-
 
 
 ### Test Plan
@@ -333,9 +330,8 @@ information to express the idea and why it was not acceptable.
 
 ### Internal type throughout SDK
 
-Rather than updating functions to accept a newer version of the schema, we could have a publicly facing internal type that 
-
-The upside of this approach is that we would avoid breaking changes. The downside is that it would allow SDK
+Rather than updating functions to accept a newer version of the schema, we could have a publicly facing internal type that has every field from every version and use that throughout the SDK. The upside of this approach is that we would avoid breaking changes throughout the lifetime of the SDK. The downside is that it would make it easy for anyone using the SDK to set deprecated fields.
+<!-- FIXME I need to add more detail -->
 
 ### Storing removed fields on newer schemas
 
