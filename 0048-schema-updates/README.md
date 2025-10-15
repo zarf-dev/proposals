@@ -208,26 +208,25 @@ proposal will be implemented, this is the place to discuss that.
 
 ### Converting between API versions
 
-How Zarf will determine converting fields between schemas. 
-- When two fields have the same name they will simply be copied over
-- When a field is renamed with a direct replace, then Zarf will automatically convert the field to it's replacement doing any conversions necessary
+Zarf will need to handle two use cases for conversions. The first is `zarf dev convert`, providing a simple way for users to convert their zarf.yaml files from one schema version to the next. The second is internal convert functions which will allow for backwards compatible lossless conversions. This will provide a path for existing packages to call packager functions when they change to use the v1beta1 objects. If there is not 
+
+Converting will follow this logic: 
+- If two fields are the same they will simply from one object to the other.
+- If a field is renamed with a direct replace, then Zarf will automatically convert the field to it's replacement doing any conversions necessary
   - For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion. 
-- If a field is removed without a 1:1 replacement then convert behavior will differ depending on the use case
-  - If a conversion is internal, (I.E. converting a v1alpha1 package to v1beta1 so that it can be used in packager functions) then fields without a 1:1 replacement must be added to the package as annotations. 
-  - If the conversion is user facing (I.E. `zarf dev convert`), then the conversion will fail, and the user will be asked to remove the field. The error message should suggest an alternative, and may link to documentation.
-    - Alternatively, there may be situations where a conversion mostly works, but isn't 1:1. For example, the v1beta1 schema will add the field `.apiVersion` to `.cluster.wait`. The convert function would add a key for this field in the new zarf.yaml, but will leave it empty. Since this will be a required field in the new schema the package will fail on create if this field is not filled out. These decisions will be situational depending on the fields, the goal is to have the best user experience for `zarf dev convert`.  
-  - If a field is introduced in the v1beta1 package and does not have a direct replacement, then the field will not exist in the v1alpha1 package. If this has potential to break a deployment, then the deploy should error.
+- If a field is removed without a 1:1 replacement for the field then the logic will differ depending on the use case.
+  - If converting through `zarf dev convert`
+    - If the field is removed, but has a field that accomplishes a similar goal, for instance HealthChecks will become a wait action, then the conversion will happen with a warning to the user. 
+    - Conversions may occur if fields are near 1:1, but the user should be warned in these cases. For example, the v1beta1 schema will add the field `.apiVersion` to `.cluster.wait`. The convert function would add a key for `apiVersion` in the new zarf.yaml, but it will be left empty. Since this will be a required field in the new schema the package will fail on create if this field is not filled out. These decisions will be situational depending on the fields.
+    - If a field is removed without a replacement or any other similar conversions then the command will error. The command should output a recommendation an alternative strategy to the user.
+  - If internal conversion
+    - The field will be set as a private field on the v1beta1 object according to the logic in [Removed Fields](#removed-fields)  
 
+### Removed Fields
 
-When a field is renamed with a direct replacement then Zarf will automatically convert the field to it's replacement. 
+Since functions in Zarf will all move to newer API versions newer API versions must still be able to track removed fields to remain backwards compatible. However, we do not want new packages to be created using these fields. This will be achieved using custom fields and yaml marshalers. 
 
-When a field is removed without a replacement then during conversion Zarf will add this field in the annotations of the package. This way the package can still be deployed. 
-
-### Removed fields
-
-When a field is removed from one apiVersion to another newer API versions must still be able to track removed fields. While conversions will allow these fields to be set from older API versions, users both locally using `zarf package create` and from the public SDK will not be able to set these fields. This will be achieved using custom fields and yaml marshalers. 
-
-Below is an example of this implementation. This example allows `dataInjections` to be marshaled and unmarshaled properly. `dataInjections` is a private field so it will not be set in the schema, since Zarf validates against the schema on create users will be unable to create packages with the field set. Likewise, since `dataInjections` is a private field, SDK users will not be able to set it directly. 
+Below is an example of this implementation. This example allows `dataInjections` to be marshaled and unmarshaled properly. `dataInjections` is a private field so it will not be set in the schema, since Zarf validates against the schema on create users will be unable to create packages with `dataInjections` set. Likewise, since `dataInjections` is a private field, SDK users will not be able to set it directly. 
 
 ```go
 // ZarfComponent is the primary functional grouping of assets to deploy by Zarf.
