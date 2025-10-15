@@ -272,8 +272,9 @@ func (c *ZarfComponent) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 ### Schema
 
-Zarf currently publishes a schema for the v1alpha1 type. Two choices, make a huge schema that works for both with if statements, or make a single schema
-<!-- FIXME Decide here -->
+Zarf currently publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built in schema validation to on zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
+
+Zarf will use an if/then strategy keying on the `apiVersion` field. If the `apiVersion`is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema, if the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. 
 
 ### Updating packages
 
