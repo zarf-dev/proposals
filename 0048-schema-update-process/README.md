@@ -98,7 +98,8 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-New schema versions in Zarf present the opportunity to improve the experience for package creators and provide a clear timeline for removing deprecated fields. However, handling multiple schema versions in Zarf presents unique challenges as packages can be created and deployed on different versions of Zarf. Zarf should provide users with clear expectations for how long a schema can be used, and provide a simple path for users to upgrade their schema. Zarf maintainers should have a standardized approach to adopting a new schema in the codebase. 
+New schema versions in Zarf present the opportunity to improve the experience for package creators and provide a clear timeline for removing deprecated fields. However, handling multiple schema versions in Zarf presents unique challenges as packages can be created and deployed on different versions of Zarf.
+Zarf should provide users with clear expectations around a schema's lifetime, and provide a simple path for users to upgrade their schema. Zarf maintainers should have a standardized approach to adopting a new schema in the codebase. 
 
 
 ## Motivation
@@ -119,7 +120,7 @@ There are several issues asking for enhancements to the schema, but before Zarf 
 - [Breaking Change: make components required by default #2059](https://github.com/zarf-dev/zarf/issues/2059)
 - [Use kstatus as the engine behind zarf tools wait-for and .wait.cluster #4077](https://github.com/zarf-dev/zarf/issues/4077)
 
-There exists ADR [0026-schema.md](https://github.com/zarf-dev/zarf/blob/main/adr/0026-schema.md) in the Zarf repo which discusses the changes to be made in a v1 schema. The schema was not yet implemented and likely the final version of the v1 schema will differ, however this goes document does correctly reflect many changes that are planned to improve upon the schema. There will instead be an additional ZEP to discuss changes to the schema. 
+There exists ADR [0026-schema.md](https://github.com/zarf-dev/zarf/blob/main/adr/0026-schema.md) in the Zarf repo which discusses the changes to be made in a v1 schema. The schema was not yet implemented and likely the final version of the v1 schema will differ, however this document does correctly outline many changes that are planned to improve upon the schema. There will instead be an additional ZEP to discuss changes to the schema. 
 <!-- TODO add ZEP once available  -->
 
 ### Goals
@@ -152,7 +153,7 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-During Zarf's lifetime it will introduce, deprecate, and remove ZarfPackageConfig API versions. Once a version is deprecated users will still be able to preform all package operations such as create, publish, and deploy, but will receive warnings that they should upgrade. Once an API version is removed Zarf will error if a user tries to preform any package operations with that package. 
+During Zarf's lifetime it will introduce, deprecate, and remove ZarfPackageConfig API versions. Once a version is deprecated users will still be able to perform all package operations such as create, publish, and deploy, but will receive warnings that they should upgrade. Once an API version is removed Zarf will error if a user tries to perform any package operations with that package. 
 
 The stored `zarf.yaml` in a package will contain all API versions known at the time of package creation. When printing the package definition to the user, for instance, with the command `zarf package inspect definition` the API version will be the version that the package was created with. A new field `.build.apiVersion` will be added to all schemas to track which API version was used at build time. 
 
@@ -174,7 +175,7 @@ bogged down.
 
 #### Story 1
 
-As a a package deployer, I want to be on the latest version, but I still want to deploy packages that were built using the v1alpha1 schema. I run `zarf package deploy <my-package.tar>` and it simply works. Fields such as data injections, which will be removed in newer versions of the schema will still work as intended when deployed with newer versions of Zarf. 
+As a package deployer, I want to be on the latest version, but I still want to deploy packages that were built using the v1alpha1 schema. I run `zarf package deploy <my-package.tar>` and it simply works. Fields such as data injections, which will be removed in newer versions of the schema will still work as intended when deployed with newer versions of Zarf. 
 
 #### Story 2
 
@@ -207,7 +208,7 @@ proposal will be implemented, this is the place to discuss that.
 
 ### Converting between API versions
 
-Zarf will need to handle two use cases for conversions. The first is `zarf dev convert`, providing a simple way for users to convert their zarf.yaml files from one schema version to the next. The second is internal convert functions which will allow for backwards compatible lossless conversions. This will provide a path for existing packages to call packager functions when they change to use the v1beta1 objects. If there is not 
+Zarf will need to handle two use cases for conversions. The first is `zarf dev convert`, providing a simple way for users to convert their zarf.yaml files from one schema version to the next. The second is internal convert functions which will allow for backwards compatible lossless conversions. This will provide a path for existing packages to call packager functions when they change to use the v1beta1 objects.
 
 Converting will follow this logic: 
 - If two fields are the same they will simply from one object to the other.
@@ -283,8 +284,16 @@ A new field on all future schemas called `.build.apiVersion` will be introduced 
 
 ### Minimum Zarf version requirements
 
-Zarf will introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes how the deploy process is done, then the package should not be deployable on versions of Zarf without that feature. A new field `build.MinimumDeployVersion` will . Once this field is introduced, Zarf will check against this field to ensure it can deploy packages. 
-<!-- FIXME -->
+Zarf will introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes the deploy process, then the package should not be deployable on versions of Zarf without that feature. A new field `build.deployRequirements` will track the deploy requirements and prevent users from deploying packages that are likely to break. Once this field is introduced, Zarf will check against this field to ensure it can deploy packages. The field will like below:
+```go
+type DeployRequirements struct  {
+	// the minimum version of the Zarf CLI that can deploy the package
+	Version string 
+	// Reasons for why the package can't be deployed
+	// EX: "values was not introduced until v0.64.0, package structure changed in v0.65.0"
+	Reasons []string
+}
+```
 
 
 ### Test Plan
@@ -417,4 +426,4 @@ Rather than updating functions to accept a newer version of the schema, we could
 
 One option for storing removed fields on newer schemas is to use annotations. Kubernetes takes this approach. This would avoid the need of a custom YAML marshaler. The downside is that annotations could easily get quite long, confusing, and hard to read. Assuming a list of objects such as `variables` is deprecated, then we need to maintain an long string representation of YAML, which adds complexity when converting a package. The reason Kubernetes takes this approach is because their data must make lossless round trips. Their objects might be written as v1beta1, stored as v1alpha1, then upgraded back to v1beta1, and they cannot lose any data. There is no place to store the information on the v1alpha1 object besides annotations. Zarf is going to write all active API versions to the zarf.yaml file so there is no chance of data loss. 
 
-Another option could be a including a key `Deprecated map[string]string` to stored removed fields from previous schema versions, however this still leaves the complexity of unfurling complex objects within a string. 
+Another option is introducing a new field `Deprecated map[string]string` to stored removed fields from previous schema versions, however this still leaves the complexity of unfurling complex objects within a string. 
