@@ -130,7 +130,7 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-- Provide clear guidelines for how Zarf package commands should behave when dealing with new or old schema versions
+- Provide clear guidelines for how Zarf package commands should behave when working with new or old schema versions
 - Provide a maintainable approach for updating the codebase when a new schema is introduced. 
 - Introduce a command for users to upgrade their schema version.
 
@@ -221,11 +221,11 @@ Converting will follow this logic:
   - If internal conversion
     - The field will be set as a private field on the v1beta1 object according to the logic in [Removed Fields](#removed-fields)  
 
-There will be an internal `ZarfPackage` object used solely for conversions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the internal Zarf package type then convert that type to v1beta1. This means Zarf need only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
+There will be an internal `ZarfPackage` object used solely for conversions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the internal Zarf package type then convert that type to v1beta1. This means Zarf only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
 
 ### Removed Fields
 
-Since functions in Zarf will all move to newer API versions newer API versions must still be able to track removed fields to remain backwards compatible. However, we do not want new packages to be created using these fields. This will be achieved using custom fields and yaml marshalers. 
+Since functions in Zarf will all move to newer API versions, newer API versions must still be able to track removed fields to remain backwards compatible. However, we do not want new packages to be created using these fields. This will be achieved using custom fields and yaml marshalers. 
 
 Below is an example of this implementation. This example allows `dataInjections` to be marshaled and unmarshaled properly. `dataInjections` is a private field so it will not be set in the schema, since Zarf validates against the schema on create users will be unable to create packages with `dataInjections` set. Likewise, since `dataInjections` is a private field, SDK users will not be able to set it directly. 
 
@@ -274,11 +274,11 @@ func (c *ZarfComponent) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 Zarf currently publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built-in schema validation for zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also included in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
 
-Zarf will use a conditional schema validation strategy through the `apiVersion` field. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema, if the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. 
+Zarf will use a conditional schema validation strategy through the `apiVersion` field. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. 
 
 ### Updating packages
 
-Once the latest schema is introduced the built zarf.yaml file will contain the package definition for each apiVersion. Versions will be separated by `---`. Currently, Zarf only checks the first yaml object in the `zarf.yaml` file. To maintain backwards compatibility newer packages will place the v1alpha1 definition at the beginning of the zarf.yaml. Future versions of Zarf will check the api version of each package definition and grab the latest one that it understands.  
+Once the latest schema is introduced the built zarf.yaml file will contain the package definition for each apiVersion. Versions will be separated by `---`. Currently, Zarf only checks the first yaml object in the `zarf.yaml` file. To maintain backwards compatibility newer packages must place the v1alpha1 definition at the beginning of the zarf.yaml. Future versions of Zarf will check the api version of each package definition and select the latest version that it understands.  
 
 A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`.
 
