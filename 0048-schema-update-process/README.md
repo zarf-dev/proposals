@@ -115,7 +115,7 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-There are several open issues requesting enhancements to the schema, but before Zarf introduces a new schema, there must be a plan for handling schema upgrades. The general theme of these changes is to make the ZarfPackageConfig schema more intuitive to use. 
+There are several open issues requesting enhancements to the schema, but before Zarf introduces a new schema, there must be a plan to handle schema upgrades. The general theme of these changes is to make the ZarfPackageConfig schema more intuitive to use. 
 - [Refactor charts definition in zarf.yaml #2245](https://github.com/zarf-dev/zarf/issues/2245)
 - [Breaking Change: make components required by default #2059](https://github.com/zarf-dev/zarf/issues/2059)
 - [Use kstatus as the engine behind zarf tools wait-for and .wait.cluster #4077](https://github.com/zarf-dev/zarf/issues/4077)
@@ -227,7 +227,7 @@ There will be an internal `ZarfPackage` object used solely for conversions. Rath
 
 Since functions in Zarf will all move to newer API versions, newer API versions must still be able to track removed fields to remain backwards compatible. However, we do not want new packages to be created using these fields. This will be achieved using custom fields and yaml marshalers. 
 
-Below is an example of this implementation. This example allows `dataInjections` to be marshaled and unmarshaled properly. `dataInjections` is a private field so it will not be set in the schema, since Zarf validates against the schema on create users will be unable to create packages with `dataInjections` set. Likewise, since `dataInjections` is a private field, SDK users will not be able to set it directly. 
+Below is an example of this implementation. This example allows `dataInjections` to be marshaled and unmarshaled properly. `dataInjections` is a private field so it will not be included in the schema. Zarf validates against the schema on create so users will be unable to create packages with `dataInjections` set. Likewise, since `dataInjections` is a private field, SDK users will not be able to set it directly. 
 
 ```go
 // ZarfComponent is the primary functional grouping of assets to deploy by Zarf.
@@ -286,7 +286,7 @@ A new field on all future schemas called `.build.apiVersion` will be introduced 
 
 Zarf will introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes the deploy process, then the package should not be deployable on versions of Zarf without that feature. A new field `build.deployRequirements` will track the deploy requirements and prevent users from deploying packages that are likely to break. Once this field is introduced, Zarf will check against this field to ensure it can deploy packages. The field will look like below:
 ```go
-type DeployRequirements struct  {
+type DeployRequirements struct {
 	// the minimum version of the Zarf CLI that can deploy the package
 	Version string 
 	// Reasons for why the package can't be deployed
