@@ -120,7 +120,7 @@ There are several open issues requesting enhancements to the schema, but before 
 - [Breaking Change: make components required by default #2059](https://github.com/zarf-dev/zarf/issues/2059)
 - [Use kstatus as the engine behind zarf tools wait-for and .wait.cluster #4077](https://github.com/zarf-dev/zarf/issues/4077)
 
-There exists ADR [0026-schema.md](https://github.com/zarf-dev/zarf/blob/main/adr/0026-schema.md) in the Zarf repo which discusses the changes to be made in a v1 schema. The schema was not yet implemented and likely the final version of the v1 schema will differ, however this document does correctly outline many changes that are planned to improve upon the schema. There will instead be an additional ZEP to discuss changes to the schema. 
+There exists ADR [0026-schema.md](https://github.com/zarf-dev/zarf/blob/main/adr/0026-schema.md) in the Zarf repo which discusses the changes to be made in a v1 schema. The schema was not yet implemented and likely the final version of the v1 schema will differ, however this document does correctly outline many changes that are planned to improve upon the schema. A ZEP will be created to replace this ADR.
 <!-- TODO add ZEP once available  -->
 
 ### Goals
@@ -155,13 +155,13 @@ below is for the real nitty-gritty.
 
 During Zarf's lifetime it will introduce, deprecate, and drop support for ZarfPackageConfig API versions. Once a version is deprecated users will still be able to perform all package operations such as create, publish, and deploy, but will receive warnings that they should upgrade. Zarf will drop support for an API version one year after it is deprecated. Once an API version is no longer supported, Zarf will error if a user tries to perform any zarf package operations with that API version. 
 
-The `zarf.yaml` in a built package will include the package definition for every supported API version. When printing the package definition to the user, for instance, with the command `zarf package inspect definition` the API version will be the version that the package was created with. A new field `.build.apiVersion` will be added to all schemas to track which API version was used at build time. 
+The zarf.yaml in a built package will include the package definition for every supported API version. When printing the package definition to the user, for instance, with the command `zarf package inspect definition` the API version will be the version that the package was created with. A new field `.build.apiVersion` will be added to all schemas to track which API version was used at build time. 
 
-A new command `zarf dev convert` will be introduced to allow users to convert from one API version to another. By default the command will take the current version and migrate it to the latest schema. It will accept an optional API version, so a user could run `zarf dev convert v1beta1`. Convert will not allow changing from a newer version to an older version so running `zarf dev convert v1alpha1` on a `v1beta1` schema will error. 
+A new command `zarf dev convert` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will create a new file zarf-<apiversion>.yaml with the converted package definition. It will accept an optional API version, so a user could run `zarf dev convert v1beta1` and they will receive a file called zarf-v1beta1.yaml. Convert will not allow changing from a newer version to an older version so running `zarf dev convert v1alpha1` on a `v1beta1` schema will error. 
 
 Deprecated fields will not be removed until a future API version. Newer API versions will track fields removed from one API version for lossless conversions, but will not allow creation with removed fields. For instance, Data Injections will be removed in v1beta1. Users will still be able to deploy existing v1alpha1 packages on newer versions of Zarf, but they will not be able to create a new v1beta1 package with Data Injections. 
 
-Functions in Zarf will always accept the latest API version. This will result in several breaking changes in the SDK, about ~30 public functions accept an object from the v1alpha1 package as of late 2025. This breaking change should be acceptable since common flows involve loading a package through public functions such as `load.PackageDefinition` or `packager.LoadPackage()`. 
+Functions in Zarf will always accept the latest API version. This will result in several breaking changes in the SDK, about 30 public functions accept an object from the v1alpha1 package as of late 2025. This breaking change should be acceptable since common flows involve loading a package through public functions such as `load.PackageDefinition()` or `packager.LoadPackage()`. 
 <!-- ^func (\([^)]+\) )?[A-Z][a-zA-Z0-9_]*\([^)]*\bv1alpha1\. with exclude **/internal/**  to figure out the amount of v1alpha1 uses in public functions -->
 
 ### User Stories (Optional)
@@ -179,7 +179,7 @@ As a package deployer, I want to use the latest version of Zarf, but I still wan
 
 #### Story 2
 
-As a package creator, I want to create packages using the newer API version, however I still want my package to be deployable on older versions of Zarf that have not yet introduced this API version. I run `zarf package inspect manifests <my-package>` and ensure that `.build.DeployRequirements.Version` is empty or less than my expected version.
+As a package creator, I want to create packages using the newer API version, however I still want my package to be deployable on older versions of Zarf that have not yet introduced this API version. I run `zarf package inspect definition <my-package>` and ensure that `.build.deployRequirements.version` is empty or less than my expected version.
 
 #### Story 3
 
@@ -214,25 +214,24 @@ Zarf will need to handle two use cases for conversions. The first is `zarf dev c
 
 Converting will follow this logic: 
 - If two fields are the same they will simply be copied from one object to the other.
-- If a field is renamed with a direct replace, then Zarf will automatically convert the field to its replacement doing any conversions necessary
+- If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement.
   - For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion. 
 - If a field is removed without a 1:1 replacement for the field then the logic will differ depending on the use case.
   - If converting through `zarf dev convert`
-    - Conversions may occur if fields are near 1:1, but the user should be warned in these cases. For example, the v1beta1 schema will add the field `.apiVersion` to `.cluster.wait`. The convert function would add a key for `apiVersion` in the new zarf.yaml, but it will be left empty. Since this will be a required field in the new schema the package will fail on create if this field is empty. Decisions on how to handle these situations will be situational.
+    - Conversions may occur if fields are near 1:1, but the user should be warned in these cases. For example, the v1beta1 schema will add the field `.apiVersion` to `.cluster.wait`. The convert function would add a key for `apiVersion` in the new zarf.yaml, but it will be left empty. Since this will be a required field in the new schema the package will fail on create if this field is empty.
     - If a field is removed without a replacement then the command will error. The error should include a recommendation for an alternative strategy.
   - If internal conversion
     - The field will be set as a private field on the v1beta1 object according to the logic in [Removed Fields](#removed-fields)  
 
-There will be an internal `ZarfPackage` object used solely for conversions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the internal Zarf package type then convert that type to v1beta1. This means Zarf only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
+There will be an internal `ZarfPackage` object used solely for conversions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the internal Zarf package type then convert the internal Zarf package type to v1beta1. This means Zarf only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
 
 ### Removed Fields
 
 Since functions in Zarf will all move to newer API versions, newer API versions must still be able to track removed fields to remain backwards compatible. However, we do not want new packages to be created using these fields. This will be achieved using custom fields and yaml marshalers. 
 
-Below is an example of this implementation. This example allows `dataInjections` to be marshaled and unmarshaled properly. `dataInjections` is a private field so it will not be included in the schema. Zarf validates against the schema on create so users will be unable to create packages with `dataInjections` set. Likewise, since `dataInjections` is a private field, SDK users will not be able to set it directly. 
+Below is an example of this implementation. This example allows `dataInjections` to be marshaled and unmarshaled properly. `dataInjections` is a private field so it will not be included in the schema. Zarf validates against the schema on create so users will be unable to create packages with `dataInjections`. Likewise, since `dataInjections` is a private field, SDK users will not be able to set it directly. 
 
 ```go
-// ZarfComponent is the primary functional grouping of assets to deploy by Zarf.
 type ZarfComponent struct {
   ...
 	// data injections are kept as a backwards compatibility shim and can only be set when converting from v1alpha1 or during YAML unmarshal
@@ -280,13 +279,13 @@ Zarf will use the if/then/else features of the json schema to conditionally appl
 
 ### Updating packages
 
-Once the latest schema is introduced the built zarf.yaml file will contain the package definition for each apiVersion. Versions will be separated by `---`. Currently, Zarf only checks the first yaml object in the `zarf.yaml` file. To maintain backwards compatibility newer packages must place the v1alpha1 definition at the beginning of the zarf.yaml. Future versions of Zarf will check the api version of each package definition and select the latest version that it understands.  
+Once the latest schema is introduced the built zarf.yaml file will contain the package definition for each apiVersion. Package definitions will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility newer packages must place the v1alpha1 definition at the beginning of the zarf.yaml file. Future versions of Zarf will check the api version of each package definition and select the latest version that it understands.  
 
 A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`.
 
 ### Minimum Zarf version requirements
 
-Zarf will introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes the deploy process, then the package should not be deployable on versions of Zarf without that feature. A new field `build.deployRequirements` will be automatically populated on create. This field will be checked on deploy to prevent users from deploying packages that may break. This will not work on versions of Zarf where this field is not yet implemented. The field will look like below:
+Zarf will introduce a new field `build.deployRequirements` which will be automatically populated on create. If there is a new field in any schema that changes the deploy process, then the package should not be deployable on versions of Zarf without that feature. This field will be checked on deploy to prevent users from deploying packages that may break. This will not work on versions of Zarf where this field is not yet implemented. The field will look like below:
 ```go
 type DeployRequirements struct {
 	// the minimum version of the Zarf CLI that can deploy the package
@@ -360,7 +359,7 @@ proposal:
   make use of the proposal?
 -->
 
-This ZEP outlines an upgrade or downgrade strategy. 
+This ZEP is proposing an upgrade / downgrade strategy. 
 
 ### Version Skew Strategy
 
@@ -396,7 +395,7 @@ Why should this ZEP _not_ be implemented?
 -->
 
 ### SDK breaking changes
-One drawback is that there will be breaking changes to SDK functions every time a new API version is introduced. This could be frustrating for API users post v1. However, common user flows should generally be unchanged. For example this flow will work regardless of the API version: 
+There will be breaking changes to SDK functions every time a new API version is introduced. This could be frustrating for users which have complex integrations with the SDK, However, common user flows should generally be unchanged. For example this flow will work regardless of the API version: 
 
 ```go
 	pkgLayout, err := packager.LoadPackage(ctx, packageSource, loadOpt)
@@ -418,10 +417,11 @@ information to express the idea and why it was not acceptable.
 
 ### Public Facing Internal Type
 
-Rather than updating functions to accept a newer version of the schema, we could have a publicly facing internal type that has every field from every version and use that throughout the SDK. The upside of this approach is that we would avoid breaking changes throughout the lifetime of the SDK. The downside is that it would make it easy for anyone using the SDK to set deprecated fields. It would also make it confusing and unclear which fields attach to which versions. 
+Rather than updating functions to accept a newer version of the schema, Zarf could have a publicly facing internal type that has every field from every version and use that throughout the SDK. The upside of this approach is that we would avoid breaking changes throughout the lifetime of the SDK. The downside is that it would make it easy for anyone using the SDK to set deprecated fields. It would also make it confusing and unclear which fields attach to which versions. 
 
 ### Removed Fields
 
-One option for storing removed fields on newer schemas is to use annotations. Kubernetes takes this approach. This would avoid the need of a custom YAML marshaler. The downside is that annotations could easily get quite long, confusing, and hard to read. Assuming a list of objects such as `variables` is deprecated, then we need to maintain an long string representation of YAML, which adds complexity when converting a package. The reason Kubernetes takes this approach is because their data must make lossless round trips. Their objects might be written as v1beta1, stored as v1alpha1, then upgraded back to v1beta1, and they cannot lose any data. There is no place to store the information on the v1alpha1 object besides annotations. Zarf is going to write all active API versions to the zarf.yaml file so there is no chance of data loss. 
+One option for storing removed fields on newer schemas is to use annotations. Kubernetes takes this approach. This would avoid the need of a custom YAML marshaler. The downside is that annotations could easily get quite and hard to read. Assuming a list of objects such as `variables` is deprecated, then we need to maintain an long string representation of YAML.
+The reason Kubernetes takes this approach is because their data must make lossless round trips. Their objects might be written as v1beta1, stored as v1alpha1, then upgraded back to v1beta1, and they cannot lose any data. There is no place to store the information on the v1alpha1 object besides annotations. Zarf is going to write all active API versions to the zarf.yaml file so there is no chance of data loss. 
 
-Another option is introducing a new field `Deprecated map[string]string` to store removed fields from previous schema versions, however this still leaves the complexity of unfurling complex objects within a string. 
+Another option is introducing a new field `Deprecated map[string]string` to store removed fields from previous schema versions, however this still leaves the complexity of unfurling complex objects from a string. 
