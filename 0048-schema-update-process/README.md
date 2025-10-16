@@ -220,6 +220,8 @@ Converting will follow this logic:
   - If internal conversion
     - The field will be set as a private field on the v1beta1 object according to the logic in [Removed Fields](#removed-fields)  
 
+There will be an internal `ZarfPackage` object used solely for conversions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the internal Zarf package type then convert that type to v1beta1. This means Zarf need only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
+
 ### Removed Fields
 
 Since functions in Zarf will all move to newer API versions newer API versions must still be able to track removed fields to remain backwards compatible. However, we do not want new packages to be created using these fields. This will be achieved using custom fields and yaml marshalers. 
@@ -413,6 +415,6 @@ Rather than updating functions to accept a newer version of the schema, we could
 
 ### Removed Fields
 
-One option for storing removed fields on newer schemas is to use annotations. Kubernetes takes this approach. This would avoid the need of a custom YAML marshaler. The downside is that annotations could easily get quite long, confusing, and hard to read. Assuming a list of objects such as `variables` is deprecated, then we need to maintain an long string representation of YAML, which adds complexity when converting a package. Additionally, annotations are copied to OCI manifests when pushed to a registry, some registries limit the length of annotations, which could result in broken publishes.
+One option for storing removed fields on newer schemas is to use annotations. Kubernetes takes this approach. This would avoid the need of a custom YAML marshaler. The downside is that annotations could easily get quite long, confusing, and hard to read. Assuming a list of objects such as `variables` is deprecated, then we need to maintain an long string representation of YAML, which adds complexity when converting a package. The reason Kubernetes takes this approach is because their data must make lossless round trips. Their objects might be written as v1beta1, stored as v1alpha1, then upgraded back to v1beta1, and they cannot lose any data. There is no place to store the information on the v1alpha1 object besides annotations. Zarf is going to write all active API versions to the zarf.yaml file so there is no chance of data loss. 
 
-Another option could be a including a key `Deprecated map[string]string` to stored removed fields from previous schema versions, however this still leaves the complexity of unfurling complex objects within a string.
+Another option could be a including a key `Deprecated map[string]string` to stored removed fields from previous schema versions, however this still leaves the complexity of unfurling complex objects within a string. 
