@@ -66,6 +66,7 @@ any additional information provided beyond the standard ZEP template.
   - [User Stories (Optional)](#user-stories-optional)
     - [Story 1](#story-1)
     - [Story 2](#story-2)
+    - [Story 3](#story-3)
   - [Risks and Mitigations](#risks-and-mitigations)
 - [Design Details](#design-details)
   - [Test Plan](#test-plan)
@@ -78,7 +79,6 @@ any additional information provided beyond the standard ZEP template.
 - [Implementation History](#implementation-history)
 - [Drawbacks](#drawbacks)
 - [Alternatives](#alternatives)
-- [Infrastructure Needed (Optional)](#infrastructure-needed-optional)
 <!-- /toc -->
 
 ## Summary
@@ -175,11 +175,11 @@ bogged down.
 
 #### Story 1
 
-As a package deployer, I want to be on the latest version, but I still want to deploy packages that were built using the v1alpha1 schema. I run `zarf package deploy <my-package.tar>` and it simply works. Fields such as data injections, which will be removed in newer versions of the schema will still work as intended when deployed with newer versions of Zarf. 
+As a package deployer, I want to use the latest version of Zarf, but I still want to pull and deploy packages that were built using the v1alpha1 schema. I run `zarf package deploy oci://<package>` and it simply works.
 
 #### Story 2
 
-As a package creator, I want to create packages using the newer API version, however I still want my package to be deployable on older versions of Zarf that have not yet introduced this API version. 
+As a package creator, I want to create packages using the newer API version, however I still want my package to be deployable on older versions of Zarf that have not yet introduced this API version. I run `zarf package inspect manifests <my-package>` and ensure that `.build.DeployRequirements.Version` is empty or less than my expected version.
 
 #### Story 3
 
@@ -196,6 +196,8 @@ How will security be reviewed, and by whom?
 
 How will UX be reviewed, and by whom?
 -->
+
+Zarf will now use custom YAML marshalers to enable [Removed Fields](#removed-fields). This means that if an SDK user is trying to read a zarf.yaml file using a json unmarshaler, or with a different yaml library which doesn't respect the `MarshalYAML` or `UnmarshalYAML` methods then they could miss removed fields. Zarf exposes a public method to read `zarf.yaml` files, `Parse(ctx context.Context, b []byte)`. This will be our recommended approach; other methods are to be used at the user's risk. 
 
 ## Design Details
 
@@ -233,7 +235,7 @@ Below is an example of this implementation. This example allows `dataInjections`
 // ZarfComponent is the primary functional grouping of assets to deploy by Zarf.
 type ZarfComponent struct {
   ...
-	// data injections is kept as a backwards compatibility shim and can only be set when converting from v1alpha1 or during YAML unmarshal
+	// data injections are kept as a backwards compatibility shim and can only be set when converting from v1alpha1 or during YAML unmarshal
 	dataInjections []v1alpha1.ZarfDataInjection
   ...
 }
@@ -394,7 +396,7 @@ Why should this ZEP _not_ be implemented?
 -->
 
 ### SDK breaking changes
-One drawback is that there will be breaking changes to SDK functions every time a new API version is introduced. This could be frustrating for API users post v1. However, the common flows we anticipate involve using the `packager` functions flows like this should generally be unchanged. For example this flow will work regardless of the API version. 
+One drawback is that there will be breaking changes to SDK functions every time a new API version is introduced. This could be frustrating for API users post v1. However, common user flows should generally be unchanged. For example this flow will work regardless of the API version: 
 
 ```go
 	pkgLayout, err := packager.LoadPackage(ctx, packageSource, loadOpt)
@@ -405,10 +407,6 @@ One drawback is that there will be breaking changes to SDK functions every time 
 	}
 	_, err = packager.PublishPackage(ctx, pkgLayout, dstRef, publishPackageOpts)
 ```
-
-### Custom YAML marshalers
-
-Zarf will now use custom YAML marshalers to enable [Removed Fields](#removed-fields). This means that if someone is trying to read a zarf.yaml file using a json unmarshaler, or with a different yaml library which doesn't respect the `MarshalYAML` or `UnmarshalYAML` methods then they could miss removed fields. Zarf exposes a public method to read `zarf.yaml` files, `Parse(ctx context.Context, b []byte)`. This will be our recommended approach other methods are to be done at the user's risk. 
 
 ## Alternatives
 
