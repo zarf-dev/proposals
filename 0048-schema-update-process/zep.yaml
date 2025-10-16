@@ -1,22 +1,19 @@
 schema-version: 1.0.0
 
-title: Schema updates
+title: Schema update process
 zep-number: 48
 authors:
   - "@austinabro321"
 status: provisional
-creation-date: yyyy-mm-dd
+creation-date: 10-16-2025
 reviewers:
-  - TBD
-  - "@alice.doe"
+  - "@zarf-dev"
 approvers:
-  - TBD
-  - "@oscar.doe"
+  - "@zarf-dev"
 
 see-also:
   # Will add the v1 schema here when applicable
 replaces:
-  - "/3456-replaced-zep"
 
 # The target maturity stage in the current dev cycle for this ZEP.
 stage: alpha
@@ -24,10 +21,10 @@ stage: alpha
 # The most recent milestone for which work toward delivery of this ZEP has been
 # done. This can be the current (upcoming) milestone, if it is being actively
 # worked on.
-latest-milestone: "v0.39"
+latest-milestone: "v0.65.0"
 
 # The milestone at which this feature was, or is targeted to be, at each stage.
 milestone:
-  alpha: "v0.39"
-  beta: "v0.40"
-  stable: "v1.0"
+  alpha: "v0.65.0"
+  beta: "v0.65.0"
+  stable: "v0.65.0"
