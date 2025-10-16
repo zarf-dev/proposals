@@ -153,9 +153,9 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-During Zarf's lifetime it will introduce, deprecate, and remove ZarfPackageConfig API versions. Once a version is deprecated users will still be able to perform all package operations such as create, publish, and deploy, but will receive warnings that they should upgrade. Once an API version is removed Zarf will error if a user tries to perform any package operations with that package. 
+During Zarf's lifetime it will introduce, deprecate, and drop support for ZarfPackageConfig API versions. Once a version is deprecated users will still be able to perform all package operations such as create, publish, and deploy, but will receive warnings that they should upgrade. Zarf will drop support for an API version one year after it is deprecated. Once an API version is no longer supported, Zarf will error if a user tries to perform any zarf package operations with that API version. 
 
-The stored `zarf.yaml` in a package will contain all API versions known at the time of package creation. When printing the package definition to the user, for instance, with the command `zarf package inspect definition` the API version will be the version that the package was created with. A new field `.build.apiVersion` will be added to all schemas to track which API version was used at build time. 
+The `zarf.yaml` in a built package will include the package definition for every supported API version. When printing the package definition to the user, for instance, with the command `zarf package inspect definition` the API version will be the version that the package was created with. A new field `.build.apiVersion` will be added to all schemas to track which API version was used at build time. 
 
 A new command `zarf dev convert` will be introduced to allow users to convert from one API version to another. By default the command will take the current version and migrate it to the latest schema. It will accept an optional API version, so a user could run `zarf dev convert v1beta1`. Convert will not allow changing from a newer version to an older version so running `zarf dev convert v1alpha1` on a `v1beta1` schema will error. 
 
@@ -276,7 +276,7 @@ func (c *ZarfComponent) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 Zarf currently publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built-in schema validation for zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also included in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
 
-Zarf will use a conditional schema validation strategy through the `apiVersion` field. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. 
+Zarf will use the if/then/else features of the json schema to conditionally apply a schema based on the `apiVersion`. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. 
 
 ### Updating packages
 
@@ -286,7 +286,7 @@ A new field on all future schemas called `.build.apiVersion` will be introduced 
 
 ### Minimum Zarf version requirements
 
-Zarf will introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes the deploy process, then the package should not be deployable on versions of Zarf without that feature. A new field `build.deployRequirements` will track the deploy requirements and prevent users from deploying packages that are likely to break. Once this field is introduced, Zarf will check against this field to ensure it can deploy packages. The field will look like below:
+Zarf will introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes the deploy process, then the package should not be deployable on versions of Zarf without that feature. A new field `build.deployRequirements` will be automatically populated on create. This field will be checked on deploy to prevent users from deploying packages that may break. This will not work on versions of Zarf where this field is not yet implemented. The field will look like below:
 ```go
 type DeployRequirements struct {
 	// the minimum version of the Zarf CLI that can deploy the package
