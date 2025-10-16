@@ -281,7 +281,8 @@ A new field on all future schemas called `.build.apiVersion` will be introduced 
 
 ### Minimum Zarf version requirements
 
-Zarf will introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes how the deploy process is done, then the package should not be deployable on versions of Zarf without that feature. A new field `build.MinimumDeployVersion` will be introduced in version X. Once this field is introduced, Zarf will check against this field to ensure it can deploy packages. 
+Zarf will introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes how the deploy process is done, then the package should not be deployable on versions of Zarf without that feature. A new field `build.MinimumDeployVersion` will . Once this field is introduced, Zarf will check against this field to ensure it can deploy packages. 
+<!-- FIXME -->
 
 
 ### Test Plan
@@ -381,6 +382,7 @@ Major milestones might include:
 Why should this ZEP _not_ be implemented?
 -->
 
+### SDK breaking changes
 One drawback is that there will be breaking changes to SDK functions every time a new API version is introduced. This could be frustrating for API users post v1. However, the common flows we anticipate involve using the `packager` functions flows like this should generally be unchanged. For example this flow will work regardless of the API version. 
 
 ```go
@@ -393,6 +395,10 @@ One drawback is that there will be breaking changes to SDK functions every time 
 	_, err = packager.PublishPackage(ctx, pkgLayout, dstRef, publishPackageOpts)
 ```
 
+### Custom YAML marshalers
+
+Zarf will now use custom YAML marshalers to enable [Removed Fields](#removed-fields). This means that if someone is trying to read a zarf.yaml file using a json unmarshaler, or with a different yaml library which doesn't respect the `MarshalYAML` or `UnmarshalYAML` methods then they could miss removed fields. Zarf exposes a public method to read `zarf.yaml` files, `Parse(ctx context.Context, b []byte)`. This will be our recommended approach other methods are to be done at the user's risk. 
+
 ## Alternatives
 
 <!--
@@ -401,10 +407,12 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-### Internal type throughout SDK
+### Public Facing Internal Type
 
 Rather than updating functions to accept a newer version of the schema, we could have a publicly facing internal type that has every field from every version and use that throughout the SDK. The upside of this approach is that we would avoid breaking changes throughout the lifetime of the SDK. The downside is that it would make it easy for anyone using the SDK to set deprecated fields. It would also make it confusing and unclear which fields attach to which versions. 
 
-### Storing removed fields on newer schemas
+### Removed Fields
 
-<!-- FIXME, we have to decide to either use annotations or private fields -->
+One option for storing removed fields on newer schemas is to use annotations. Kubernetes takes this approach. This would avoid the need of a custom YAML marshaler. The downside is that annotations could easily get quite long, confusing, and hard to read. Assuming a list of objects such as `variables` is deprecated, then we need to maintain an long string representation of YAML, which adds complexity when converting a package. Additionally, annotations are copied to OCI manifests when pushed to a registry, some registries limit the length of annotations, which could result in broken publishes.
+
+Another option could be a including a key `Deprecated map[string]string` to stored removed fields from previous schema versions, however this still leaves the complexity of unfurling complex objects within a string.
