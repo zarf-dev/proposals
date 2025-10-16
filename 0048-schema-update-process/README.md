@@ -115,7 +115,7 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-There are several issues asking for enhancements to the schema, but before Zarf introduces a new schema, there must be a plan for how to handle schema upgrades. The general theme of these changes is to make the ZarfPackageConfig schema more intuitive to use. 
+There are several open issues requesting enhancements to the schema, but before Zarf introduces a new schema, there must be a plan for handling schema upgrades. The general theme of these changes is to make the ZarfPackageConfig schema more intuitive to use. 
 - [Refactor charts definition in zarf.yaml #2245](https://github.com/zarf-dev/zarf/issues/2245)
 - [Breaking Change: make components required by default #2059](https://github.com/zarf-dev/zarf/issues/2059)
 - [Use kstatus as the engine behind zarf tools wait-for and .wait.cluster #4077](https://github.com/zarf-dev/zarf/issues/4077)
@@ -130,8 +130,8 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-- Provide clear guidelines for how Zarf package commands should behave when dealing with new schemas 
-- Provide a maintainable way to keep the codebase updated when a new schema is introduced. 
+- Provide clear guidelines for how Zarf package commands should behave when dealing with new or old schema versions
+- Provide a maintainable approach for updating the codebase when a new schema is introduced. 
 - Introduce a command for users to upgrade their schema version.
 
 ### Non-Goals
@@ -217,7 +217,7 @@ Converting will follow this logic:
 - If a field is removed without a 1:1 replacement for the field then the logic will differ depending on the use case.
   - If converting through `zarf dev convert`
     - Conversions may occur if fields are near 1:1, but the user should be warned in these cases. For example, the v1beta1 schema will add the field `.apiVersion` to `.cluster.wait`. The convert function would add a key for `apiVersion` in the new zarf.yaml, but it will be left empty. Since this will be a required field in the new schema the package will fail on create if this field is empty. Decisions on how to handle these situations will be situational.
-    - If a field is removed without a replacement then the command will error. The command should output a recommendation an alternative strategy to the user.
+    - If a field is removed without a replacement then the command will error. The error should include a recommendation for an alternative strategy.
   - If internal conversion
     - The field will be set as a private field on the v1beta1 object according to the logic in [Removed Fields](#removed-fields)  
 
@@ -272,19 +272,19 @@ func (c *ZarfComponent) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 ### Schema
 
-Zarf currently publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built in schema validation to on zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also included in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
+Zarf currently publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built-in schema validation for zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also included in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
 
-Zarf will use a conditional schema validation strategy through the `apiVersion` field. If the `apiVersion`is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema, if the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. 
+Zarf will use a conditional schema validation strategy through the `apiVersion` field. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema, if the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. 
 
 ### Updating packages
 
-Once the latest schema is introduced the built zarf.yaml file will contain the package definition for each apiVersion. Versions will be separated by `---`. Since Zarf currently will only read the first yaml object (only until the `---` separator) as long as newer packages place the v1alpha1 packages at the beginning of the zarf.yaml it will continue to work with older versions of Zarf. 
+Once the latest schema is introduced the built zarf.yaml file will contain the package definition for each apiVersion. Versions will be separated by `---`. Currently, Zarf only checks the first yaml object in the `zarf.yaml` file. To maintain backwards compatibility newer packages will place the v1alpha1 definition at the beginning of the zarf.yaml. Future versions of Zarf will check the api version of each package definition and grab the latest one that it understands.  
 
 A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`.
 
 ### Minimum Zarf version requirements
 
-Zarf will introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes the deploy process, then the package should not be deployable on versions of Zarf without that feature. A new field `build.deployRequirements` will track the deploy requirements and prevent users from deploying packages that are likely to break. Once this field is introduced, Zarf will check against this field to ensure it can deploy packages. The field will look like:
+Zarf will introduce a minimum version requirement for the package to be deployed. If there is a new field in the v1beta1 schema that changes the deploy process, then the package should not be deployable on versions of Zarf without that feature. A new field `build.deployRequirements` will track the deploy requirements and prevent users from deploying packages that are likely to break. Once this field is introduced, Zarf will check against this field to ensure it can deploy packages. The field will look like below:
 ```go
 type DeployRequirements struct  {
 	// the minimum version of the Zarf CLI that can deploy the package
