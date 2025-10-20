@@ -1,9 +1,9 @@
 schema-version: 1.0.0
 
-title: ZEP Template
-zep-number: NNNN
+title: v1beta1 schema
+zep-number: 0051
 authors:
-  - "@jane.doe"
+  - "@austinabro321"
 status: provisional|implementable|implemented|deferred|rejected|withdrawn|replaced
 creation-date: yyyy-mm-dd
 reviewers:

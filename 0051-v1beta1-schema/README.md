@@ -92,7 +92,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Several fields in the ZarfPackageConfig v1alpha1 can be restructured to provide a more intuitive experience. Some field in the v1alpha1 schema have a poor user experience and add overhead to Zarf, these will be removed. A new schema version, v1beta1, provides Zarf the space to make these changes. 
+Several fields in the ZarfPackageConfig v1alpha1 can be restructured to provide a more intuitive experience. Some fields in the v1alpha1 schema have a poor user experience and add overhead to Zarf, these will be removed. A new schema version, v1beta1, provides Zarf the space to make these changes. 
 
 ## Motivation
 
@@ -112,7 +112,7 @@ There are several open issues requesting enhancements to the schema. The general
 - [Breaking Change: make components required by default #2059](https://github.com/zarf-dev/zarf/issues/2059)
 - [Use kstatus as the engine behind zarf tools wait-for and .wait.cluster #4077](https://github.com/zarf-dev/zarf/issues/4077)
 
-Additionally, users often struggle to use data injections. Usually, they would be be better served by using a Kubernetes native solution [#3926](https://github.com/zarf-dev/zarf/issues/3926).
+Additionally, users often struggle to use data injections. Usually, they would be better served by using a Kubernetes native solution [#3926](https://github.com/zarf-dev/zarf/issues/3926).
 
 ### Goals
 
@@ -158,7 +158,7 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 
 `zarf dev convert` will work with these fields. 
 
-- `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions, will be migrated to the end of the `actions.[onAny].after` list.
+- `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions will be migrated to the end of the `actions.[onAny].after` list.
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be automatically migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be automatically migrated to the existing `.components.[x].actions`. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will automatically move these fields to `.metadata.annotations`, which is a generic map of strings.
@@ -173,7 +173,7 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`
 - `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true
-- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false, this is a change in behavior since required defaults to false.
+- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false, this is a change in behavior since `required` defaults to false
 - `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `components.[x].charts`
 - `.components.[x].actions.[default/onAny].maxRetries` -> `.components.[x].actions.[default/onAny].retries`
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` -> `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
@@ -350,7 +350,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use achieve a similar result. 
+The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use to achieve a similar result. 
 
 The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and we will not be able to automatically convert users to Zarf values with `zarf dev convert`. There should be documentation on how users can utilize Zarf values as an alternative to chart variables. 
 
@@ -477,7 +477,7 @@ If this feature will eventually be deprecated, plan for it:
 
 - Alpha: fields are subject to change or rename. No backwards compatibility guarantees.
 - Beta: Fields will not change in a way that is not fully backwards compatible.
-- GA: We've received feedback from users and are confident improve the user experience. Examples and tests in Zarf shift to using the v1beta1 schema.
+- GA: Users have provided feedback that the new schema improves the UX. Examples and tests in Zarf shift to using the v1beta1 schema.
 
 Deprecation:
 - This schema will likely be deprecated one day in the future in favor of a v1 schema. It will not be deprecated until the next schema version is at least generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least one year.
