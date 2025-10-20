@@ -144,6 +144,24 @@ below is for the real nitty-gritty.
 
 The v1beta1 schema will rename, restructure, and remove several fields.
 
+### Removed fields without replacement.
+
+- `.components.[x].group` will be removed. Users are recommend to use `components[x].only.flavor` instead.
+- `.components.[x].dataInjections` will be removed from the v1beta1 schema without replacement. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
+- `.components.[x].charts.[x].variables` will be removed. It's successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev convert`.
+
+In order for this schema to be applied, users must set `apiVersion` to `v1beta1`. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
+
+### Removed fields with automated replacement
+
+- `.components.[x].actions.[onAny].onSuccess` will be removed. Any onSuccess actions, will be migrated to the end of the `actions.[onAny].after` list.
+- `setVariable` will be removed. This field is already deprecated and will be automatically migrated to the existing `.components[x].actions.[x].setVariables`.
+- `.components.[x].scripts` will be removed. This field is already deprecated and will be automatically migrated to the existing `.components.[x].actions`. 
+- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will automatically move these fields to `.metadata.annotations`, which is a generic map of strings.
+- `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantage of the current `.wait.cluster` behavior is that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
+  - Since Kstatus requires the API version, `apiVersion` will be added as a field to `.wait.cluster`.
+  - `.healthChecks` always occur after deploy so `zarf dev convert` will migrate them to `.components[x].actions.onDeploy.After.wait.cluster`.
+
 ### Renamed fields
 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`
@@ -176,24 +194,6 @@ The v1beta1 schema will rename, restructure, and remove several fields.
    path: chart
   # no version field, use local chart.yaml version
 ```
-
-### Removed fields with automated replacement
-
-- `.components.[x].actions.[onAny].onSuccess` will be removed. Any onSuccess actions, will be migrated to the end of the `actions.[onAny].after` list.
-- `setVariable` will be removed. This field is already deprecated and will be automatically migrated to the existing `.components[x].actions.[x].setVariables`.
-- `.components.[x].scripts` will be removed. This field is already deprecated and will be automatically migrated to the existing `.components.[x].actions`. 
-- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will automatically move these fields to `.metadata.annotations`, which is a generic map of strings.
-- `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantage of the current `.wait.cluster` behavior is that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
-  - Since Kstatus requires the API version, `apiVersion` will be added as a field to `.wait.cluster`.
-  - `.healthChecks` always occur after deploy so `zarf dev convert` will migrate them to `.components[x].actions.onDeploy.After.wait.cluster`.
-
-### Removed fields without replacement.
-
-- `.components.[x].group` will be removed. Users are recommend to use `components[x].only.flavor` instead.
-- `.components.[x].dataInjections` will be removed from the v1beta1 schema without replacement. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
-- `.components.[x].charts.[x].variables` will be removed. It's successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev convert`.
-
-In order for this schema to be applied, users must set `apiVersion` to `v1beta1`. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
 
 ### User Stories (Optional)
 
