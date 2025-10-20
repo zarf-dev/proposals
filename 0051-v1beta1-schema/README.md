@@ -161,30 +161,7 @@ The v1beta1 schema will rename, restructure, and remove several fields.
 - `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantage of the current `.wait.cluster` behavior is that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
   - Since Kstatus requires the API version, `apiVersion` will be added as a field to `.wait.cluster`.
   - `.healthChecks` always occur after deploy so `zarf dev convert` will migrate them to `.components[x].actions.onDeploy.After.wait.cluster`.
-- `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. 
-```yaml
-- name: podinfo-repo-new
-  helm:
-    url: https://stefanprodan.github.io/podinfo
-    name: podinfo # replaces repoName since it's only applicable for helm chart repositories
-    version: 6.4.0
-
-- name: podinfo-git-new
-  git:
-    url: https://stefanprodan.github.io/podinfo@6.4.0
-    path: charts/podinfo
-    # no version field, Zarf will use the version in the chart.yaml at that git tag
-
-- name: podinfo-oci-new
-  oci:
-    url: oci://ghcr.io/stefanprodan/charts/podinfo
-    version: 6.4.0 
-
-- name: podinfo-local-same
-  local:
-   path: chart
-  # no version field, use local chart.yaml version
-```  
+- `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
 
 ### Renamed fields
 
@@ -380,13 +357,13 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-### Zarf Chart Changes
+### Zarf Helm Chart Changes
 
 The ZarfChart object will be restructured. The new object is defined below. Exactly one of `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`, and their objects look like below. The fields `localPath`, `gitPath`, `URL`, and `repoName` are all removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
 
-During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used `@{{Version}}` will be appended to the URL. This is consistent with the current Zarf behavior. 
+During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used `@{{Version}}` will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior. 
 
-Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for create and deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore not work with previous versions of Zarf. When support is dropped for v1alpha1 packages the `version` field will be dropped entirely.
+Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for create and deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore not work with previous versions of Zarf. When support is dropped for v1alpha1 packages the `version` field will be dropped entirely. Note, this applies to internal conversions of v1alpha1 packages so function signatures can be updated to use v1beta1 objects. `zarf dev convert` will simply move the top level `version` field to the right sub object, or drop it when not applicable. 
 
 ```go
 // ZarfChart defines a helm chart to be deployed.
@@ -494,7 +471,7 @@ If this feature will eventually be deprecated, plan for it:
 
 - Alpha: fields are subject to change or rename. No backwards compatibility guarantees.
 - Beta: Fields will not change in a way that is not fully backwards compatible.
-- GA: We've received feedback that all of are changes are an improvement. Examples and tests in Zarf shift to using the v1beta1 schema.
+- GA: We've received feedback from users and are confident improve the user experience. Examples and tests in Zarf shift to using the v1beta1 schema.
 
 Deprecation:
 - This schema will likely be deprecated one day in the future in favor of a v1 schema. It will not be deprecated until the next schema version is at least generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least a year.
@@ -515,7 +492,7 @@ proposal:
   make use of the proposal?
 -->
 
-
+Once the v1beta1 package schema is released, all functions in Zarf will be changed to use v1beta1 objects. 
 
 ### Version Skew Strategy
 
@@ -528,6 +505,8 @@ proposal:
 - Does this proposal involve coordinating behavior between components?
   - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
 -->
+
+
 
 ## Implementation History
 
