@@ -173,10 +173,12 @@ The v1beta1 schema will remove or rename several fields.
 ```
 - `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantages of `.wait.cluster` are that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
   - Since Kstatus requires the API version, `apiVersion` will be added as a field to `.wait.cluster`.
+  - `.healthChecks` always occur after deploy so `zarf dev convert` will migrate them to `.components[x].actions.onDeploy.After.wait.cluster`.
 - `.components.[x].dataInjections` will be removed from the v1beta1 schema without replacement. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
-- `.components.[x].charts.variables` will be removed. This is an alpha feature that is replaced by Zarf values.
+- `.components.[x].charts.[x].variables` will be removed. It's successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev convert`.
+- `.components.[x].actions.[onAny].onSuccess` will be removed. Any onSuccess actions, will be migrated to the end of `actions.[onAny].after`.
 
-In order for this schema to be applied, users must set `.apiVersion` to `v1beta1`. If the apiVersion is not set then Zarf will assume the v1alpha1 schema. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
+In order for this schema to be applied, users must set `apiVersion` to `v1beta1`. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
 
 ### User Stories (Optional)
 
@@ -282,7 +284,61 @@ components:
 
 #### Story 2
 
+As a user of health checks in my package, I have the following `zarf.yaml` in v1alpha1:
 
+```yaml
+kind: ZarfPackageConfig
+metadata:
+  name: health-checks
+  description: Deploys a simple pod to test health checks
+
+components:
+  - name: health-checks
+    required: true
+    manifests:
+      - name: ready-pod
+        namespace: health-checks
+        noWait: true
+        files:
+          - ready-pod.yaml
+    healthChecks:
+      - name: ready-pod
+        namespace: health-checks
+        apiVersion: v1
+        kind: Pod
+```
+
+I want to move to the latest schema so I run `zarf dev convert`, which produces:
+
+```yaml
+apiVersion: v1beta1
+kind: ZarfPackageConfig
+metadata:
+  name: health-checks
+  description: Deploys a simple pod to test health checks
+
+components:
+  - name: health-checks
+    optional: false  # Changed from `required: true`
+    manifests:
+      - name: ready-pod
+        namespace: health-checks
+        wait: false  # Changed from `noWait: true`
+        files:
+          - ready-pod.yaml
+    actions:
+      onDeploy:
+        after:
+          - wait:
+              cluster:
+                kind: Pod
+                name: ready-pod
+                namespace: health-checks
+                apiVersion: v1
+                # condition is empty, so Kstatus will be used for readiness check
+```
+
+The `healthChecks` field has been removed and replaced with an `actions.onDeploy.after` wait action that uses Kstatus for health checking when no explicit condition is set.
 
 ### Risks and Mitigations
 
@@ -298,7 +354,7 @@ How will UX be reviewed, and by whom?
 
 The fields `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use achieve a similar result. 
 
-The alpha field `.components.[x].charts.variables` has seen significant adoption. There should be documentation on how users can utilize Zarf values as an alternative to chart variables. 
+The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and we will not be able to automatically convert users to Zarf values with `zarf dev convert`. There should be documentation on how users can utilize Zarf values as an alternative to chart variables. 
 
 ## Design Details
 
