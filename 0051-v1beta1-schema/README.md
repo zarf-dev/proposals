@@ -146,7 +146,7 @@ Zarf will determine the schema of the package definition using the `apiVersion` 
 
 The v1beta1 schema will rename, restructure, and remove several fields.
 
-### Removed fields without replacement.
+### Removed fields without replacement
 
 - `.components.[x].group` will be removed. Users will be recommended to use `components[x].only.flavor` instead.
 - `.components.[x].dataInjections` will be removed from the v1beta1 schema without replacement. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
@@ -161,16 +161,7 @@ The v1beta1 schema will rename, restructure, and remove several fields.
 - `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantage of the current `.wait.cluster` behavior is that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
   - Since Kstatus requires the API version, `apiVersion` will be added as a field to `.wait.cluster`.
   - `.healthChecks` always occur after deploy so `zarf dev convert` will migrate them to `.components[x].actions.onDeploy.After.wait.cluster`.
-
-### Renamed fields
-
-- `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`
-- `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true
-- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false, this is a change in behavior since required defaults to false.
-- `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `components.[x].charts`
-- `.components.[x].actions.[default/onAny].maxRetries` -> `.components.[x].actions.[default/onAny].retries`
-- `.components.[x].actions.[default/onAny].maxTotalSeconds` -> `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
-- `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245). Exactly one of `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`, and their objects look like below. The fields `localPath`, `gitPath`, `version`, `URL`, and `repoName` will all be removed from the top level of `components.[x].charts`. 
+- `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. 
 ```yaml
 - name: podinfo-repo-new
   helm:
@@ -193,7 +184,16 @@ The v1beta1 schema will rename, restructure, and remove several fields.
   local:
    path: chart
   # no version field, use local chart.yaml version
-```
+```  
+
+### Renamed fields
+
+- `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`
+- `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true
+- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false, this is a change in behavior since required defaults to false.
+- `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `components.[x].charts`
+- `.components.[x].actions.[default/onAny].maxRetries` -> `.components.[x].actions.[default/onAny].retries`
+- `.components.[x].actions.[default/onAny].maxTotalSeconds` -> `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
 
 ### User Stories (Optional)
 
@@ -353,7 +353,7 @@ components:
                 # condition is empty, so Kstatus will be used for readiness check
 ```
 
-The `healthChecks` field has been removed and replaced with an `actions.onDeploy.after` wait action that uses Kstatus for health checking when no explicit condition is set.
+a v1beta1 package that replaces the `healthChecks` entry with an `onDeploy.after.wait.cluster` entry.
 
 ### Risks and Mitigations
 
@@ -367,7 +367,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-The fields `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use achieve a similar result. 
+The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use achieve a similar result. 
 
 The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and we will not be able to automatically convert users to Zarf values with `zarf dev convert`. There should be documentation on how users can utilize Zarf values as an alternative to chart variables. 
 
@@ -379,6 +379,73 @@ change are understandable. This may include API specs (though not always
 required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
+
+### Zarf Chart Changes
+
+The ZarfChart object will be restructured. The new object is defined below. Exactly one of `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`, and their objects look like below. The fields `localPath`, `gitPath`, `URL`, and `repoName` are all removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
+
+During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used `@{{Version}}` will be appended to the URL. This is consistent with the current Zarf behavior. 
+
+Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for create and deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore not work with previous versions of Zarf. When support is dropped for v1alpha1 packages the `version` field will be dropped entirely.
+
+```go
+// ZarfChart defines a helm chart to be deployed.
+type ZarfChart struct {
+	// The name of the chart within Zarf; note that this must be unique and does not need to be the same as the name in the chart repo.
+	Name string `json:"name"`
+  // The version of the chart. This field is removed for the schema, but kept as a backwards compatibility shim so v1alpha1 packages can be converted to v1beta1
+  version string
+	// The Helm repo where the chart is stored
+	Helm HelmRepoSource `json:"helm,omitempty"`
+	// The Git repo where the chart is stored
+	Git GitRepoSource `json:"git,omitempty"`
+	// The local path where the chart is stored
+	Local LocalRepoSource `json:"local,omitempty"`
+	// The OCI registry where the chart is stored
+	OCI OCISource `json:"oci,omitempty"`
+	// The namespace to deploy the chart to.
+	Namespace string `json:"namespace,omitempty"`
+	// The name of the Helm release to create (defaults to the Zarf name of the chart).
+	ReleaseName string `json:"releaseName,omitempty"`
+	// Whether to not wait for chart resources to be ready before continuing.
+	Wait *bool `json:"wait,omitempty"`
+	// List of local values file paths or remote URLs to include in the package; these will be merged together when deployed.
+	ValuesFiles []string `json:"valuesFiles,omitempty"`
+  // [alpha] List of values sources to their Helm override target
+	Values []ZarfChartValue `json:"values,omitempty"`
+}
+
+// HelmRepoSource represents a Helm chart stored in a Helm repository.
+type HelmRepoSource struct {
+	// The name of a chart within a Helm repository
+	RepoName string `json:"repoName,omitempty"`
+	// The URL of the chart repository where the helm chart is stored.
+	URL string `json:"url"`
+  // The version of the chart to deploy; for git-based charts this is also the tag of the git repo by default (when not using the '@' syntax for 'repos').
+	Version string `json:"version"`
+}
+
+// GitRepoSource represents a Helm chart stored in a Git repository.
+type GitRepoSource struct {
+	// The URL of the git repository where the helm chart is stored.
+	URL string `json:"url"`
+	// The sub directory to the chart within a git repo.
+	Path string `json:"path,omitempty"`
+}
+
+// LocalRepoSource represents a Helm chart stored locally.
+type LocalRepoSource struct {
+	// The path to a local chart's folder or .tgz archive.
+	Path string `json:"path"`
+}
+
+// OCISource represents a Helm chart stored in an OCI registry.
+type OCISource struct {
+	// The URL of the OCI registry where the helm chart is stored.
+	URL     string `json:"url"`
+	Version string `json:"version"`
+}
+```
 
 ### Test Plan
 
