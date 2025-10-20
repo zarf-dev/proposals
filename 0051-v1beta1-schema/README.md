@@ -150,7 +150,7 @@ The v1beta1 schema will rename, restructure, and remove several fields.
 
 - `.components.[x].group` will be removed. Users will be recommended to use `components[x].only.flavor` instead.
 - `.components.[x].dataInjections` will be removed from the v1beta1 schema without replacement. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
-- `.components.[x].charts.[x].variables` will be removed. It's successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev convert`.
+- `.components.[x].charts.[x].variables` will be removed. Its successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev convert`.
 
 ### Removed fields with automated replacement
 
