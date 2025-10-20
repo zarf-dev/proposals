@@ -142,7 +142,7 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-In order for this schema to be applied, users must set `apiVersion` to `v1beta1`. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
+Zarf will determine the schema of the package definition using the `apiVersion` flag. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
 
 The v1beta1 schema will rename, restructure, and remove several fields.
 
