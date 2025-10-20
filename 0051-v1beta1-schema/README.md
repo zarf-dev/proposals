@@ -92,7 +92,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Several fields in the ZarfPackageConfig v1alpha1 can be restructured to provide a more intuitive experience. Some fields in the v1alpha1 schema have a poor user experience and add overhead to Zarf, these will be removed. A new schema version, v1beta1, provides Zarf the space to make these changes. 
+Several fields in the ZarfPackageConfig v1alpha1 can be restructured to provide a more intuitive experience. Some fields in the v1alpha1 schema have a poor user experience and add overhead to Zarf; these will be removed. A new schema version, v1beta1, provides Zarf the space to make these changes. 
 
 ## Motivation
 
@@ -173,8 +173,8 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`
 - `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true
-- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false, this is a change in behavior since `required` defaults to false
-- `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `components.[x].charts`
+- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. This is a change in behavior since `required` defaults to false.
+- `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `.components.[x].charts`.
 - `.components.[x].actions.[default/onAny].maxRetries` -> `.components.[x].actions.[default/onAny].retries`
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` -> `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
 
@@ -336,8 +336,6 @@ components:
                 # condition is empty, so Kstatus will be used for readiness check
 ```
 
-a v1beta1 package that replaces the `healthChecks` entry with an `onDeploy.after.wait.cluster` entry.
-
 ### Risks and Mitigations
 
 <!--
@@ -449,7 +447,7 @@ to implement this proposal.
 
 There will be e2e tests for `zarf dev convert` from a v1alpha1 definition to a v1beta1 definition.
 
-There will be e2e tests for creating, deploying, and publishing a v1beta1 package. As the schema nears towards GA, the current v1alpha1
+There will be e2e tests for creating, deploying, and publishing a v1beta1 package. As the schema nears towards GA existing tests will shift to use the v1beta1 schema.
 
 ### Graduation Criteria
 
@@ -498,7 +496,7 @@ proposal:
   make use of the proposal?
 -->
 
-This is discussed more in detail in ZEP-0048
+This is discussed in more detail in ZEP-0048.
 
 ### Version Skew Strategy
 
