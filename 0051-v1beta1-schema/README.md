@@ -149,9 +149,9 @@ The v1beta1 schema will remove or rename several fields.
 - `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false, this is a change in behavior since required defaults to false.
 - `.components.[x].group` will be removed. Users are recommend to use `components[x].only.flavor` instead.
 - `setVariable` will be removed. It can be automatically migrated to the existing field `setVariables`.  
-- `scripts` will be removed. It can be automatically migrated to the existing field `actions`. 
+- `.components.[x].scripts` will be removed. It can be automatically migrated to the existing field `.components.[x].actions`. 
 - `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `components.[x].charts`
-- `yolo` will be renamed to `airgap`. `airgap` will default to true
+- `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true
 - `.components.[x].actions.[default/onAny].maxRetries` -> `.components.[x].actions.[default/onAny].retries`
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` -> `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
 - `.component.[x].charts` will break off fields into different sub-objects depending on the method of consuming the chart. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245). Exactly one of `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`, and their objects look like below. The fields `localPath`, `gitPath`, `version`, `URL`, and `repoName` will all be removed from the top level of `components.[x].charts`. 
