@@ -148,13 +148,17 @@ The v1beta1 schema will rename, restructure, and remove several fields.
 
 ### Removed fields without replacement
 
+These fields will error when `zarf dev convert` is run and recommend an alternative method to achieve the desired behavior. 
+
 - `.components.[x].group` will be removed. Users will be recommended to use `components[x].only.flavor` instead.
 - `.components.[x].dataInjections` will be removed from the v1beta1 schema without replacement. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
 - `.components.[x].charts.[x].variables` will be removed. Its successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev convert`.
 
 ### Removed fields with automated replacement
 
-- `.components.[x].actions.[onAny].onSuccess` will be removed. Any onSuccess actions, will be migrated to the end of the `actions.[onAny].after` list.
+`zarf dev convert` will work with these fields. 
+
+- `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions, will be migrated to the end of the `actions.[onAny].after` list.
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be automatically migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be automatically migrated to the existing `.components.[x].actions`. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will automatically move these fields to `.metadata.annotations`, which is a generic map of strings.
@@ -164,6 +168,8 @@ The v1beta1 schema will rename, restructure, and remove several fields.
 - `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
 
 ### Renamed fields
+
+`zarf dev convert` will work with these fields. 
 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`
 - `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true
@@ -474,7 +480,7 @@ If this feature will eventually be deprecated, plan for it:
 - GA: We've received feedback from users and are confident improve the user experience. Examples and tests in Zarf shift to using the v1beta1 schema.
 
 Deprecation:
-- This schema will likely be deprecated one day in the future in favor of a v1 schema. It will not be deprecated until the next schema version is at least generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least a year.
+- This schema will likely be deprecated one day in the future in favor of a v1 schema. It will not be deprecated until the next schema version is at least generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least one year.
 
 ### Upgrade / Downgrade Strategy
 
@@ -492,7 +498,7 @@ proposal:
   make use of the proposal?
 -->
 
-Once the v1beta1 package schema is released, all functions in Zarf will be changed to use v1beta1 objects. 
+This is discussed more in detail in ZEP-0048
 
 ### Version Skew Strategy
 
