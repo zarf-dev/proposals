@@ -45,12 +45,7 @@ The latest instructions for this template can be found in [this repo](/NNNN-zep-
 longer appropriate, updates to the list must be approved by the remaining approvers.
 -->
 
-# ZEP-NNNN: Your short, descriptive title
-
-<!--
-Keep the title short simple and descriptive. It should clearly convey what
-the ZEP is going to cover.
--->
+# ZEP-0051: v1beta1 schema
 
 <!--
 A table of contents helps reviewers quickly navigate the ZEP and highlights
@@ -78,7 +73,6 @@ any additional information provided beyond the standard ZEP template.
 - [Implementation History](#implementation-history)
 - [Drawbacks](#drawbacks)
 - [Alternatives](#alternatives)
-- [Infrastructure Needed (Optional)](#infrastructure-needed-optional)
 <!-- /toc -->
 
 ## Summary
@@ -98,7 +92,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-There are several fields in the ZarfPackageConfig v1alpha1 that can be restructured or removed to provide a better experience to creators of Zarf packages. 
+Several fields in the ZarfPackageConfig v1alpha1 can be restructured to provide a more intuitive experience. Some field in the v1alpha1 schema have a poor user experience and add overhead to Zarf, these will be removed. A new schema version, v1beta1, provides Zarf the space to make these changes. 
 
 ## Motivation
 
@@ -120,7 +114,7 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-- Detail all schema changes in the ZarfPackageConfig from v1alpha1 to v1beta1.
+- Detail the schema changes in the ZarfPackageConfig from v1alpha1 to v1beta1.
 
 ### Non-Goals
 
@@ -129,7 +123,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Discuss upgrade / downgrade strategy for users and packages. This is detailed in 0048-schema-upgrade-process
+- Discuss how the codebase will change to handle a new schema version. This is detailed in 0048-schema-upgrade-process
 
 ## Proposal
 
@@ -141,7 +135,48 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
+The v1beta1 schema will remove or rename several fields.
 
+- `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`
+- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` -> will be removed. `zarf dev convert` will automatically add them as fields under `.metadata.annotations`.
+- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false, this is a change in behavior since required defaults to false.
+- `.components.[x].group` will be removed. Users are recommend to use `components[x].only.flavor` instead.
+- `setVariable` will be removed. It can be automatically migrated to the existing field `setVariables`.  
+- `scripts` will be removed. It can be automatically migrated to the existing field `actions`. 
+- `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `components.[x].charts`
+- `yolo` will be renamed to `airgap`. `airgap` will default to true
+- `.components.[x].actions.[default/onAny].maxRetries` -> `.components.[x].actions.[default/onAny].retries`
+- `.components.[x].actions.[default/onAny].maxTotalSeconds` -> `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
+- `.component.[x].charts` will break off fields into different sub-objects depending on the method of consuming the chart. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245). Exactly one of `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`, and their objects look like below. The fields `localPath`, `gitPath`, `version`, `URL`, and `repoName` will all be removed from the top level of `components.[x].charts`. 
+```yaml
+- name: podinfo-repo-new
+  helm:
+    url: https://stefanprodan.github.io/podinfo
+    name: podinfo # replaces repoName since it's only applicable for helm chart repositories
+    version: 6.4.0
+
+- name: podinfo-git-new
+  git:
+    url: https://stefanprodan.github.io/podinfo@6.4.0
+    path: charts/podinfo
+    # no version field, Zarf will use the version in the chart.yaml at that git tag
+
+- name: podinfo-oci-new
+  oci:
+    url: oci://ghcr.io/stefanprodan/charts/podinfo
+    version: 6.4.0 
+
+- name: podinfo-local-same
+  local:
+   path: chart
+  # no version field, use local chart.yaml version
+```
+- `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantages of `.wait.cluster` are that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
+  - Since Kstatus requires the API version, `apiVersion` will be added as a field to `.wait.cluster`.
+- `.components.[x].dataInjections` will be removed from the v1beta1 schema without replacement. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
+- `.components.[x].charts.variables` will be removed. This is an alpha feature that is replaced by Zarf values.
+
+In order for this schema to be applied, users must set `.apiVersion` to `v1beta1`. If the apiVersion is not set then Zarf will assume the v1alpha1 schema.
 
 ### User Stories (Optional)
 
@@ -168,6 +203,10 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
+The fields `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use achieve a similar result. 
+
+The alpha field `.components.[x].charts.variables` has seen significant adoption. There should be documentation on how users can utilize Zarf values as an alternative to chart variables. 
+
 ## Design Details
 
 <!--
@@ -190,9 +229,13 @@ when drafting this test plan.
 [testing-guidelines]: https://docs.zarf.dev/contribute/testing/
 -->
 
-[ ] I/we understand the owners of the involved components may require updates to
+[X] I/we understand the owners of the involved components may require updates to
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
+
+There will be e2e tests for `zarf dev convert` from a v1alpha1 definition to a v1beta1 definition.
+
+There will be e2e tests for creating, deploying, and publishing a v1beta1 package. As the schema nears towards GA, the current v1alpha1
 
 ### Graduation Criteria
 
@@ -218,6 +261,13 @@ If this feature will eventually be deprecated, plan for it:
 - Wait at least two versions before fully removing it.
 -->
 
+- Alpha: fields are subject to change or rename. No backwards compatibility guarantees.
+- Beta: Fields will not change in a way that is not fully backwards compatible.
+- GA: We've received feedback that all of are changes are an improvement. Examples and tests in Zarf shift to using the v1beta1 schema.
+
+Deprecation:
+- This schema will likely be deprecated one day in the future in favor of a v1 schema. It will not be deprecated until the next schema version is at least generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least a year.
+
 ### Upgrade / Downgrade Strategy
 
 <!--
@@ -233,6 +283,8 @@ proposal:
   package definition or deployment required to make on upgrade, in order to
   make use of the proposal?
 -->
+
+
 
 ### Version Skew Strategy
 
@@ -271,12 +323,4 @@ Why should this ZEP _not_ be implemented?
 What other approaches did you consider, and why did you rule them out? These do
 not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
--->
-
-## Infrastructure Needed (Optional)
-
-<!--
-Use this section if you need things from the project. Examples include a new repo,
-cloud infrastructure for testing or GitHub details. Listing these here
-allows the process to get these resources to be started right away.
 -->
