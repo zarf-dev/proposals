@@ -107,6 +107,13 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
+There are several open issues requesting enhancements to the schema. The general theme of these changes is to make the ZarfPackageConfig schema more intuitive to use.
+- [Refactor charts definition in zarf.yaml #2245](https://github.com/zarf-dev/zarf/issues/2245)
+- [Breaking Change: make components required by default #2059](https://github.com/zarf-dev/zarf/issues/2059)
+- [Use kstatus as the engine behind zarf tools wait-for and .wait.cluster #4077](https://github.com/zarf-dev/zarf/issues/4077)
+
+Additionally, users often struggle to use data injections. Usually, they would be be better served by using a Kubernetes native solution [#3926](https://github.com/zarf-dev/zarf/issues/3926).
+
 ### Goals
 
 <!--
@@ -123,7 +130,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Discuss how the codebase will change to handle a new schema version. This is detailed in 0048-schema-upgrade-process
+- Discuss how the Zarf codebase will shift to handle multiple API versions. This is detailed in [0048-schema-upgrade-process](https://github.com/zarf-dev/proposals/pull/49)
 
 ## Proposal
 
