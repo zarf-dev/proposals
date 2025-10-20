@@ -142,19 +142,17 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-The v1beta1 schema will remove or rename several fields.
+The v1beta1 schema will rename, restructure, and remove several fields.
+
+### Renamed fields
 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`
-- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` -> will be removed. `zarf dev convert` will automatically add them as fields under `.metadata.annotations`.
-- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false, this is a change in behavior since required defaults to false.
-- `.components.[x].group` will be removed. Users are recommend to use `components[x].only.flavor` instead.
-- `setVariable` will be removed. It can be automatically migrated to the existing field `setVariables`.  
-- `.components.[x].scripts` will be removed. It can be automatically migrated to the existing field `.components.[x].actions`. 
-- `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `components.[x].charts`
 - `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true
+- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false, this is a change in behavior since required defaults to false.
+- `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `components.[x].charts`
 - `.components.[x].actions.[default/onAny].maxRetries` -> `.components.[x].actions.[default/onAny].retries`
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` -> `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
-- `.component.[x].charts` will break off fields into different sub-objects depending on the method of consuming the chart. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245). Exactly one of `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`, and their objects look like below. The fields `localPath`, `gitPath`, `version`, `URL`, and `repoName` will all be removed from the top level of `components.[x].charts`. 
+- `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245). Exactly one of `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`, and their objects look like below. The fields `localPath`, `gitPath`, `version`, `URL`, and `repoName` will all be removed from the top level of `components.[x].charts`. 
 ```yaml
 - name: podinfo-repo-new
   helm:
@@ -178,12 +176,22 @@ The v1beta1 schema will remove or rename several fields.
    path: chart
   # no version field, use local chart.yaml version
 ```
-- `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantages of `.wait.cluster` are that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
+
+### Removed fields with automated replacement
+
+- `.components.[x].actions.[onAny].onSuccess` will be removed. Any onSuccess actions, will be migrated to the end of the `actions.[onAny].after` list.
+- `setVariable` will be removed. This field is already deprecated and will be automatically migrated to the existing `.components[x].actions.[x].setVariables`.
+- `.components.[x].scripts` will be removed. This field is already deprecated and will be automatically migrated to the existing `.components.[x].actions`. 
+- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will automatically move these fields to `.metadata.annotations`, which is a generic map of strings.
+- `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantage of the current `.wait.cluster` behavior is that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
   - Since Kstatus requires the API version, `apiVersion` will be added as a field to `.wait.cluster`.
   - `.healthChecks` always occur after deploy so `zarf dev convert` will migrate them to `.components[x].actions.onDeploy.After.wait.cluster`.
+
+### Removed fields without replacement.
+
+- `.components.[x].group` will be removed. Users are recommend to use `components[x].only.flavor` instead.
 - `.components.[x].dataInjections` will be removed from the v1beta1 schema without replacement. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
 - `.components.[x].charts.[x].variables` will be removed. It's successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev convert`.
-- `.components.[x].actions.[onAny].onSuccess` will be removed. Any onSuccess actions, will be migrated to the end of `actions.[onAny].after`.
 
 In order for this schema to be applied, users must set `apiVersion` to `v1beta1`. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
 
