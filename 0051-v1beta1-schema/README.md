@@ -176,7 +176,7 @@ The v1beta1 schema will remove or rename several fields.
 - `.components.[x].dataInjections` will be removed from the v1beta1 schema without replacement. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
 - `.components.[x].charts.variables` will be removed. This is an alpha feature that is replaced by Zarf values.
 
-In order for this schema to be applied, users must set `.apiVersion` to `v1beta1`. If the apiVersion is not set then Zarf will assume the v1alpha1 schema.
+In order for this schema to be applied, users must set `.apiVersion` to `v1beta1`. If the apiVersion is not set then Zarf will assume the v1alpha1 schema. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
 
 ### User Stories (Optional)
 
@@ -189,7 +189,100 @@ bogged down.
 
 #### Story 1
 
+As a user of Helm charts in my package, I have the following existing `zarf.yaml`:
+
+```yaml
+kind: ZarfPackageConfig
+metadata:
+  name: helm-charts
+components:
+  - name: demo-helm-charts
+    required: true
+    charts:
+      - name: podinfo-local
+        version: 6.4.0
+        namespace: podinfo-from-local-chart
+        localPath: chart
+        valuesFiles:
+          - values.yaml
+
+      - name: podinfo-oci
+        version: 6.4.0
+        namespace: podinfo-from-oci
+        url: oci://ghcr.io/stefanprodan/charts/podinfo
+        valuesFiles:
+          - values.yaml
+
+      - name: podinfo-git
+        version: 6.4.0
+        namespace: podinfo-from-git
+        url: https://github.com/stefanprodan/podinfo.git
+        gitPath: charts/podinfo
+        valuesFiles:
+          - values.yaml
+
+      - name: podinfo-repo
+        version: 6.4.0
+        namespace: podinfo-from-repo
+        url: https://stefanprodan.github.io/podinfo
+        repoName: podinfo
+        releaseName: cool-release-name
+        valuesFiles:
+          - values.yaml
+```
+
+I want to upgrade to the v1beta1 schema so I run `zarf dev convert`, which produces:
+
+```yaml
+apiVersion: v1beta1
+kind: ZarfPackageConfig
+metadata:
+  name: helm-charts
+  description: Example showcasing multiple ways to deploy helm charts
+  version: 0.0.1
+
+components:
+  - name: demo-helm-charts
+    optional: false  # Changed from `required: true`
+    charts:
+      - name: podinfo-local
+        namespace: podinfo-from-local-chart
+        local:
+          path: chart  # Changed from `localPath`
+        # version field removed - uses version from local chart.yaml
+        valuesFiles:
+          - values.yaml
+      - name: podinfo-oci
+        namespace: podinfo-from-oci
+        oci:
+          url: oci://ghcr.io/stefanprodan/charts/podinfo
+          version: 6.4.0
+        valuesFiles:
+          - values.yaml
+
+      - name: podinfo-git
+        namespace: podinfo-from-git
+        git:
+          url: https://github.com/stefanprodan/podinfo.git@6.4.0
+          path: charts/podinfo  # Changed from `gitPath`
+        # version field removed - uses version from chart.yaml at git tag
+        valuesFiles:
+          - values.yaml
+
+      - name: podinfo-repo
+        namespace: podinfo-from-repo
+        helm:
+          url: https://stefanprodan.github.io/podinfo
+          name: podinfo  # Changed from `repoName`
+          version: 6.4.0
+        releaseName: cool-release-name
+        valuesFiles:
+          - values.yaml
+```
+
 #### Story 2
+
+
 
 ### Risks and Mitigations
 
