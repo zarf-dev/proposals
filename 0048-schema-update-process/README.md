@@ -373,7 +373,9 @@ proposal:
   - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
 -->
 
-NA
+The Zarf agent will not be impacted as it does not interact with the package config.
+
+Zarf package definition that is persisted to cluster will change depending on `.build.apiVersion`. The rest of the data that is persisted to the cluster will remain the same. 
 
 ## Implementation History
 
