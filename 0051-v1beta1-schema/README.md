@@ -496,7 +496,7 @@ proposal:
   make use of the proposal?
 -->
 
-See upgrade / downgrade strategy in ZEP-0048
+See ZEP-0048
 
 ### Version Skew Strategy
 
