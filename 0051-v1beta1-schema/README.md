@@ -92,7 +92,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Several fields in the ZarfPackageConfig v1alpha1 can be restructured to provide a more intuitive experience. Some fields in the v1alpha1 schema have a poor user experience and add overhead to Zarf; these will be removed. A new schema version, v1beta1, provides Zarf the space to make these changes. 
+Several fields in the ZarfPackageConfig v1alpha1 can be restructured to provide a more intuitive experience. Other fields have a poor user experience and add unnecessary overhead to Zarf; these fields will be removed. A new schema version, v1beta1, provides the space to make these changes. 
 
 ## Motivation
 
@@ -163,7 +163,7 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be automatically migrated to the existing `.components.[x].actions`. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will automatically move these fields to `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantage of the current `.wait.cluster` behavior is that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
-  - Since Kstatus requires the API version, `apiVersion` will be added as a field to `.wait.cluster`.
+  - Since Kstatus requires API version, `apiVersion` will be added as a field to `.wait.cluster`.
   - `.healthChecks` always occur after deploy so `zarf dev convert` will migrate them to `.components[x].actions.onDeploy.After.wait.cluster`.
 - `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
 
@@ -350,7 +350,7 @@ How will UX be reviewed, and by whom?
 
 The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use to achieve a similar result. 
 
-The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and we will not be able to automatically convert users to Zarf values with `zarf dev convert`. There should be documentation on how users can utilize Zarf values as an alternative to chart variables. 
+The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and there will be no automatic conversion to it's replacement Zarf values. There must be documentation on how users can utilize Zarf values as an alternative to chart variables. 
 
 ## Design Details
 
@@ -496,7 +496,7 @@ proposal:
   make use of the proposal?
 -->
 
-See ZEP-0048
+See proposal in ZEP-0048
 
 ### Version Skew Strategy
 
@@ -524,6 +524,8 @@ Major milestones might include:
 - the version of Zarf where the ZEP graduated to general availability
 - when the ZEP was retired or superseded
 -->
+
+- 2025-10-21: Proposal submitted
 
 ## Drawbacks
 
