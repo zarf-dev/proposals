@@ -359,7 +359,7 @@ proposal:
   make use of the proposal?
 -->
 
-This ZEP is proposing an upgrade / downgrade strategy. 
+This ZEP is an upgrade / downgrade strategy
 
 ### Version Skew Strategy
 
@@ -389,6 +389,8 @@ Major milestones might include:
 - the version of Zarf where the ZEP graduated to general availability
 - when the ZEP was retired or superseded
 -->
+
+- 2025-10-18: Proposal submitted
 
 ## Drawbacks
 
