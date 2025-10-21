@@ -447,7 +447,7 @@ to implement this proposal.
 
 There will be e2e tests for `zarf dev convert` from a v1alpha1 definition to a v1beta1 definition.
 
-There will be e2e tests for creating, deploying, and publishing a v1beta1 package. As the schema nears towards GA existing tests will shift to use the v1beta1 schema.
+There will be e2e tests for creating, deploying, and publishing a v1beta1 package. As the schema nears towards GA, existing tests will shift to use the v1beta1 schema.
 
 ### Graduation Criteria
 
@@ -496,7 +496,7 @@ proposal:
   make use of the proposal?
 -->
 
-This is discussed in more detail in ZEP-0048.
+See upgrade / downgrade strategy in ZEP-0048
 
 ### Version Skew Strategy
 
@@ -510,7 +510,7 @@ proposal:
   - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
 -->
 
-
+See version skew strategy in ZEP-0048
 
 ## Implementation History
 
