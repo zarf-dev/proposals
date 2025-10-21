@@ -151,17 +151,17 @@ The v1beta1 schema will rename, restructure, and remove several fields.
 These fields will error when `zarf dev convert` is run and recommend an alternative method to achieve the desired behavior. 
 
 - `.components.[x].group` will be removed. Users will be recommended to use `components[x].only.flavor` instead.
-- `.components.[x].dataInjections` will be removed from the v1beta1 schema without replacement. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
+- `.components.[x].dataInjections` will be removed. There will be a guide in Zarf's documentation for alternatives. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
 - `.components.[x].charts.[x].variables` will be removed. Its successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev convert`.
 
 ### Removed fields with automated replacement
 
-`zarf dev convert` will work with these fields. 
+`zarf dev convert` will automatically migrate these fields.
 
 - `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions will be migrated to the end of the `actions.[onAny].after` list.
-- `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be automatically migrated to the existing field `.components[x].actions.[onAny].setVariables`.
-- `.components.[x].scripts` will be removed. This field is already deprecated and will be automatically migrated to the existing `.components.[x].actions`. 
-- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will automatically move these fields to `.metadata.annotations`, which is a generic map of strings.
+- `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
+- `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing `.components.[x].actions`. 
+- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantage of the current `.wait.cluster` behavior is that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
   - Since Kstatus requires API version, `apiVersion` will be added as a field to `.wait.cluster`.
   - `.healthChecks` always occur after deploy so `zarf dev convert` will migrate them to `.components[x].actions.onDeploy.After.wait.cluster`.
@@ -169,14 +169,14 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 
 ### Renamed fields
 
-`zarf dev convert` will work with these fields. 
+`zarf dev convert` will automatically migrate these fields.
 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`
 - `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true
-- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. This is a change in behavior since `required` defaults to false.
+- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. Since `required` currently defaults to false, components now default to being required by default.
 - `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `.components.[x].charts`.
-- `.components.[x].actions.[default/onAny].maxRetries` -> `.components.[x].actions.[default/onAny].retries`
-- `.components.[x].actions.[default/onAny].maxTotalSeconds` -> `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
+- `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`
+- `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to   `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
 
 ### User Stories (Optional)
 
@@ -365,9 +365,9 @@ proposal will be implemented, this is the place to discuss that.
 
 The ZarfChart object will be restructured. The new object is defined below. Exactly one of `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`, and their objects look like below. The fields `localPath`, `gitPath`, `URL`, and `repoName` are all removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
 
-During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used `@{{Version}}` will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior. 
+During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior. 
 
-Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for create and deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore not work with previous versions of Zarf. When support is dropped for v1alpha1 packages the `version` field will be dropped entirely. Note, this applies to internal conversions of v1alpha1 packages so function signatures can be updated to use v1beta1 objects. `zarf dev convert` will simply move the top level `version` field to the right sub object, or drop it when not applicable. 
+Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for create and deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore not work with previous versions of Zarf. When support is dropped for v1alpha1 packages the `version` field will be dropped entirely. Note, this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use  function signatures that container v1beta1 objects. `zarf dev convert` will simply move the top level `version` field to the right sub object, or drop it when not applicable. 
 
 ```go
 // ZarfChart defines a helm chart to be deployed.
