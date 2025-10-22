@@ -98,8 +98,8 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-New schema versions in Zarf present the opportunity to improve the experience for package creators and provide a clear timeline for removing deprecated fields. However, handling multiple schema versions in Zarf presents unique challenges as packages can be created and deployed on different versions of Zarf.
-Zarf should provide users with clear expectations around a schema's lifetime, and provide a simple path for users to upgrade their schema. Zarf maintainers should have a standardized approach to adopting a new schema in the codebase. 
+New schema versions of the Zarf package config presents the opportunity to improve the experience for package creators and provide a clear timeline for removing deprecated fields. However, handling multiple schema versions in Zarf presents unique challenges as packages can be created and deployed on different versions of Zarf.
+Zarf should provide users with clear expectations around a schema's lifetime, and provide a simple path for users to upgrade their package definitions. Zarf maintainers should have a standardized approach to adopting a new schema in the codebase. 
 
 
 ## Motivation
@@ -120,8 +120,7 @@ There are several open issues requesting enhancements to the schema, but before 
 - [Breaking Change: make components required by default #2059](https://github.com/zarf-dev/zarf/issues/2059)
 - [Use kstatus as the engine behind zarf tools wait-for and .wait.cluster #4077](https://github.com/zarf-dev/zarf/issues/4077)
 
-There exists ADR [0026-schema.md](https://github.com/zarf-dev/zarf/blob/main/adr/0026-schema.md) in the Zarf repo which discusses the changes to be made in a v1 schema. The schema was not yet implemented and likely the final version of the v1 schema will differ, however this document does correctly outline many changes that are planned to improve upon the schema. A ZEP will be created to replace this ADR.
-<!-- TODO add ZEP once available  -->
+ZEP [0051-v1beta1-schema](https://github.com/zarf-dev/proposals/pull/52) provides the specifics for what will change in the next schema version of Zarf
 
 ### Goals
 
@@ -130,9 +129,9 @@ List the specific goals of the ZEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-- Provide clear guidelines for how Zarf package commands should behave when working with new or old schema versions
-- Provide a maintainable approach for updating the codebase when a new schema is introduced. 
-- Introduce a command for users to upgrade their schema version.
+- Provide clear guidelines for how Zarf package commands should behave when handling new or old schema versions.
+- Design a strategy for updating the codebase when a new schema is introduced. 
+- Introduce a command for users to upgrade the schema version of their Zarf package config.
 
 ### Non-Goals
 
@@ -180,10 +179,11 @@ As a package deployer, I want to use the latest version of Zarf, but I still wan
 #### Story 2
 
 As a package creator, I want to create packages using the newer API version, however I still want my package to be deployable on older versions of Zarf that have not yet introduced this API version. I run `zarf package inspect definition <my-package>` and ensure that `.build.deployRequirements.version` is empty or less than my expected version.
+<!-- TODO, the field name will likely change -->
 
 #### Story 3
 
-As a package creator, I want to update my package definition to the latest schema so I run `zarf dev convert` with a zarf.yaml in my current directory and it automatically updates my package.  
+As a package creator, I want to update my package definition to the latest schema so I run `zarf dev convert` with a zarf.yaml in my current directory and it automatically updates my package to the newest version of the Zarf package config.  
 
 ### Risks and Mitigations
 
@@ -235,19 +235,22 @@ type ZarfComponent struct {
 }
 ```
 
-### Schema
+### JSON Schema
 
 Zarf currently publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built-in schema validation for zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also included in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
 
 Zarf will use the if/then/else features of the json schema to conditionally apply a schema based on the `apiVersion`. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. 
 
-### Updating packages
+### Updating Packages
 
-Once the latest schema is introduced, the built zarf.yaml file will contain the package definition for each apiVersion. Package definitions will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility newer packages must place the v1alpha1 definition at the beginning of the zarf.yaml file. Future versions of Zarf will check the API version of each package definition and select the latest version that it understands.  
+Once the latest schema is introduced, the built zarf.yaml file will contain the package definition for itself, as well as all older apiVersion that is still supported. For example, the built zarf.yaml in a v1beta1 package will include the v1beta1 package config and v1alpha1 package config. The built zarf.yaml for a v1alpha1 package will only include the v1alpha1 package. This is done because earlier API versions will always be able to convert to newer schema versions without data loss, but newer API versions may include fields that are not represented in older API versions. In these cases, Zarf will still attempt to keep the package backwards compatible, but will make set a minimum required version according to [minimum-version-requirements](#minimum-version-requirements). 
 
-A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`.
+Package definitions will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility newer packages must place the v1alpha1 definition at the beginning of the zarf.yaml file. Future versions of Zarf will check the API version of each package definition and select the latest version that it understands.
+<!-- TODO I have to check if it's true that Zarf only checks the first definition in the file, or it dynamically checks whichever one it can read -->
 
-### Minimum Zarf version requirements
+A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`. 
+
+### Minimum Version Requirements
 
 Zarf will introduce a new field `build.deployRequirements` which will be automatically populated on create. If there is a new field in any schema that changes the deploy process, then the package should not be deployable on versions of Zarf without that feature. This field will be checked on deploy to prevent users from deploying packages that may break. This will not work on versions of Zarf where this field is not yet implemented. The field will look like below:
 ```go
@@ -259,7 +262,7 @@ type DeployRequirements struct {
 	Reasons []string
 }
 ```
-
+<!-- FIXME, the actual design will look different -->
 
 ### Test Plan
 
