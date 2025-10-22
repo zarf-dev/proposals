@@ -162,9 +162,9 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing `.components.[x].actions`. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will move these fields under `.metadata.annotations`, which is a generic map of strings.
+- `.components[x].actions.[onAny].wait.cluster` will receive a new required sub field, `.apiVersion`. During conversion `.apiVersion` will be added to the object but kept empty. Users will be warned that they must fill this field out, otherwise create will error. 
 - `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantage of the current `.wait.cluster` behavior is that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
-  - Since Kstatus requires API version, `apiVersion` will be added as a field to `.wait.cluster`.
-  - `.healthChecks` always occur after deploy so `zarf dev convert` will migrate them to `.components[x].actions.onDeploy.After.wait.cluster`.
+  - `.healthChecks` will be appended to the end of the `.components[x].actions.onDeploy.After.wait.cluster` list.
 - `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
 
 ### Renamed fields
