@@ -370,9 +370,7 @@ There will be breaking changes to SDK functions every time a new API version is 
 	if err != nil {
 		return fmt.Errorf("unable to load package: %w", err)
 	}
-	publishPackageOpts := packager.PublishPackageOptions{
-	}
-	_, err = packager.PublishPackage(ctx, pkgLayout, dstRef, publishPackageOpts)
+	_, err = packager.PublishPackage(ctx, pkgLayout, dstRef, packager.PublishPackageOptions{})
 ```
 
 ## Alternatives
