@@ -197,8 +197,6 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-Zarf will now use custom YAML marshalers to enable [Removed Fields](#removed-fields). This means that if an SDK user is trying to read a zarf.yaml file using a json unmarshaler, or with a different yaml library which doesn't respect the `MarshalYAML` or `UnmarshalYAML` methods then they could miss removed fields. Zarf exposes a public method to read `zarf.yaml` files, `Parse(ctx context.Context, b []byte)`. This will be our recommended approach; other methods are to be used at the user's risk. 
-
 ## Design Details
 
 <!--
@@ -208,18 +206,16 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss that.
 -->
 
-### Converting between API versions
+### Conversions
 
 Zarf will need to handle two use cases for conversions. The first is `zarf dev convert`, providing a simple way for users to convert their zarf.yaml files from one schema version to the next. The second is internal convert functions which will allow for backwards compatible lossless conversions. This will provide a path for existing packages to call packager functions when they change to use the v1beta1 objects.
 
 There will be an internal `ZarfPackage` object used solely for conversions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the internal Zarf package type then convert the internal Zarf package type to v1beta1. This means Zarf only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
 
-Converting will follow this logic: 
-
-#### Direct replacements
+#### Converting 1:1 Replacements
 If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion. 
 
-#### Removed fields
+#### Converting Removed Fields
 
 The logic for converting removed fields will differ depending on the use case. When `zarf dev convert` is used a field may still be converted if it has a near 1:1 replacement. For example, in the v1beta1 schema a new required field `.apiVersion` will be added to `.cluster.wait`. The convert command would add a key for `apiVersion` in the new zarf package config, but it will be left empty. Since this will be a required field in the v1beta1 schema the package will fail on create if the user doesn't set `apiVersion`. The conversion gets users most of the way there, and the fix should be simple.
 
@@ -247,7 +243,7 @@ Zarf will use the if/then/else features of the json schema to conditionally appl
 
 ### Updating packages
 
-Once the latest schema is introduced the built zarf.yaml file will contain the package definition for each apiVersion. Package definitions will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility newer packages must place the v1alpha1 definition at the beginning of the zarf.yaml file. Future versions of Zarf will check the API version of each package definition and select the latest version that it understands.  
+Once the latest schema is introduced, the built zarf.yaml file will contain the package definition for each apiVersion. Package definitions will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility newer packages must place the v1alpha1 definition at the beginning of the zarf.yaml file. Future versions of Zarf will check the API version of each package definition and select the latest version that it understands.  
 
 A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`.
 
@@ -393,14 +389,14 @@ Rather than updating functions to accept a newer version of the schema, Zarf cou
 
 ### Map representation of Removed Fields
 
-One option for storing removed fields on newer schemas is to use annotations. Kubernetes takes this approach. This would avoid the need of a custom YAML marshaler. The downside is that annotations could easily get quite and hard to read. Assuming a list of objects such as `variables` is deprecated, then we need to maintain an long string representation of YAML.
+One option for storing removed fields on newer schemas is to use annotations. Kubernetes takes this approach. This would avoid the need of a custom YAML marshaler. The downside is that annotations could easily get confusing and hard to read. Assuming a list of objects such as `variables` is deprecated, then we need to maintain an long string representation of YAML.
 The reason Kubernetes takes this approach is because their data must make lossless round trips. Their objects might be written as v1beta1, stored as v1alpha1, then upgraded back to v1beta1, and they cannot lose any data. There is no place to store the information on the v1alpha1 object besides annotations. Zarf is going to write all active API versions to the zarf.yaml file so there is no chance of data loss. 
 
 Another option is introducing a new field `Deprecated map[string]string` to store removed fields from previous schema versions, however this still leaves the complexity of unfurling complex objects from a string. 
 
 ### Custom YAML marshalers for Removed Fields
 
-Originally, [Removed Fields](#removed-fields) proposed custom marshalers to track the private fields for backwards compatibility such as `dataInjections`. However, going through each case we see that custom YAML marshalers are not needed:
+Originally, [Removed Fields](#converting-removed-fields) proposed custom marshalers to track the private fields for backwards compatibility such as `dataInjections`. However, going through each case we see that custom YAML marshalers are not needed:
 - a v1alpha1 package is created after function signatures are changed to accept v1beta1 objects. 
   - This package is read as v1alpha1, then converted to v1beta1 for `packager.create`, then written to the `zarf.yaml` in the package tar as v1alpha1. The package never needs to be written as v1beta1.
 - a v1alpha1 package is created before v1beta1 is introduced. The package is deployed after function signatures are changed to accept v1beta1 objects
