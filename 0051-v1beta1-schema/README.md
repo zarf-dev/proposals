@@ -163,8 +163,7 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing `.components.[x].actions`. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components[x].actions.[onAny].wait.cluster` will receive a new required sub field, `.apiVersion`. During conversion `.apiVersion` will be added to the object but kept empty. Users will be warned that they must fill this field out, otherwise create will error. 
-- `.components.[x].healthChecks` will be removed in favor of changing the behavior of `.components.[x].actions.[onAny].wait.cluster` to use Kstatus when the `.wait.cluster.condition` is empty. `.wait.cluster` currently shells out to `kubectl wait`. Kstatus checks are generally preferred as the user doesn't need to set a condition, instead Kstatus has inherent knowledge of how to check the readiness of a resource. The advantage of the current `.wait.cluster` behavior is that specific conditions can be set. This can be useful when readiness is not the desired state, or for certain CRDs that do not implement the fields for Kstatus readiness checks. The original behavior of `.wait.cluster` will be used when `.wait.cluster.condition` is set. 
-  - `.healthChecks` will be appended to the end of the `.components[x].actions.onDeploy.After.wait.cluster` list.
+- `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.[onAny].wait.cluster` during conversions. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
 - `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
 
 ### Renamed fields
@@ -428,6 +427,12 @@ type OCISource struct {
 }
 ```
 
+#### Zarf Tools wait-for Changes
+
+`zarf tools wait-for` is the underlying engine to `.wait.cluster`. Currently, `zarf tools wait-for` shell out to `zarf tools kubectl wait`. In the future, `wait-for` will optionally accept an API version alongside the resource kind. If API version is set, and condition is empty then kstatus will be used as `wait-for`'s engine. 
+
+v1alpha1 packages do not have `.apiVersion` as a sub field under `.wait.cluster`, so they will always use the existing engine, avoiding breaking changes. v1beta1 packages will require that `apiVersion` is set, and will be able to optionally set `condition` as kstatus only checks for readiness. 
+
 ### Test Plan
 
 <!--
@@ -478,7 +483,7 @@ If this feature will eventually be deprecated, plan for it:
 - GA: Users have provided feedback that the new schema improves the UX. Examples and tests in Zarf shift to using the v1beta1 schema.
 
 Deprecation:
-- This schema will likely be deprecated one day in the future in favor of a v1 schema. It will not be deprecated until the next schema version is at least generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least one year.
+- This schema will likely be deprecated one day in favor of a v1 schema. It will not be deprecated until after the next schema version generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least one year.
 
 ### Upgrade / Downgrade Strategy
 
