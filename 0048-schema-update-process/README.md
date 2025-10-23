@@ -178,8 +178,7 @@ As a package deployer, I want to use the latest version of Zarf, but I still wan
 
 #### Story 2
 
-As a package creator, I want to create packages using the newer API version, however I still want my package to be deployable on older versions of Zarf that have not yet introduced this API version. I run `zarf package inspect definition <my-package>` and ensure that `.build.deployRequirements.version` is empty or less than my expected version.
-<!-- TODO, the field name will likely change -->
+As a package creator, I want to create packages using the newer API version, however I still want my package to be deployable on older versions of Zarf that have not yet introduced this API version. I run `zarf package inspect definition <my-package>` and ensure that `.build.VersionRequirements.Version` is empty or less than my expected version.
 
 #### Story 3
 
@@ -246,7 +245,6 @@ Zarf will use the if/then/else features of the json schema to conditionally appl
 Once the latest schema is introduced, the built zarf.yaml file will contain the package definition for itself, as well as all older apiVersion that is still supported. For example, the built zarf.yaml in a v1beta1 package will include the v1beta1 package config and v1alpha1 package config. The built zarf.yaml for a v1alpha1 package will only include the v1alpha1 package. This is done because earlier API versions will always be able to convert to newer schema versions without data loss, but newer API versions may include fields that are not represented in older API versions. In these cases, Zarf will still attempt to keep the package backwards compatible, but will make set a minimum required version according to [minimum-version-requirements](#minimum-version-requirements). 
 
 Package definitions will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility newer packages must place the v1alpha1 definition at the beginning of the zarf.yaml file. Future versions of Zarf will check the API version of each package definition and select the latest version that it understands.
-<!-- TODO I have to check if it's true that Zarf only checks the first definition in the file, or it dynamically checks whichever one it can read -->
 
 A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`. 
 
