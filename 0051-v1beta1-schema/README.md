@@ -114,7 +114,7 @@ There are several open issues requesting enhancements to the schema. The general
 
 Additionally, users often struggle to use data injections. Usually, they would be better served by using a Kubernetes native solution [#3926](https://github.com/zarf-dev/zarf/issues/3926).
 
-### Goals
+### Goals1
 
 <!--
 List the specific goals of the ZEP. What is it trying to achieve? How will we
@@ -175,7 +175,7 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 - `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. Since `required` currently defaults to false, components now default to being required by default.
 - `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `.components.[x].charts`.
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`
-- `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to   `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
+- `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
 
 ### User Stories (Optional)
 
