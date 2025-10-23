@@ -250,19 +250,9 @@ Package definitions will be separated by the standard YAML `---`. Currently, Zar
 
 A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`. 
 
-### Minimum Version Requirements
+### New Package Compatibility  
 
-Zarf will introduce a new field `build.deployRequirements` which will be automatically populated on create. If there is a new field in any schema that changes the deploy process, then the package should not be deployable on versions of Zarf without that feature. This field will be checked on deploy to prevent users from deploying packages that may break. This will not work on versions of Zarf where this field is not yet implemented. The field will look like below:
-```go
-type DeployRequirements struct {
-	// the minimum version of the Zarf CLI that can deploy the package
-	Version string 
-	// Reasons for why the package can't be deployed
-	// EX: "values was not introduced until v0.64.0, package structure changed in v0.65.0"
-	Reasons []string
-}
-```
-<!-- FIXME, the actual design will look different -->
+A new API version may coincide with packages being incompatible with earlier versions of Zarf, but the logic for determining compatibility will be decoupled. Zarf will introduce a new field `build.VersionRequirements` which will be automatically populated on create, and will error on deploy or remove if the users version is older than the required version. See [#4256](https://github.com/zarf-dev/zarf/issues/4256)
 
 ### Test Plan
 
