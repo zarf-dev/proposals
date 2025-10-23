@@ -107,14 +107,14 @@ or other references to show the community's interest in the ZEP.
 [kubernetes slack]: https://kubernetes.slack.com/archives/C03B6BJAUJ3
 -->
 
-There are several open issues requesting enhancements to the schema. The general theme of these changes is to make the ZarfPackageConfig schema more intuitive to use.
+There are several open issues requesting enhancements to the schema. The general theme of these changes is to make it easier to create Zarf packages.
 - [Refactor charts definition in zarf.yaml #2245](https://github.com/zarf-dev/zarf/issues/2245)
 - [Breaking Change: make components required by default #2059](https://github.com/zarf-dev/zarf/issues/2059)
 - [Use kstatus as the engine behind zarf tools wait-for and .wait.cluster #4077](https://github.com/zarf-dev/zarf/issues/4077)
 
 Additionally, users often struggle to use data injections. Usually, they would be better served by using a Kubernetes native solution [#3926](https://github.com/zarf-dev/zarf/issues/3926).
 
-### Goals1
+### Goals
 
 <!--
 List the specific goals of the ZEP. What is it trying to achieve? How will we
@@ -142,9 +142,9 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Zarf will determine the schema of the package definition using the `apiVersion` flag. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
+Zarf will determine the schema of the package definition using the top level `apiVersion` field. `apiVersion` already exists as a top level field in the Zarf package config schema. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
 
-The v1beta1 schema will rename, restructure, and remove several fields.
+The v1beta1 schema will remove, restructure, and rename several fields.
 
 ### Removed fields without replacement
 
@@ -158,12 +158,12 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 
 `zarf dev convert` will automatically migrate these fields.
 
-- `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions will be migrated to the end of the `actions.[onAny].after` list.
+- `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions will be appended to the `actions.[onAny].after` list.
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing `.components.[x].actions`. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components[x].actions.[onAny].wait.cluster` will receive a new required sub field, `.apiVersion`. During conversion `.apiVersion` will be added to the object but kept empty. Users will be warned that they must fill this field out, otherwise create will error. 
-- `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.[onAny].wait.cluster` during conversions. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
+- `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.[onAny].wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
 - `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
 
 ### Renamed fields
@@ -362,11 +362,11 @@ proposal will be implemented, this is the place to discuss that.
 
 ### Zarf Helm Chart Changes
 
-The ZarfChart object will be restructured. The new object is defined below. Exactly one of `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`, and their objects look like below. The fields `localPath`, `gitPath`, `URL`, and `repoName` are all removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
+The ZarfChart object will be restructured to match the code block below. Exactly one of sub-objects `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
 
 During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior. 
 
-Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for create and deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore not work with previous versions of Zarf. When support is dropped for v1alpha1 packages the `version` field will be dropped entirely. Note, this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use  function signatures that container v1beta1 objects. `zarf dev convert` will simply move the top level `version` field to the right sub object, or drop it when not applicable. 
+Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages the `version` field will be dropped entirely. Note, this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use  function signatures that contain v1beta1 objects. `zarf dev convert` will simply move the top level `version` field to the right sub object, or drop it when not applicable. 
 
 ```go
 // ZarfChart defines a helm chart to be deployed.
@@ -429,9 +429,9 @@ type OCISource struct {
 
 #### Zarf Tools wait-for Changes
 
-`zarf tools wait-for` is the underlying engine to `.wait.cluster`. Currently, `zarf tools wait-for` shell out to `zarf tools kubectl wait`. In the future, `wait-for` will optionally accept an API version alongside the resource kind. If API version is set, and condition is empty then kstatus will be used as `wait-for`'s engine. 
+`zarf tools wait-for` is the underlying engine to `.wait.cluster`. Currently, `zarf tools wait-for` shells out to `zarf tools kubectl wait`. In the future, `wait-for` will optionally accept an API version alongside the resource kind. If API version is set, and condition is empty then kstatus will be used as `wait-for`'s engine. 
 
-v1alpha1 packages do not have `.apiVersion` as a sub field under `.wait.cluster`, so they will always use the existing engine, avoiding breaking changes. v1beta1 packages will require that `apiVersion` is set, and will be able to optionally set `condition` as kstatus only checks for readiness. 
+v1alpha1 packages do not have `.apiVersion` as a sub field under `.wait.cluster`, so they will always use the existing engine, avoiding breaking changes. v1beta1 packages will require that `apiVersion` is set.
 
 ### Test Plan
 
