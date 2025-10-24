@@ -92,7 +92,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Several fields in the ZarfPackageConfig v1alpha1 can be restructured to provide a more intuitive experience. Other fields have a poor user experience and add unnecessary overhead to Zarf; these fields will be removed. A new schema version, v1beta1, provides the space to make these changes. 
+Several fields in the v1alpha1 ZarfPackageConfig can be restructured to provide a more intuitive experience. Other fields have a poor user experience and add unnecessary overhead to Zarf; these fields will be removed. A new schema version, v1beta1, provides the space to make these changes. 
 
 ## Motivation
 
