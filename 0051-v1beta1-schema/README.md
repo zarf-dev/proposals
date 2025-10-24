@@ -92,7 +92,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Several fields in the v1alpha1 ZarfPackageConfig can be restructured to provide a more intuitive experience. Other fields that have a poor user experience and add unnecessary overhead to Zarf should be removed. A new schema version, v1beta1, provides the space to make these changes. 
+Several fields in the v1alpha1 ZarfPackageConfig can be restructured to provide a more intuitive experience. Other fields that have a poor user experience and add unnecessary overhead to Zarf should be removed. A new schema version, v1beta1, provides the opportunity to make these changes. 
 
 ## Motivation
 
@@ -142,13 +142,13 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
+Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. If `apiVersion` is not set, then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
 
 The v1beta1 schema will remove, replace, and rename several fields.
 
 ### Removed Fields
 
-These fields will error when `zarf dev convert` is run and recommend an alternative method to achieve the desired behavior. 
+If a package has these fields defined then `zarf dev convert` will error with and print a recommendation for an alternative.
 
 - `.components.[x].group` will be removed. Users will be recommended to use `components[x].only.flavor` instead.
 - `.components.[x].dataInjections` will be removed. There will be a guide in Zarf's documentation for alternatives. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
@@ -160,9 +160,9 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 
 - `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions will be appended to the `actions.[onAny].after` list.
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
-- `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing `.components.[x].actions`. 
+- `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will move these fields under `.metadata.annotations`, which is a generic map of strings.
-- `.components[x].actions.[onAny].wait.cluster` will receive a new required sub field, `.apiVersion`. During conversion `.apiVersion` will be added to the object but kept empty. Users will be warned that they must fill this field out, otherwise create will error. 
+- `.components[x].actions.[onAny].wait.cluster` will receive a new required sub field, `.apiVersion`. During conversion, `.apiVersion` will be added to the object but kept empty. Users will be warned that they must fill this field out, otherwise create will error. 
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.After.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
 - `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
 
@@ -170,12 +170,12 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 
 `zarf dev convert` will automatically migrate these fields.
 
-- `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`
-- `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true
-- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. Since `required` currently defaults to false, components now default to being required by default.
+- `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`.
+- `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true.
+- `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. Since `required` currently defaults to false, components will now default to being required.
 - `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `.components.[x].charts`.
-- `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`
-- `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration)
+- `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
+- `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration).
 
 ### User Stories (Optional)
 
@@ -230,7 +230,7 @@ components:
           - values.yaml
 ```
 
-I want to upgrade to the v1beta1 schema so I run `zarf dev convert`, which produces:
+I want to upgrade to the v1beta1 schema, so I run `zarf dev convert`, which produces:
 
 ```yaml
 apiVersion: v1beta1
@@ -305,7 +305,7 @@ components:
         kind: Pod
 ```
 
-I want to move to the latest schema so I run `zarf dev convert`, which produces:
+I want to move to the latest schema, so I run `zarf dev convert`, which produces:
 
 ```yaml
 apiVersion: v1beta1
@@ -349,7 +349,7 @@ How will UX be reviewed, and by whom?
 
 The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use to achieve a similar result. 
 
-The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and there will be no automatic conversion to it's replacement Zarf values. There must be documentation on how users can utilize Zarf values as an alternative to chart variables. 
+The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and there will be no automatic conversion to its replacement Zarf values. There must be documentation on how users can utilize Zarf values as an alternative to chart variables. 
 
 ## Design Details
 
@@ -364,9 +364,9 @@ proposal will be implemented, this is the place to discuss that.
 
 The ZarfChart object will be restructured to match the code block below. Exactly one of sub-objects `helm`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
 
-During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior. 
+During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior. 
 
-Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages the `version` field will be dropped entirely. Note, this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev convert` will simply move the top level `version` field to the right sub object, or drop it when not applicable. 
+Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note, this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev convert` will simply move the top level `version` field to the right sub object, or drop it when not applicable. 
 
 ```go
 // ZarfChart defines a helm chart to be deployed.
@@ -429,7 +429,7 @@ type OCISource struct {
 
 #### Zarf Tools wait-for Changes
 
-`zarf tools wait-for` is the underlying engine to `.wait.cluster`. Currently, `zarf tools wait-for` shells out to `zarf tools kubectl wait`. In the future, `wait-for` will optionally accept an API version alongside the resource kind. If API version is set, and condition is empty then kstatus will be used as `wait-for`'s engine. 
+`zarf tools wait-for` is the underlying engine to `.wait.cluster`. Currently, `zarf tools wait-for` shells out to `zarf tools kubectl wait`. In the future, `wait-for` will optionally accept an API version alongside the resource kind. If API version is set and condition is empty, then kstatus will be used as `wait-for`'s engine. 
 
 v1alpha1 packages do not have `.apiVersion` as a sub field under `.wait.cluster`, so they will always use the existing engine, avoiding breaking changes. v1beta1 packages will require that `apiVersion` is set.
 
@@ -476,12 +476,12 @@ If this feature will eventually be deprecated, plan for it:
 - Wait at least two versions before fully removing it.
 -->
 
-- Alpha: fields are subject to change or rename. No backwards compatibility guarantees.
+- Alpha: Fields are subject to change or rename. No backwards compatibility guarantees.
 - Beta: Fields will not change in a way that is not fully backwards compatible.
 - GA: Users have provided feedback that the new schema improves the UX. Examples and tests in Zarf shift to using the v1beta1 schema.
 
 Deprecation:
-- This schema will likely be deprecated one day in favor of a v1 schema. It will not be deprecated until after the next schema version generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least one year.
+- This schema will likely be deprecated one day in favor of a v1 schema. It will not be deprecated until after the next schema version is generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least one year.
 
 ### Upgrade / Downgrade Strategy
 
@@ -499,7 +499,7 @@ proposal:
   make use of the proposal?
 -->
 
-See proposal in ZEP-0048
+See proposal in ZEP-0048.
 
 ### Version Skew Strategy
 
@@ -513,7 +513,7 @@ proposal:
   - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
 -->
 
-See version skew strategy in ZEP-0048
+See version skew strategy in ZEP-0048.
 
 ## Implementation History
 
