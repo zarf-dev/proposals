@@ -144,7 +144,7 @@ below is for the real nitty-gritty.
 
 Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. If `apiVersion` is not set, then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
 
-The v1beta1 schema will remove, replace, and rename several fields.
+The v1beta1 schema will remove, replace, and rename several fields. View this [zarf.yaml](zarf.yaml) to see a package definition with reasonable values for each key. 
 
 ### Removed Fields
 
