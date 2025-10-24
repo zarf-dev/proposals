@@ -92,7 +92,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Several fields in the v1alpha1 ZarfPackageConfig can be restructured to provide a more intuitive experience. Other fields have a poor user experience and add unnecessary overhead to Zarf; these fields will be removed. A new schema version, v1beta1, provides the space to make these changes. 
+Several fields in the v1alpha1 ZarfPackageConfig can be restructured to provide a more intuitive experience. Other fields that have a poor user experience and add unnecessary overhead to Zarf should be removed. A new schema version, v1beta1, provides the space to make these changes. 
 
 ## Motivation
 
@@ -142,11 +142,11 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Zarf will determine the schema of the package definition using the top level `apiVersion` field. `apiVersion` already exists as a top level field in the Zarf package config schema. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
+Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. If `apiVersion` is not set then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev convert`. 
 
-The v1beta1 schema will remove, restructure, and rename several fields.
+The v1beta1 schema will remove, replace, and rename several fields.
 
-### Removed fields without replacement
+### Removed Fields
 
 These fields will error when `zarf dev convert` is run and recommend an alternative method to achieve the desired behavior. 
 
@@ -154,7 +154,7 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 - `.components.[x].dataInjections` will be removed. There will be a guide in Zarf's documentation for alternatives. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
 - `.components.[x].charts.[x].variables` will be removed. Its successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev convert`.
 
-### Removed fields with automated replacement
+### Replaced / Restructured Fields
 
 `zarf dev convert` will automatically migrate these fields.
 
@@ -163,10 +163,10 @@ These fields will error when `zarf dev convert` is run and recommend an alternat
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing `.components.[x].actions`. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev convert` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components[x].actions.[onAny].wait.cluster` will receive a new required sub field, `.apiVersion`. During conversion `.apiVersion` will be added to the object but kept empty. Users will be warned that they must fill this field out, otherwise create will error. 
-- `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.[onAny].wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
+- `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.After.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
 - `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
 
-### Renamed fields
+### Renamed Fields
 
 `zarf dev convert` will automatically migrate these fields.
 
@@ -362,11 +362,11 @@ proposal will be implemented, this is the place to discuss that.
 
 ### Zarf Helm Chart Changes
 
-The ZarfChart object will be restructured to match the code block below. Exactly one of sub-objects `helm`, `git`, `oci`, or `local` must exist for each `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
+The ZarfChart object will be restructured to match the code block below. Exactly one of sub-objects `helm`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
 
 During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior. 
 
-Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages the `version` field will be dropped entirely. Note, this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use  function signatures that contain v1beta1 objects. `zarf dev convert` will simply move the top level `version` field to the right sub object, or drop it when not applicable. 
+Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages the `version` field will be dropped entirely. Note, this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev convert` will simply move the top level `version` field to the right sub object, or drop it when not applicable. 
 
 ```go
 // ZarfChart defines a helm chart to be deployed.
@@ -449,8 +449,6 @@ when drafting this test plan.
 [X] I/we understand the owners of the involved components may require updates to
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
-
-There will be e2e tests for `zarf dev convert` from a v1alpha1 definition to a v1beta1 definition.
 
 There will be e2e tests for creating, deploying, and publishing a v1beta1 package. As the schema nears towards GA, existing tests will shift to use the v1beta1 schema.
 
