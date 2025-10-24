@@ -150,9 +150,10 @@ The v1beta1 schema will remove, replace, and rename several fields.
 
 If a package has these fields defined then `zarf dev convert` will error with and print a recommendation for an alternative.
 
-- `.components.[x].group` will be removed. Users will be recommended to use `components[x].only.flavor` instead.
+- `.components.[x].group` will be removed. Users will be recommended to use `components[x].only.flavor` instead.     
 - `.components.[x].dataInjections` will be removed. There will be a guide in Zarf's documentation for alternatives. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
 - `.components.[x].charts.[x].variables` will be removed. Its successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev convert`.
+- `.component.[x].default` will be removed. It set the default option for groups and (y/n) interactive prompts for optional components. Groups are removed, and we've generally seen the user base shift away from optional components. 
 
 ### Replaced / Restructured Fields
 
@@ -270,7 +271,7 @@ components:
 
       - name: podinfo-repo
         namespace: podinfo-from-repo
-        helm:
+        helmRepo:
           url: https://stefanprodan.github.io/podinfo
           name: podinfo  # Changed from `repoName`
           version: 6.4.0
@@ -362,7 +363,7 @@ proposal will be implemented, this is the place to discuss that.
 
 ### Zarf Helm Chart Changes
 
-The ZarfChart object will be restructured to match the code block below. Exactly one of sub-objects `helm`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
+The ZarfChart object will be restructured to match the code block below. Exactly one of sub-objects `helmRepo`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
 
 During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior. 
 
@@ -376,7 +377,7 @@ type ZarfChart struct {
   // The version of the chart. This field is removed for the schema, but kept as a backwards compatibility shim so v1alpha1 packages can be converted to v1beta1
   version string
 	// The Helm repo where the chart is stored
-	Helm HelmRepoSource `json:"helm,omitempty"`
+	HelmRepo HelmRepoSource `json:"helmRepo,omitempty"`
 	// The Git repo where the chart is stored
 	Git GitRepoSource `json:"git,omitempty"`
 	// The local path where the chart is stored
