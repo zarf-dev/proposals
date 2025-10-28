@@ -218,18 +218,35 @@ proposal will be implemented, this is the place to discuss that.
 
 ### Conversions
 
-Zarf will need to handle two use cases for conversions. The first is `zarf dev convert`, providing a simple way for users to convert their zarf.yaml files from one schema version to the next. The second is internal convert functions. These functions will provide a path for existing packages to call packager functions when they change to use the v1beta1 objects.
+Zarf will need to handle two use cases for conversions. The first is library convert functions. These functions will provide a path for existing packages to call packager functions after they change accept v1beta1 objects. The second is `zarf dev convert` which will provide a simple way for users to convert their zarf.yaml files from one schema version to the next.
 
-There will be an internal `ZarfPackage` object used solely for conversions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the internal Zarf package type then convert the internal Zarf package type to v1beta1. This means Zarf only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
+#### Library Conversions
 
-#### Converting 1:1 Replacements
-If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion. 
+There will be a new package and type `generic.ZarfPackage` that is used solely for conversions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the generic Zarf package type then convert the generic Zarf package type to v1beta1. This means Zarf only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
 
-#### Converting Removed Fields
+The [api](https://github.com/zarf-dev/zarf/tree/main/src/api) package will be structured as below:
+```bash
+├── generic
+│   └── package.go
+├── v1alpha1
+│   ├── convert.go
+│   ├── package.go
+│   ├── ...
+├── v1beta1
+│   ├── convert.go
+│   ├── package.go
+│   ├── ...
+```
+The `convert.go` file in each versioned package will contain public functions for converting to and from the generic type. These functions will look like below:
 
-The logic for converting removed fields will differ depending on the use case. When `zarf dev convert` is used a field may still be converted if it has a near 1:1 replacement. For example, in the v1beta1 schema a new required field `.apiVersion` will be added to `.cluster.wait`. The convert command would add a key for `apiVersion` in the new zarf package config, but it will be left empty. Since this will be a required field in the v1beta1 schema the package will fail on create if the user doesn't set `apiVersion`. The conversion gets users most of the way there, and the fix should be simple.
+`func ConvertToGeneric(in ZarfPackage) generic.ZarfPackage`
 
-If there is not a replacement for a field, then `zarf dev convert` will error and recommend an alternative approach to replacing the field. 
+`func ConvertFromGeneric(in generic.ZarfPackage) ZarfPackage`
+
+##### Converting 1:1 Replacements
+If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion
+
+##### Converting Removed Fields
 
 When Zarf internally converts an older schema version to a newer schema version (for example, while deploying a v1alpha1 package), it must always convert to the latest schema version without data loss. To achieve this, fields that were removed from earlier schema versions are preserved as private fields in newer objects. These private fields are kept out of the new schema.
 
@@ -244,6 +261,10 @@ type ZarfComponent struct {
   ...
 }
 ```
+
+#### zarf dev convert
+
+`zarf dev convert` will call the library conversion functions, however it will have additional checks. If a user's package contains a removed field that does not have a 1:1 replacement, then the command will error. The error message will recommend an alternative approach to replacing the field. 
 
 ### JSON Schema
 
