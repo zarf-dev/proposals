@@ -257,7 +257,7 @@ Once the latest schema is introduced, the built zarf.yaml file will contain the 
 
 A new API version may coincide with packages being incompatible with earlier versions of Zarf, but the logic for determining compatibility will be decoupled from the API version. Zarf will introduce a new field `build.VersionRequirements` which will be automatically populated on create, and will error on deploy or remove if the user's version is older than the required version. See [#4256](https://github.com/zarf-dev/zarf/issues/4256)
 
-Package definitions will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility newer packages must place the v1alpha1 definition at the beginning of the zarf.yaml file. Future versions of Zarf will check the API version of each package definition and select the latest version that it understands.
+Package definitions will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility, API versions will always be placed in ascending order beginning with the v1alpha1 definition. Future versions of Zarf will check the API version of each package definition and select the latest version that it understands.
 
 A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`. 
 
