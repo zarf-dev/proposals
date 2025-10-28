@@ -156,7 +156,7 @@ During Zarf's lifetime, it will introduce, deprecate, and drop support for ZarfP
 
 The zarf.yaml in a built package will include the package definition for every supported API version. When printing the package definition to the user, for instance, with the command `zarf package inspect definition` the API version will be the version that the package was created with. A new field `.build.apiVersion` will be added to all schemas to track which API version was used at build time. 
 
-A new command `zarf dev convert` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will create a new file `zarf-<apiversion>.yaml` with the converted package definition. It will accept an optional API version, so a user could run `zarf dev convert v1beta1` and they will receive a file called `zarf-v1beta1.yaml`. Convert will not allow changing from a newer version to an older version, so running `zarf dev convert v1alpha1` on a `v1beta1` schema will error. 
+A new command `zarf dev convert` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will create a new file `zarf-<apiversion>.yaml` with the converted package definition. It will accept a path to a directory containing a zarf.yaml file and an optional API version. For instance, A user could run `zarf dev convert . v1beta1` and they will receive a file called `zarf-v1beta1.yaml`. Convert will not allow changing from a newer version to an older version, so running `zarf dev convert . v1alpha1` on a `v1beta1` schema will error. 
 
 Deprecated fields will not be removed until a future API version. Newer API versions will track fields removed from one API version for lossless conversions, but will not allow creation with removed fields. For instance, Data Injections will be removed in v1beta1. Users will still be able to deploy existing v1alpha1 packages until v1alpha1 support is removed, but they will not be able to create a new v1beta1 package with Data Injections. 
 
@@ -275,6 +275,15 @@ type ZarfComponent struct {
 #### zarf dev convert
 
 `zarf dev convert` will call the library conversion functions, however it will have additional checks. If a user's package contains a removed field that does not have a 1:1 replacement, then the command will error. The error message will recommend an alternative approach to replacing the field. 
+
+The usage docs for `zarf dev convert` will look like below:
+
+```bash
+converts the existing zarf package config to the given API version. Defaults to latest API version if not given. 
+
+Usage:
+  zarf dev convert [ DIRECTORY ] [ API Version ] [flags]
+```
 
 ### JSON Schema
 
