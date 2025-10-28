@@ -31,10 +31,7 @@ build: # Everything here is created by Zarf not be users
     gcr.io: my-gcr.com
   differential: true
   differentialPackageVersion: "v0.99.9"
-  differentialMissing:
-    - missing-component
   flavor: cool-flavor
-  lastNonBreakingVersion: "v0.99.9"
   aggregateChecksum: shasum # this is moved from .metadata
 values:
   files:
