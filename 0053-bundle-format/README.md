@@ -2,7 +2,7 @@
 
 ## Summary
 
-This proposal outlines the migration from Zarf's legacy signature format (`zarf.yaml.sig`) to the standardized Sigstore bundle format (`zarf.bundle.sig`) as the default signing mechanism. It establishes clear connectivity profiles for signing and verification operations, ensuring Zarf maintains its air-gap-first philosophy while supporting online verification scenarios when connectivity is available.
+This proposal outlines the migration from Zarf's legacy signature format (`zarf.yaml.sig`) to the standardized Sigstore bundle format (`zarf.bundle.sig`) as the default signing mechanism. It establishes connectivity profiles for signing and verification operations, ensuring Zarf maintains its airgap-first philosophy while supporting online verification scenarios when connectivity is available.
 
 ## Motivation
 
@@ -10,21 +10,19 @@ Zarf currently supports the legacy signature format via asymmetrical keypairs, w
 
 1. **Keypair-only support**: Signing currently only supports asymmentrical keypairs
 2. **Missing online verification path**: No support for transparency log verification when connectivity is available
-3. **Ambiguous keyless signing support**: Unclear how keyless signing/verification works in air-gapped environments
+3. **Lack of keyless signing support**: Does not support keyless signing/verification
 4. **Lack of portability**: Public key distribution adds an additional artifact for every unique keypair that must be retrieved - zarf does not handle this natively
-5. ****
 
 These gaps create confusion for users deploying Zarf in different environments and may lead to security misconfigurations.
 
 ### Goals
 
-- Migrate to Sigstore bundle format as the default and only signature format
-- Define explicit connectivity profiles (air-gap, online, hybrid) with sensible defaults
-- Support offline signing with keypairs without requiring any network access
+- Migrate to Sigstore bundle format as the default signature format
+- Define explicit connectivity profiles (airgap, online, hybrid) with sensible defaults
 - Enable optional online verification with transparency log when connectivity is available
-- Maintain backward compatibility during migration period
+- Maintain backward compatibility with offline keypair signing
 - Document all supported signing/verification permutations
-- Supporting keyless (OIDC-based) signing in completely offline environments
+- Supporting keyless (OIDC-based) signing with online and private signing infrastructure
 - Align default behavior with Zarf's airgap-first mission
 
 ### Non-Goals
@@ -47,32 +45,42 @@ The Sigstore bundle format will become the default and only supported format, wi
 
 ### User Stories
 
-#### Story 1: Airgapped Deployment
+#### Story 1: Offline Create - Offline Verify
 
-As an operator deploying Zarf in an airgapped network, I need to verify package signatures without any external network connectivity while maintaining full cryptographic verification of package authenticity.
+As an operator deploying Zarf in an airgapped network, I need to verify package signatures without any external network connectivity while maintaining full cryptographic verification of package authenticity. This maintains backwards compatibility with existing keypair signing.
 
-**Solution**: Use airgap profile (default) with keypair signing and embedded trusted root.
+**Solution**: Use airgap profile (default) with keypair signing.
 
 ```bash
 # Developer (online environment) - sign package
-zarf package create . --signing-key cosign.key
+zarf package sign zarf-package-app-amd64.tar.zst --signing-key cosign.key
 
 # Operator (airgap environment) - verify
 zarf package verify zarf-package-app-amd64.tar.zst --key cosign.pub
 ```
 
-#### Story 2: Connected Deployment with Transparency
+#### Story 2: Online Create - Offline Verify
 
-As a commercial enterprise using Zarf in a connected environment, I want to leverage the Sigstore transparency log to provide additional assurance that package signatures are publicly recorded and auditable.
+As a package author using Zarf in a connected environment, I want to leverage the Sigstore public good infrastructure to provide additional assurance that package signatures are publicly recorded and auditable.
 
-**Solution**: Use online profile with transparency log verification.
+**Solution**: Use online profile with embedded Trusted Root verification.
 
+TODO: validate required inputs
 ```bash
 # Developer - sign with transparency log upload
-zarf package create . --signing-key cosign.key --profile online
+zarf package sign zarf-package-app-amd64.tar.zst --signing-key cosign.key --profile online
 
-# Operator - verify with transparency log check
-zarf package verify zarf-package-app-amd64.tar.zst --key cosign.pub --profile online
+# Operator - verify with embedded trusted root
+zarf package verify zarf-package-app-amd64.tar.zst --profile offline
+```
+
+TODO: test keyless signing requirements
+```bash
+# Developer - sign with keyless
+zarf package sign zarf-package-app-amd64.tar.zst  --profile online
+
+# Operator - verify with embedded trusted root
+zarf package verify zarf-package-app-amd64.tar.zst --profile offline
 ```
 
 #### Story 3: Private Sigstore Infrastructure
@@ -89,7 +97,7 @@ cosign trusted-root create \
   --output custom_trusted_root.json
 
 # Sign with private infrastructure
-zarf package create . \
+zarf package sign . \
   --signing-key cosign.key \
   --rekor-url https://rekor.internal.company.com \
   --profile online
@@ -139,7 +147,7 @@ zarf package verify zarf-package-app-amd64.tar.zst \
 
 **Default Configuration**:
 ```go
-// Air-Gap Profile Defaults
+// Airgap Profile Defaults
 SignBlobOptions{
     KeyOpts: options.KeyOpts{
         NewBundleFormat: true,
@@ -238,7 +246,7 @@ VerifyBlobOptions{
 ```go
 // Hybrid Profile Defaults
 SignBlobOptions{
-    // Same as air-gap profile
+    // Same as airgap profile
 }
 
 VerifyBlobOptions{
