@@ -498,7 +498,7 @@ proposal:
   make use of the proposal?
 -->
 
-See proposal in ZEP-0048.
+See proposal in [ZEP-0048](https://github.com/zarf-dev/proposals/issues/48).
 
 ### Version Skew Strategy
 
@@ -512,7 +512,7 @@ proposal:
   - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
 -->
 
-See version skew strategy in ZEP-0048.
+See version skew strategy in [ZEP-0048](https://github.com/zarf-dev/proposals/issues/48).
 
 ## Implementation History
 
