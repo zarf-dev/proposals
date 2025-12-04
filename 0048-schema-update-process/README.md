@@ -156,7 +156,7 @@ During Zarf's lifetime, it will introduce, deprecate, and drop support for ZarfP
 
 The zarf.yaml in a built package will include the package definition for every supported API version. When printing the package definition to the user, for instance, with the command `zarf package inspect definition` the API version will be the version that the package was created with. A new field `.build.apiVersion` will be added to all schemas to track which API version was used at build time. 
 
-A new command `zarf dev convert` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will create a new file `zarf-<apiversion>.yaml` with the converted package definition. It will accept a path to a directory containing a zarf.yaml file and an optional API version. For instance, A user could run `zarf dev convert . v1beta1` and they will receive a file called `zarf-v1beta1.yaml`. Convert will not allow changing from a newer version to an older version, so running `zarf dev convert . v1alpha1` on a `v1beta1` schema will error. 
+A new command `zarf dev upgrade-schema` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will create a new file `zarf-<apiversion>.yaml` with the converted package definition. It will accept a path to a directory containing a zarf.yaml file and an optional API version. For instance, A user could run `zarf dev upgrade-schema . v1beta1` and they will receive a file called `zarf-v1beta1.yaml`. Convert will not allow changing from a newer version to an older version, so running `zarf dev upgrade-schema . v1alpha1` on a `v1beta1` schema will error. 
 
 Deprecated fields will not be removed until a future API version. Newer API versions will track fields removed from one API version for lossless conversions, but will not allow creation with removed fields. For instance, Data Injections will be removed in v1beta1. Users will still be able to deploy existing v1alpha1 packages until v1alpha1 support is removed, but they will not be able to create a new v1beta1 package with Data Injections. 
 
@@ -182,7 +182,7 @@ As a package creator, I want to create and publish packages using the newer API 
 
 #### Story 3
 
-As a package creator, I want to update my package definition to the v1beta1 schema, so I run `zarf dev convert` with a zarf.yaml in my current directory and it creates the converted package definition in a file called zarf-v1beta1.yaml.
+As a package creator, I want to update my package definition to the v1beta1 schema, so I run `zarf dev upgrade-schema` with a zarf.yaml in my current directory and it creates the converted package definition in a file called zarf-v1beta1.yaml.
 
 ### Risks and Mitigations
 
@@ -228,7 +228,7 @@ A new field on all future schemas called `.build.apiVersion` will be introduced 
 
 ### Conversions
 
-Zarf will need to handle two use cases for conversions. The first is library convert functions. These functions will provide a path for existing packages to call packager functions after they change accept v1beta1 objects. The second is `zarf dev convert` which will provide a simple way for users to convert their zarf.yaml files from one schema version to the next.
+Zarf will need to handle two use cases for conversions. The first is library convert functions. These functions will provide a path for existing packages to call packager functions after they change accept v1beta1 objects. The second is `zarf dev upgrade-schema` which will provide a simple way for users to convert their zarf.yaml files from one schema version to the next.
 
 #### Library Conversions
 
@@ -272,17 +272,17 @@ type ZarfComponent struct {
 }
 ```
 
-#### zarf dev convert
+#### zarf dev upgrade-schema
 
-`zarf dev convert` will call the library conversion functions, however it will have additional checks. If a user's package contains a removed field that does not have a 1:1 replacement, then the command will error. The error message will recommend an alternative approach to replacing the field. 
+`zarf dev upgrade-schema` will call the library conversion functions, however it will have additional checks. If a user's package contains a removed field that does not have a 1:1 replacement, then the command will error. The error message will recommend an alternative approach to replacing the field. 
 
-The usage docs for `zarf dev convert` will look like below:
+The usage docs for `zarf dev upgrade-schema` will look like below:
 
 ```bash
-converts the existing zarf package config to the given API version. Defaults to latest API version if not given. 
+upgrades the existing zarf package config to the given API version. Defaults to latest API version if not given. 
 
 Usage:
-  zarf dev convert [ DIRECTORY ] [ API Version ] [flags]
+  zarf dev upgrade-schema [ DIRECTORY ] [ API Version ] [flags]
 ```
 
 ### JSON Schema
@@ -309,7 +309,7 @@ when drafting this test plan.
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
-- The new command `zarf dev convert` will have unit tests in the src/cmd package.
+- The new command `zarf dev upgrade-schema` will have unit tests in the src/cmd package.
 - There will be e2e tests that will build a v1beta1 package and verify that a version of Zarf prior to v1beta1 being introduced can still deploy that package.
 
 ### Graduation Criteria
@@ -336,7 +336,7 @@ If this feature will eventually be deprecated, plan for it:
 - Wait at least two versions before fully removing it.
 -->
 
-`zarf dev convert` will be released alongside the v1beta1 schema. Given that this is a simple command with low amounts of risk, it will not go through a phased maturity process (i.e., alpha/beta/stable). 
+`zarf dev upgrade-schema` will be released alongside the v1beta1 schema. Given that this is a simple command with low amounts of risk, it will not go through a phased maturity process (i.e., alpha/beta/stable). 
 
 ### Upgrade / Downgrade Strategy
 
