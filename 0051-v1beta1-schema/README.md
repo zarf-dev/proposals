@@ -477,9 +477,7 @@ If this feature will eventually be deprecated, plan for it:
 - Wait at least two versions before fully removing it.
 -->
 
-- Alpha: Fields are subject to change or rename. No backwards compatibility guarantees.
-- Beta: Fields will not change in a way that is not fully backwards compatible.
-- GA: Users have provided feedback that the new schema improves the UX. Examples and tests in Zarf shift to using the v1beta1 schema.
+The v1beta1 schema will not have an alpha/beta/GA phase. Creating a package with the v1beta1 schema will initially be behind a feature flag for at least two releases after the v1beta1 schema is introduced. During this time, the v1beta1 schema may remove or rename fields. Once the feature flag is enabled by default, there will be no removed or renamed fields until the next schema version. 
 
 Deprecation:
 - This schema will likely be deprecated one day in favor of a v1 schema. It will not be deprecated until after the next schema version is generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least one year.
