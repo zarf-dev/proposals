@@ -406,6 +406,14 @@ information to express the idea and why it was not acceptable.
 
 Rather than updating functions to accept a newer version of the schema, Zarf could have a publicly facing internal type that has every field from every version and use that throughout the SDK. The upside of this approach is that we would avoid breaking changes throughout the lifetime of the SDK. The downside is that it would make it easy for anyone using the SDK to set deprecated fields. It would also make it confusing and unclear which fields attach to which versions. 
 
+### Interface Representation of Schema
+
+Rather than updating functions to accept a newer version of the schema, Zarf could have an interface that all SDK functions accept. The interface would have getter functions for each item that is common between active schemas. 
+
+The downside of this approach is that each API version has sub-structs for each item. For instance, each schema will it's own version of the [ZarfComponentActions](https://github.com/zarf-dev/zarf/blob/a26516131a5df8dd2ddc93ec1f2e59bd959c971d/src/api/v1alpha1/component.go#L246) and all of the sub-structs underneath this sub-struct. The interface would return an internal type that the concrete types would need to convert their data to. 
+
+Another issue is that each function that accepts a sub-struct of the Zarf schema, would need to accept a the larger interface, even if it only a small part of the schema is required. Additionally, because there are items that are not common across schemas there would need to be type checks for certain schema versions. This would get more complex to maintain as more schemas version are added. 
+
 ### Map representation of Removed Fields
 
 One option for storing removed fields on newer schemas is to use `.metadata.annotations` or a new field such as `Deprecated map[string]string`. Kubernetes takes the annotations approach. The downside of this approach is that annotations can easily get confusing and hard to read. When a list of objects such as `dataInjections` is removed, then Zarf needs to maintain a long string representation of YAML.
