@@ -253,6 +253,8 @@ The `convert.go` file in each versioned package will contain public functions fo
 
 `func ConvertFromGeneric(in generic.ZarfPackage) ZarfPackage`
 
+These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions)
+
 ##### Converting 1:1 Replacements
 If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion
 
@@ -413,6 +415,12 @@ Rather than updating functions to accept a newer version of the schema, Zarf cou
 The downside of this approach is that each API version has sub-structs for each item. For instance, each schema will it's own version of the [ZarfComponentActions](https://github.com/zarf-dev/zarf/blob/a26516131a5df8dd2ddc93ec1f2e59bd959c971d/src/api/v1alpha1/component.go#L246) and all of the sub-structs underneath this sub-struct. The interface would return an internal type that the concrete types would need to convert their data to. 
 
 Another issue is that each function that accepts a sub-struct of the Zarf schema, would need to accept a the larger interface, even if it only a small part of the schema is required. Additionally, because there are items that are not common across schemas there would need to be type checks for certain schema versions. This would get more complex to maintain as more schemas version are added. 
+
+### Automatically generating conversion functions
+
+It would be possible to write automation to generate functions that will convert one the unchanged fields from one API version to another rather than a maintainer manually writing up these functions. Kubernetes takes this approach. 
+
+Automation here is initially rejected because this is likely something that will only be done on a rare cadence, likely at least 6+ months between conversions. Additionally, the Zarf package schema is the only type to consider currently. For the foreseeable future, it will likely be simpler to generate manually. If we find that this takes up a significant amount of time, then this can be re-evaluated. 
 
 ### Map representation of Removed Fields
 
