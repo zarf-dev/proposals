@@ -260,7 +260,7 @@ If a field is renamed with a 1:1 replacement, then Zarf will automatically conve
 
 When Zarf internally converts an older schema version to a newer schema version (for example, while deploying a v1alpha1 package), it must always convert to the latest schema version without data loss. To achieve this, fields that were removed from earlier schema versions are preserved as private fields in newer objects. These private fields are kept out of the new schema.
 
-In the below example, `dataInjections` is set as a private field on Zarf components so that it can be set during conversions between v1alpha1 and v1beta1. It will not be included in the v1beta1 schema, and since Zarf validates against the schema on create, users will be unable to create v1beta1 packages with `dataInjections` set. Likewise, since `dataInjections` is a private field, SDK users will not be able to set it directly. 
+A concrete example of how this will be implemented is seen with `dataInjections` from v1alpha1 to v1beta1. Below is a code snippet for the v1beta1 schema object. `dataInjections` is set as a private field on the v1beta1 Zarf component so that it can be set during conversions between v1alpha1 and v1beta1. While it is an object on the struct, because it's a private field, `dataInjections` will not be included in the v1beta1 schema, and since Zarf validates against the schema on create, users will be unable to create v1beta1 packages with `dataInjections` set. Likewise, since `dataInjections` is a private field, SDK users will not be able to set it directly. 
 
 ```go
 type ZarfComponent struct {
