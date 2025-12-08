@@ -186,6 +186,10 @@ As a package creator, I want to create and publish packages using the newer API 
 
 As a package creator, I want to update my package definition to the v1beta1 schema, so I run `zarf dev upgrade-schema` with a zarf.yaml in my current directory and it creates the converted package definition in a file called zarf-v1beta1.yaml.
 
+#### Story 4
+
+As a Zarf maintainer, I want to introduce a new API version so that I can deprecate fields, add new required fields, and rename fields in the current package schema. I want the process to do this to be straightforward.  
+
 ### Risks and Mitigations
 
 <!--
@@ -255,7 +259,7 @@ The `convert.go` file in each versioned package will contain public functions fo
 
 `func ConvertFromGeneric(in generic.ZarfPackage) ZarfPackage`
 
-These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions)
+These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
 
 ##### Converting 1:1 Replacements
 If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion
@@ -293,7 +297,16 @@ Usage:
 
 Zarf publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built-in schema validation for zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also included in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
 
-Zarf will use the if/then/else features of the json schema to conditionally apply a schema based on the `apiVersion`. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. It's useful to have a single schema file, so that user's text editors handle different API versions without file specific annotations. Zarf may still create or publish individual versioned schemas. 
+Zarf will use the if/then/else features of the json schema to conditionally apply a schema based on the `apiVersion`. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. It's useful to have a single schema file, so that user's text editors handle different API versions without file specific annotations. Zarf will still create and utilize individual version schemas. 
+
+### Introducing a new API version
+
+A maintainer must do the following to introduce a new API version. 
+
+1. Create the struct for the API version.
+1. Create the conversion function for the struct, for instance, `v1beta1.ConvertToGeneric(pkg)` and `v1beta1.ConvertFromGeneric(pkg)`.
+1. Create the new version specific schema and update the general schema to include the latest schema version. 
+1. Update all function signatures and structs to accept fields from the new schema.  
 
 
 ### Test Plan
@@ -313,8 +326,13 @@ when drafting this test plan.
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
-- The new command `zarf dev upgrade-schema` will have unit tests in the src/cmd package.
-- There will be e2e tests that will build a v1beta1 package and verify that a version of Zarf prior to v1beta1 being introduced can still deploy that package.
+The new command `zarf dev upgrade-schema` should have unit tests in the src/cmd package.
+
+Every child command under `zarf package -h` should have coverage with both the previous API version and the new API version. 
+
+There should be specific tests to ensure fields removed from newer API versions still work. 
+
+There should be tests to ensure that a user who inspects the definition of a package built with a certain version receives back a printed yaml of their build version. These tests should span all sources: OCI, tar, cluster, and definition. 
 
 ### Graduation Criteria
 
@@ -341,6 +359,8 @@ If this feature will eventually be deprecated, plan for it:
 -->
 
 `zarf dev upgrade-schema` will be released alongside the v1beta1 schema. Given that this is a simple command with low amounts of risk, it will not go through a phased maturity process (i.e., alpha/beta/stable). 
+
+When a new schema is introduced, creating a package using the newer version will be behind a feature flag. After the feature flag is enabled by default, there will be no more breaking changes to the schema. There will not a phased maturity process for the API version.  
 
 ### Upgrade / Downgrade Strategy
 
@@ -390,6 +410,7 @@ Major milestones might include:
 -->
 
 - 2025-10-18: Proposal submitted
+- 2025-12-08: Updated proposal to focus more on the process Zarf maintainer should follow to ensure that new API versions can be introduced
 
 ## Drawbacks
 
