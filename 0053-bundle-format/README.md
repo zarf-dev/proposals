@@ -1,4 +1,4 @@
-# ZEP-0053: Sigstore Bundle Format Migration and AirGap Verification Strategy
+# ZEP-0053: Sigstore Bundle Format Migration and Verification Strategy
 
 ## Summary
 
@@ -18,28 +18,30 @@ These gaps create confusion for users deploying Zarf in different environments a
 ### Goals
 
 - Migrate to Sigstore bundle format as the default signature format
-- Define explicit connectivity profiles (airgap, online, hybrid) with sensible defaults
+- Define explicit connectivity profiles (offline, online) with sensible defaults
 - Enable optional online verification with transparency log when connectivity is available
 - Maintain backward compatibility with offline keypair signing
 - Supporting keyless (OIDC-based) signing with online and private signing infrastructure
 
 ### Non-Goals
 
+- Implementing a chain of custody for Zarf package verification
 - Implementing custom transparency log infrastructure within Zarf
 - Modifying the Sigstore bundle specification itself
-- Supporting legacy signature format indefinitely (will be deprecated)
+- Supporting legacy signature format storage indefinitely (will be deprecated)
 
 ## Proposal
 
 ### Overview
 
-This proposal introduces three explicit connectivity profiles for Zarf package signing and verification:
+This proposal introduces connectivity profiles for Zarf package signing and verification:
 
-1. **Airgap Profile** (default): No network connectivity required or used
+1. **Offline Profile** (default): No network connectivity required or used
 2. **Online Profile**: Full connectivity to Sigstore infrastructure (transparency logs, certificate authorities)
-3. **Hybrid Profile**: Package creation using public good sigstore infrastructure and native offline verification embedded into zarf.
 
-The Sigstore bundle format will become the default and only supported format, with a clear deprecation timeline for the legacy format.
+The Sigstore bundle format will become the default and only supported format for inclusion of signed-material in the package, with a clear deprecation timeline for the legacy format. Zarf will retain the ability to verify packages using the legacy signature format for backwards compatibility.
+
+Configuration will be exposed for including a Sigstore [Trusted Root](https://docs.sigstore.dev/about/security/#sigstores-trust-root) or the use of the Public Good Sigstore instance Trusted Root embedded in Zarf to enable verification of signed packages without any additional artifacts.
 
 ### User Stories
 
@@ -114,55 +116,23 @@ zarf package verify zarf-package-app-amd64.tar.zst \
 
 ### Connectivity Profiles
 
-#### Airgap Profile (Default)
+Connectivity Profiles will allow Zarf to abstract orchestrating what configurations are made to enable/disable network connectivity.
+
+#### Offline Profile (Default)
 
 **Purpose**: Complete offline operation without any network dependencies.
 
 **Signing Behavior**:
-- Supports keypair-based signing only (local key files or local HSM)
+- Supports keypair-based signing only
 - Supports cloud KMS if accessible without internet (e.g., AWS KMS via VPC endpoint)
-- Does NOT upload to transparency log (`tlogUpload = false`)
+- Does NOT upload to transparency log (`tlogUpload = false`) - therefor does NOT contact Fulcio
 - Does NOT contact Fulcio (no keyless signing support)
-- Creates minimal Sigstore bundle with signature only
 
 **Verification Behavior**:
-- Uses embedded Sigstore trusted root (fetched at Zarf build time via TUF)
+- Uses embedded Sigstore trusted root (fetched at Zarf build time via The Update Framework (TUF))
 - Operates in offline mode (`Profile = offline`)
 - Skips transparency log verification (`IgnoreTlog = true`)
-- Skips SCT verification (`IgnoreSCT = true`)
-- No network calls during verification
-
-**Default Configuration**:
-```go
-// Airgap Profile Defaults
-SignBlobOptions{
-    KeyOpts: options.KeyOpts{
-        NewBundleFormat: true,
-        SkipConfirmation: false,
-    },
-    Timeout: 3 * time.Minute,
-}
-// tlogUpload = false (hardcoded)
-// No Fulcio/Rekor URLs configured
-// Note: `Offline` is being deprecated for bundle behaviors - see the [related issue](https://github.com/sigstore/cosign/pull/4457)
-
-VerifyBlobOptions{
-    KeyOpts: options.KeyOpts{
-        NewBundleFormat: true,
-    },
-    CertVerifyOptions: options.CertVerifyOptions{
-        IgnoreSCT: true,
-    },
-    IgnoreTlog: true,
-    Timeout: 3 * time.Minute,
-}
-```
-
-**Use Cases**:
-- Airgapped networks
-- Disconnected systems
-- Environments with strict network egress controls
-- Maximum portability scenarios
+- Skips signed certificate timestamp verification (`IgnoreSCT = true`)
 
 #### Online Profile
 
@@ -178,99 +148,13 @@ VerifyBlobOptions{
 - Uses embedded or custom trusted root
 - Operates in online mode (`Profile = online`)
 - Verifies transparency log entries (`IgnoreTlog = false`)
-- Verifies SCT if present (`IgnoreSCT = false`)
-- May make network calls to verify log inclusion
-
-**Default Configuration**:
-```go
-// Online Profile Defaults
-SignBlobOptions{
-    KeyOpts: options.KeyOpts{
-        NewBundleFormat: true,
-        OIDCIssuer: "https://oauth2.sigstore.dev/auth",
-        OIDCClientID: "sigstore",
-        FulcioURL: "https://fulcio.sigstore.dev",
-        RekorURL: "https://rekor.sigstore.dev",
-    },
-    Timeout: 3 * time.Minute,
-}
-// tlogUpload = true
-
-VerifyBlobOptions{
-    KeyOpts: options.KeyOpts{
-        NewBundleFormat: true,
-        RekorURL: "https://rekor.sigstore.dev",
-    },
-    CertVerifyOptions: options.CertVerifyOptions{
-        IgnoreSCT: false,
-    },
-    Offline: false,
-    IgnoreTlog: false,
-    Timeout: 3 * time.Minute,
-}
-```
+- Verifies signed certificate timestamp if present (`IgnoreSCT = false`)
 
 **Use Cases**:
 - Connected cloud environments
 - CI/CD pipelines with keyless signing
 - Public package repositories
 - Maximum security with public transparency
-
-#### Hybrid Profile
-
-**Purpose**: Enable oneline creation to be coupled with offline verification
-
-**Signing Behavior**:
-- Same as online profile
-- Creates offline-verifiable bundles
-
-**Verification Behavior**:
-- Same as offline profile
-- Uses embedded or custom trusted root
-
-**Default Configuration**:
-```go
-// Hybrid Profile Defaults
-SignBlobOptions{
-    // Same as airgap profile
-}
-
-VerifyBlobOptions{
-    KeyOpts: options.KeyOpts{
-        NewBundleFormat: true,
-        RekorURL: "https://rekor.sigstore.dev",
-    },
-    CertVerifyOptions: options.CertVerifyOptions{
-        IgnoreSCT: true, // SCT still skipped (not in bundle)
-    },
-    IgnoreTlog: false,
-    Timeout: 3 * time.Minute,
-}
-```
-
-**Use Cases**:
-- Development environments and published artifacts on the internet - delivered to airgapped environments.
-
-### Supported Signing/Verification Permutations
-
-The following table documents all supported permutations across profiles:
-
-| Signing Method | Profile | Network Required | Transparency Log | Bundle Completeness | Verification Support |
-|----------------|---------|------------------|------------------|---------------------|---------------------|
-| Keypair (local file) | Offline | No | Not uploaded | Minimal (signature only) | Offline with embedded root |
-| Keypair (local file) | Online | Optional | Uploaded if available | Complete with tlog entry | Online or offline |
-| Keypair (local file) | Hybrid | No | Not uploaded | Minimal | Offline with optional tlog check |
-| Keypair (local HSM) | Offline | No | Not uploaded | Minimal | Offline with embedded root |
-| Keypair (cloud KMS) | Offline | Yes (to KMS) | Not uploaded | Minimal | Offline with embedded root |
-| Keypair (cloud KMS) | Online | Yes | Uploaded | Complete | Online or offline |
-| Keyless (OIDC) | Online | Yes | Uploaded | Complete with cert chain | Online or offline with cert validation |
-| Keyless (OIDC) | Offline | N/A | N/A | **NOT SUPPORTED** | **NOT SUPPORTED** |
-
-**Key Findings**:
-- Offline profile cannot support keyless signing (requires Fulcio by design)
-- All profiles can be verified offline if using keypair signing or via embedded or referenced trusted root
-- Online profile provides maximum transparency but requires connectivity
-- Cloud KMS can work in airgap if accessible without internet (private cloud)
 
 ### CLI Changes
 
@@ -280,30 +164,90 @@ Add profile flag to signing and verification commands:
 
 ```bash
 # Signing commands
-zarf package sign <package> --signing-key cosign.key [--profile offline|online|hybrid]
+zarf package sign <package> --signing-key cosign.key [--profile offline|online]
 
 # Verification commands
-zarf package verify <package> [--profile offline|online|hybrid]
+zarf package verify <package> [--profile offline|online]
 ```
 
 Default profile: `offline`
+
+#### Cosign Optional Flags
+
+The use of [Cosign](https://docs.sigstore.dev/cosign/signing/overview/) will require additional flags for Signing and Verification.
+
+A subset of flags will be included on `zarf package sign` and `zarf package verify` to ensure that each signing and verification workflow can execute accordingly.
+
+##### `zarf package sign` Flags
+
+The following flags from `cosign sign-blob` will be available:
+
+**Key & Certificate Management:**
+- `--key` - Path to private key file, or KMS URI
+
+**Fulcio Integration (Online Profile):**
+- `--fulcio-url` - Address of Sigstore PKI server (default: `https://fulcio.sigstore.dev`)
+- `--fulcio-auth-flow` - Fulcio interactive OAuth2 flow for certificate
+- `--identity-token` - Identity token for certificate from Fulcio
+- `--oidc-client-id` - OIDC client ID (default: `sigstore`)
+- `--oidc-issuer` - OIDC provider to issue ID token
+- `--oidc-provider` - Specify OIDC provider (spiffe, google, github-actions, etc.)
+
+**Rekor Integration (Online Profile):**
+- `--rekor-url` - Address of Rekor transparency log server (default: `https://rekor.sigstore.dev`)
+
+**Timestamp & Security:**
+- `--timestamp-server-url` - URL to RFC3161 timestamp server
+- `--trusted-root` - Optional path to TrustedRoot JSON file
+
+**Hardware Security:**
+- `--sk` - Use a hardware security key
+- `--slot` - Security key slot to use (default: `signature`)
+
+##### `zarf package verify` Flags
+
+The following flags from `cosign verify-blob` will be available:
+
+**Key & Certificate Verification:**
+- `--key` - Path to public key file, KMS URI, or Kubernetes Secret
+- `--certificate` - Path to public certificate
+- `--certificate-chain` - CA certificates in PEM format for chain building
+- `--ca-roots` - Bundle of CA certificates for certificate chain
+- `--ca-intermediates` - Intermediate CA certificates in PEM format (used with `--ca-roots`)
+
+**Certificate Identity Verification:**
+- `--certificate-identity` - Expected identity in Fulcio certificate
+- `--certificate-identity-regexp` - Regular expression alternative for identity matching
+- `--certificate-oidc-issuer` - Expected OIDC issuer in certificate
+- `--certificate-oidc-issuer-regexp` - Regular expression alternative for issuer matching
+
+**Transparency Log & Timestamp Verification:**
+- `--rekor-url` - Address of Rekor transparency log server (default: `https://rekor.sigstore.dev`)
+- `--timestamp-certificate-chain` - PEM-encoded certificate chain for RFC3161 timestamp authority
+
+**Trust:**
+- `--trusted-root` - Path to Sigstore TrustedRoot JSON file
+- `--private-infrastructure` - Skip transparency log verification for private deployments
+
+**Hardware Security:**
+- `--sk` - Use hardware security key
+- `--slot` - Security key slot (authentication, signature, card-authentication, key-management)
 
 ### Trusted Root Management
 
 #### Embedded Trusted Root Update Process
 
-The embedded trusted root should be updated regularly to include new Sigstore keys and prevent expiration issues.
+The embedded trusted root should be updated regularly to include new Sigstore keys and prevent expiration issues. Zarf will utilize The Update Framework (TUF) to establish provenance in the retrieval and update process for the embedded data.
 
 **Update Schedule**:
-- Checked before major releases (required)
-- Automatically with tooling (recommended)
-- When Sigstore announces key rotations (required)
+- Checked before releases
+- Automatically with tooling
 
-#### Custom Trusted Root for Private Deployments
+#### Embedded Trusted Root SDK Experience
 
-Users could fork and build the Zarf binary while also embedding their own custom Trusted Roots for distrbution.
+The Zarf Cosign utilities in the SDK offer generic implementation around `sign-blob` and `verify-blob`. The embedded trusted root is available for consumption by default while also allowing SDK consumers to override with their own embedded trusted root by passing it in as a referenced path. 
 
-In doing so they would leverage the portability that comes with embedding it into the binary.
+TODO: add example
 
 ### Migration Path from Legacy Format
 
@@ -376,66 +320,19 @@ In doing so they would leverage the portability that comes with embedding it int
 
 ## Design Details
 
-### Implementation Phases
+### Profiles
 
-#### Phase 1: Profile Framework 
-
-**Scope**:
-- Implement `--profile` flag for signing and verification commands
-- Add profile validation logic
-- Create profile configuration structures
-- Update default options based on profile selection
-
-**Deliverables**:
-- Profile enum and configuration structures
-- CLI flag parsing and validation
-- Profile-specific default option builders
-- Unit tests for profile selection logic
-
-#### Phase 2: Bundle-Only Signing
-
-**Scope**:
-- Keep legacy verification support for backward compatibility
-- Update all signing operations to prioritize bundle creation
-
-**Deliverables**:
-- Signing operations produce a `zarf.bundle.sig`
-
-#### Phase 3: Enhanced Verification
-
-**Scope**:
-- Implement online profile verification with transparency log
-- Add hybrid profile with graceful fallback
-- Add transparency log entry validation
-
-**Deliverables**:
-- Online transparency log verification working
-- Hybrid profile with network error tolerance
-- Comprehensive tests for all profiles
-- Performance testing for online verification
-
-#### Phase : Trusted Root Automation
-
-**Scope**:
-- Support for automated updated to Trusted Root
-- Pre-release trusted root update checks
-- Monitoring and alerting for Sigstore announcements
-
-**Deliverables**:
-- Automated trusted root update workflow
-- CI checks for trusted root freshness
-- Documentation for manual updates
-- Alerting for key rotations
+### Trusted Root
 
 ### Test Plan
 
 #### Unit Tests
 
-Unit tests will validate profile selection (defaults, overrides, validation), signing operations across all profiles and methods (keypair), verification behaviors (offline with embedded/custom roots, online with transparency logs, hybrid with/without network), signature validation (invalid signatures, tampered packages), and trusted root management (loading, overrides, error handling, priority).
+Unit tests will validate profile selection (defaults, overrides, validation), signing operations across all profiles and methods (keypair), verification behaviors (offline with embedded/custom roots, online with transparency logs, signature validation (invalid signatures, tampered packages), and trusted root management (loading, overrides, error handling, priority).
 
 #### E2E Tests
 
-E2E tests will cover complete workflows for each profile: offline (keypair generation, signing, offline verification, deployment), online (transparency log upload and verification, bundle structure validation), hybrid (network availability toggling, graceful fallback), custom trusted roots (private Sigstore infrastructure), and keyless signing (OIDC-based signing with certificate validation).
+E2E tests will cover workflows for each profile: offline (keypair generation, signing, offline verification, deployment), online (transparency log upload and verification, bundle structure validation), custom trusted roots (private Sigstore infrastructure), and keyless signing (OIDC-based signing with certificate validation).
 
 ### Graduation Criteria
 
@@ -443,22 +340,32 @@ E2E tests will cover complete workflows for each profile: offline (keypair gener
 
 **Criteria**:
 - Profile framework implemented and tested
-- `--profile` flag available on signing and verification commands
-- Offline profile works as default
+    - `--profile` flag available on signing and verification workflows
+    - Offline profile works as default
 - Bundle signing implemented
-- Online profiles implemented
-- Documentation draft available
+    - Bundle format always created
+    - Deprecate legacy signature
+- Backwards Compatibility
+    - Fallback to legacy signature when bundle is not present
+- Online profile implemented
+    - Online-sign and online-verify available
+    - Keyless-signing availability
+- Documentation available
+    - Tutorials
 
 **Exit Criteria**:
 - All unit tests passing
-- Basic E2E test for offline profile passing
+- Basic E2E test for offline profile (default) passing
 - No critical bugs reported in profile selection
 
 #### Beta
 
 **Criteria**:
-- Automated trusted root updates working
+- Automated trusted root updates
+    - Updates to release process
+    - Detection & alerting of rotation to trusted root
 - Comprehensive documentation published
+    - Architecture Documentation
 
 **Exit Criteria**:
 - All test suites passing (unit, E2E, integration)
@@ -486,9 +393,9 @@ E2E tests will cover complete workflows for each profile: offline (keypair gener
 
 **From v0.66.x or earlier** (legacy signatures):
 
-1. **Upgrade Zarf**: Install v0.67.0 or later
-2. **Continue Using Legacy Packages**: Verification still works
-3. **New Packages Automatically Use Bundle**: No action needed
+1. **Upgrade Zarf**: Install v0.68.0 or later
+2. **Sign and Verify new Packages**: Bundle format included in the package
+3. **Verify Legacy Packages**: Verification still works
 4. **Migrate Existing Packages** (optional but recommended):
    ```bash
    zarf package sign old-package.tar.zst \
@@ -499,11 +406,11 @@ E2E tests will cover complete workflows for each profile: offline (keypair gener
 
 #### Signing Version vs. Verification Version
 
-**Scenario**: Package signed with Zarf v0.66.0, verified with Zarf v0.44.0
+**Scenario**: Package signed with Zarf bundle format , verified with Zarf legacy format
 
-**Result**: Works (The legacy signature exists alongside the bundle)
+**Result**: Works (The legacy signature exists alongside the bundle - deprecated until removal)
 
-**Scenario**: Package signed with Zarf v0.65.0 (legacy), verified with Zarf v0.67.0
+**Scenario**: Package signed with Zarf legacy format, verified with Zarf bundle format
 
 **Result**: Works (Will fallback to the legacy signature when bundle is not present)
 
@@ -573,23 +480,17 @@ Online profile creates a dependency on public Sigstore infrastructure (Rekor, Fu
 
 **Rejection Reason**: Violates Zarf's core mission of supporting airgapped deployments. Default must work offline.
 
-## Infrastructure Needed (Optional)
-
-### Development Infrastructure
-
-**No additional infrastructure required** - all development can use existing Zarf development environment.
+## Infrastructure Needed
 
 ### Testing Infrastructure
 
 **CI/CD Infrastructure**:
-- GitHub Actions for automated trusted root updates (already available)
-- Scheduled workflow for monthly updates
-- PR creation automation (already available via GitHub API)
+- Automated trusted root updates (Renovate or other actions)
 
 ### Production Infrastructure
 
 **No infrastructure required** for Zarf itself. Users choosing online profile will need:
 
 **Public Sigstore** (default for online profile):
-- Provided by Sigstore project (no cost)
+- Provided by Sigstore project
 - Available at https://rekor.sigstore.dev and https://fulcio.sigstore.dev
