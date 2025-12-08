@@ -84,7 +84,7 @@ zarf package verify zarf-package-app-amd64.tar.zst
 
 #### Story 3: Online Sign - Online Verify - Private Sigstore Infrastructure
 
-As an enterprise running a private Sigstore instance for internal packages, I need to use a custom trusted root and private Fulcio/Rekor instances for signing and verification.
+As an enterprise running a private Sigstore instance for internal packages, I want to use a custom trusted root and private Fulcio/Rekor instances for signing and verification.
 
 **Solution**: Use online profile for signing and online verify with internal URLs or custom trusted root
 
@@ -113,6 +113,38 @@ cosign trusted-root create \
 zarf package verify zarf-package-app-amd64.tar.zst \
   --trusted-root custom_trusted_root.json
 ```
+
+### Risks and Mitigations
+
+#### Risk 1: Embedded Trusted Root Expiration
+
+**Risk**: If embedded trusted root is not updated, verification may fail due to expired keys.
+
+**Mitigation**:
+- Explicit support for including updated Trusted Roots from the command line
+- Pre-release checklist includes trusted root update verification
+- Monitor Sigstore for key rotations
+- Renovate monitoring for updates to the Trusted Root repository
+- Documentation on manual trusted root updates
+
+#### Risk 2: Bundle Format Incomplete in Offline Mode
+
+**Risk**: Sigstore bundle may require fields that cannot be populated offline.
+
+**Mitigation**:
+- Validate minimal bundle structure works with cosign verification given offline keypair signing and verification
+- Document minimal vs. complete bundle differences
+
+#### Risk 3: Profile Confusion and Misconfiguration
+
+**Risk**: Users may choose wrong profile or misconfigure connectivity settings.
+
+**Mitigation**:
+- Default to offline profile (safest, most aligned with Zarf mission)
+- Validation of profile compatibility with flags
+- Examples in documentation for each profile
+
+## Design Details
 
 ### Connectivity Profiles
 
@@ -245,15 +277,11 @@ The embedded trusted root should be updated regularly to include new Sigstore ke
 
 #### Embedded Trusted Root SDK Experience
 
-The Zarf Cosign utilities in the SDK offer generic implementation around `sign-blob` and `verify-blob`. The embedded trusted root is available for consumption by default while also allowing SDK consumers to override with their own embedded trusted root by passing it in as a referenced path. 
-
-TODO: add example
+The Zarf Cosign utilities in the SDK offer generic implementation around `sign-blob` and `verify-blob`. The embedded trusted root is available for consumption by default while also allowing SDK consumers to override with their own embedded trusted root by passing it as a referenced path. 
 
 ### Migration Path from Legacy Format
 
-#### Phase 1: Dual Format Support (Current State)
-
-**Timeline**: Current - v0.67.0
+#### Phase 1: Dual Format Support
 
 **Behavior**:
 - Both `zarf.bundle.sig` and `zarf.yaml.sig` created during signing
@@ -268,61 +296,14 @@ TODO: add example
 
 #### Phase 2: Bundle Format Default, Legacy Deprecated
 
-**Timeline**: v0.67.0 - v0.69.0
-
 **Behavior**:
 - Only `zarf.bundle.sig` created during signing
 - Legacy format verification still supported for backward compatibility
-- Loud deprecation warnings when verifying legacy signatures
+- Warnings when verifying legacy signatures
 
 **Actions**:
 - Remove legacy signature creation from signing operations
 - Update all documentation to reference bundle format only
-
-### Risks and Mitigations
-
-#### Risk 1: Embedded Trusted Root Expiration
-
-**Risk**: If embedded trusted root is not updated, verification may fail due to expired keys.
-
-**Mitigation**:
-- Explicit support for including updated Trusted Roots from the command line
-- Pre-release checklist includes trusted root update verification
-- Monitor Sigstore announcements for key rotations
-- Renovate monitoring for updates to the Trusted Root repository
-- Documentation on manual trusted root updates
-
-#### Risk 2: Bundle Format Incomplete in Offline Mode
-
-**Risk**: Sigstore bundle may require fields that cannot be populated offline.
-
-**Mitigation**:
-- Validate minimal bundle structure works with cosign verification given offline keypair signing and verification
-- Document minimal vs. complete bundle differences
-- Contribute upstream to Sigstore if minimal bundle support is lacking
-
-#### Risk 3: Profile Confusion and Misconfiguration
-
-**Risk**: Users may choose wrong profile or misconfigure connectivity settings.
-
-**Mitigation**:
-- Default to offline profile (safest, most aligned with Zarf mission)
-- Validation of profile compatibility with flags
-- Examples in documentation for each profile
-
-#### Risk 4: Transparency Log Service Availability
-
-**Risk**: Online profile depends on public Sigstore infrastructure availability.
-
-**Mitigation**:
-- Timeouts and retry logic for network operations
-- Option to disable transparency log even in online profile
-
-## Design Details
-
-### Profiles
-
-### Trusted Root
 
 ### Test Plan
 
@@ -391,9 +372,9 @@ E2E tests will cover workflows for each profile: offline (keypair generation, si
 
 #### Upgrading to Bundle Format
 
-**From v0.66.x or earlier** (legacy signatures):
+**From Previous Versions** (legacy signatures):
 
-1. **Upgrade Zarf**: Install v0.68.0 or later
+1. **Upgrade Zarf**: Install version supporting bundle format
 2. **Sign and Verify new Packages**: Bundle format included in the package
 3. **Verify Legacy Packages**: Verification still works
 4. **Migrate Existing Packages** (optional but recommended):
@@ -439,9 +420,9 @@ The introduction of profiles adds a new concept for users to understand. Users m
 
 ### Dependency on Sigstore Infrastructure
 
-Online profile creates a dependency on public Sigstore infrastructure (Rekor, Fulcio) which could become a single point of failure.
+Online profile creates a dependency on Sigstore infrastructure (Rekor, Fulcio) which could become a single point of failure.
 
-**Counter-argument**: Airgap profile (default) has zero dependencies. Online profile is opt-in for users who specifically want transparency. Private Sigstore deployments are supported.
+**Counter-argument**: Offline profile has zero dependencies. Online profile is opt-in for users who specifically want transparency. Private Sigstore deployments are supported.
 
 ## Alternatives
 
@@ -455,7 +436,7 @@ Online profile creates a dependency on public Sigstore infrastructure (Rekor, Fu
 - Granular control over each setting
 
 **Cons**:
-- Easy to misconfigure (8+ flags to set correctly)
+- Easy to misconfigure (many flags to set correctly)
 - No validation of flag combinations
 - Unclear what flags are needed for specific scenarios
 - Difficult to document all permutations
@@ -475,8 +456,6 @@ Online profile creates a dependency on public Sigstore infrastructure (Rekor, Fu
 **Cons**:
 - Breaks Zarf's airgap-first philosophy
 - Creates network dependency by default
-- Performance impact from network calls
-- Unusable in disconnected environments without flag changes
 
 **Rejection Reason**: Violates Zarf's core mission of supporting airgapped deployments. Default must work offline.
 
@@ -491,6 +470,5 @@ Online profile creates a dependency on public Sigstore infrastructure (Rekor, Fu
 
 **No infrastructure required** for Zarf itself. Users choosing online profile will need:
 
-**Public Sigstore** (default for online profile):
-- Provided by Sigstore project
-- Available at https://rekor.sigstore.dev and https://fulcio.sigstore.dev
+**Sigstore**:
+- Available at https://rekor.sigstore.dev and https://fulcio.sigstore.dev or private Sigstore instances.
