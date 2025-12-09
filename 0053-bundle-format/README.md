@@ -17,11 +17,12 @@ These gaps create confusion for users deploying Zarf in different environments a
 
 ### Goals
 
-- Migrate to Sigstore bundle format as the default signature format
+- Migrate to [Sigstore bundle format](https://docs.sigstore.dev/about/bundle/) as the default signature format
 - Define explicit connectivity profiles (offline, online) with sensible defaults
-- Enable optional online verification with transparency log when connectivity is available
-- Maintain backward compatibility with offline keypair signing
 - Supporting keyless (OIDC-based) signing with online and private signing infrastructure
+- Enable optional online verification with transparency log when connectivity is available
+- Enable offline verification for multiple signing strategies
+- Maintain backward compatibility with offline keypair signing
 
 ### Non-Goals
 
@@ -65,13 +66,12 @@ As a package author using Zarf in a connected environment, I want to leverage th
 
 **Solution**: Use online profile with embedded Trusted Root verification.
 
-TODO: validate required inputs
 ```bash
 # Developer - sign with transparency log upload
 zarf package sign zarf-package-app-amd64.tar.zst --signing-key cosign.key --profile online
 
-# Operator - verify with embedded trusted root - Do we need the public key?
-zarf package verify zarf-package-app-amd64.tar.zst
+# Operator - verify with embedded trusted root
+zarf package verify zarf-package-app-amd64.tar.zst --key cosign.pub
 ```
 
 ```bash
@@ -80,6 +80,11 @@ zarf package sign zarf-package-app-amd64.tar.zst --oidc-issuer='https://oauth2.s
 
 # Operator - verify with embedded trusted root - no external connectivity made
 zarf package verify zarf-package-app-amd64.tar.zst
+
+# Additionally verify with identity verification
+zarf package verify zarf-package-app-amd64.tar.zst \
+  --certificate-identity user@example.com \
+  --certificate-oidc-issuer https://oauth2.sigstore.dev/auth
 ```
 
 #### Story 3: Online Sign - Online Verify - Private Sigstore Infrastructure
@@ -328,9 +333,6 @@ E2E tests will cover workflows for each profile: offline (keypair generation, si
     - Deprecate legacy signature
 - Backwards Compatibility
     - Fallback to legacy signature when bundle is not present
-- Online profile implemented
-    - Online-sign and online-verify available
-    - Keyless-signing availability
 - Documentation available
     - Tutorials
 
@@ -345,6 +347,9 @@ E2E tests will cover workflows for each profile: offline (keypair generation, si
 - Automated trusted root updates
     - Updates to release process
     - Detection & alerting of rotation to trusted root
+- Online profile implemented
+    - Online-sign and online-verify available
+    - Keyless-signing availability
 - Comprehensive documentation published
     - Architecture Documentation
 
