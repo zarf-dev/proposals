@@ -40,9 +40,13 @@ This proposal introduces connectivity profiles for Zarf package signing and veri
 1. **Offline Profile** (default): No network connectivity required or used
 2. **Online Profile**: Full connectivity to Sigstore infrastructure (transparency logs, certificate authorities)
 
-The Sigstore bundle format will become the default and only supported format for inclusion of signed-material in the package, with a clear deprecation timeline for the legacy format. Zarf will retain the ability to verify packages using the legacy signature format for backwards compatibility.
+The [Sigstore bundle format](https://docs.sigstore.dev/about/bundle/) will become the default and only supported format for inclusion of signed-material in the package, with a clear deprecation timeline for the legacy format. Zarf will retain the ability to verify packages using the legacy signature format for backwards compatibility.
+
+> A Sigstore bundle is everything required to verify a signature on an artifact. This is satisfied by the Verification Material and signature Content.
 
 Configuration will be exposed for including a Sigstore [Trusted Root](https://docs.sigstore.dev/about/security/#sigstores-trust-root) or the use of the Public Good Sigstore instance Trusted Root embedded in Zarf to enable verification of signed packages without any additional artifacts.
+
+Given a Bundle and a Trusted Root - users will have everything required to perform verification without any connectivity required. 
 
 ### User Stories
 
