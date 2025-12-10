@@ -57,7 +57,7 @@ As an operator deploying Zarf in an airgapped network, I need to verify package 
 **Solution**: Use airgap profile (default) with keypair signing.
 
 ```bash
-# Developer (online environment) - sign package
+# Developer (airgap environment) - sign package
 zarf package sign zarf-package-app-amd64.tar.zst --signing-key cosign.key
 
 # Operator (airgap environment) - verify
@@ -106,7 +106,7 @@ zarf package sign zarf-package-app-amd64.tar.zst \
   --profile online
 
 # Verify with private infrastructure in an "online" profile
-Zarf package verify zarf-package-app-amd64.tar.zst \
+zarf package verify zarf-package-app-amd64.tar.zst \
   --rekor-url https://rekor.internal.company.com \
   --fulcio-url https://fulcio.internal.company.com \
   --profile online
@@ -170,7 +170,7 @@ Connectivity Profiles will allow Zarf to abstract orchestrating what configurati
 - Does NOT contact Fulcio (no keyless signing support)
 
 **Verification Behavior**:
-- Uses embedded Sigstore trusted root (fetched at Zarf build time via The Update Framework (TUF))
+- Uses embedded Sigstore trusted root (fetched via The Update Framework (TUF) and embedded into the Zarf binary/SDK)
 - Operates in offline mode (`Profile = offline`)
 - Skips transparency log verification (`IgnoreTlog = true`)
 - Skips signed certificate timestamp verification (`IgnoreSCT = true`)
@@ -196,6 +196,7 @@ Connectivity Profiles will allow Zarf to abstract orchestrating what configurati
 - CI/CD pipelines with keyless signing
 - Public package repositories
 - Maximum security with public transparency
+- Public/Private Sigstore infrastructure
 
 ### CLI Changes
 
@@ -301,7 +302,7 @@ The Zarf Cosign utilities in the SDK offer generic implementation around `sign-b
 **Actions**:
 - Document bundle format in user tutorials
 - Add migration guide to documentation
-- Provide tooling to re-sign legacy packages
+- Provide tooling to re-sign pre-existing packages signed with legacy format signature
 
 #### Phase 2: Bundle Format Default, Legacy Deprecated
 
