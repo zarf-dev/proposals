@@ -236,14 +236,20 @@ A new field on all future schemas called `.build.apiVersion` will be introduced 
 
 Zarf will need to handle two use cases for conversions. The first is library convert functions. These functions will provide a path for existing packages to call packager functions after they change accept v1beta1 objects. The second is `zarf dev upgrade-schema` which will provide a simple way for users to convert their zarf.yaml files from one schema version to the next.
 
-#### Library Conversions
-
-There will be a new package and type `generic.ZarfPackage` that is used solely for conversions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the generic Zarf package type then convert the generic Zarf package type to v1beta1. This means Zarf only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
+#### Type API changes
 
 The [api](https://github.com/zarf-dev/zarf/tree/main/src/api) package will be structured as below:
+
 ```bash
-├── generic
-│   └── package.go
+├── internal
+│   └── types
+│     └── package.go
+│   └── v1alpha1
+│     └── convert.go
+│     └── validate.go   
+│   └── v1beta1
+│     └── convert.go
+│     └── validate.go   
 ├── v1alpha1
 │   ├── convert.go
 │   ├── package.go
@@ -252,32 +258,36 @@ The [api](https://github.com/zarf-dev/zarf/tree/main/src/api) package will be st
 │   ├── convert.go
 │   ├── package.go
 │   ├── ...
+├── convert
+│   ├── convert.go
 ```
-The `convert.go` file in each versioned package will contain public functions for converting to and from the generic type. These functions will look like below:
 
-`func ConvertToGeneric(in ZarfPackage) generic.ZarfPackage`
+The internal/types package will contain a superset of Zarf fields to enable conversions between API versions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the generic Zarf package type then convert the generic Zarf package type to v1beta1. This means Zarf only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
 
-`func ConvertFromGeneric(in generic.ZarfPackage) ZarfPackage`
+The internal/types package will not be exposed by the SDK. Instead the convert package will expose functions such as `func V1Alpha1PkgToV1Beta1(in v1alpha1.ZarfPackage) v1beta1.ZarfPackage`. These functions will call on the internal API packages, for instance, `internalv1alpha1.ConvertToGeneric(in v1alpha.ZarfPackage) types.ZarfPackage` and `internalv1beta1.ConvertFromGeneric(in types.ZarfPackage) v1beta1.ZarfPackage`. This will give users a clean interface for SDK users while avoiding exposing the internal types. These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
 
-These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
+The public API versioned packages will expose a method on the ZarfPackage object called `Validate()`. These methods will call the internal API versioned packages where the validation logic will live. The validation logic currently in src/pkg/lint/validate.go will be moved to internal/v1alpha1. 
 
 ##### Converting 1:1 Replacements
 If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion
 
 ##### Converting Removed Fields
 
-When Zarf internally converts an older schema version to a newer schema version (for example, while deploying a v1alpha1 package), it must always convert to the latest schema version without data loss. To achieve this, fields that were removed from earlier schema versions are preserved as private fields in newer objects. These private fields are kept out of the new schema.
+When Zarf internally converts an older schema version to a newer schema version (for example, while deploying a v1alpha1 package), it must always convert to the latest schema version without data loss. To achieve this, fields that were removed from earlier schema versions are preserved as private fields in newer objects. These private fields are kept out of the new schema. These fields will have private fields have getters and setters so that they can be set. After the API Version that these fields originated from is unsupported, these fields will be deleted. 
 
-A concrete example of how this will be implemented is seen with `dataInjections` from v1alpha1 to v1beta1. Below is a code snippet for the v1beta1 schema object. `dataInjections` is set as a private field on the v1beta1 Zarf component so that it can be set during conversions between v1alpha1 and v1beta1. While it is an object on the struct, because it's a private field, `dataInjections` will not be included in the v1beta1 schema, and since Zarf validates against the schema on create, users will be unable to create v1beta1 packages with `dataInjections` set. Likewise, since `dataInjections` is a private field, SDK users will not be able to set it directly. 
+A concrete example of how this will be implemented is seen with `dataInjections` from v1alpha1 to v1beta1. Below is a code snippet for the v1beta1 schema object. `dataInjections` is set as a private field on the v1beta1 Zarf component so that it can be set during conversions between v1alpha1 and v1beta1. While it is an object on the struct, because it's a private field, `dataInjections` will not be included in the v1beta1 schema, and since Zarf validates against the schema on create, users will be unable to create v1beta1 packages with `dataInjections` set.
 
 ```go
 type ZarfComponent struct {
 	Name string `json:"name"`
   ...
-	// data injections are kept as a backwards compatibility shim and can only be set when converting from v1alpha1
+	// data injections are kept as a backwards compatibility shim and should only be set when converting from v1alpha1
 	dataInjections []v1alpha1.ZarfDataInjection
   ...
 }
+// DataInjections should only be set when converting from a v1alpha1 package. After v1alpha1 packages is not supported, this functionality wil be removed. 
+func (c ZarfComponent) SetDataInjections(di []v1alpha1.ZarfDataInjection)
+func (c ZarfComponent) GetDataInjections() []v1alpha1.ZarfDataInjection
 ```
 
 #### zarf dev upgrade-schema
@@ -430,6 +440,8 @@ information to express the idea and why it was not acceptable.
 ### Public Facing Internal Type
 
 Rather than updating functions to accept a newer version of the schema, Zarf could have a publicly facing internal type that has every field from every version and use that throughout the SDK. The upside of this approach is that we would avoid breaking changes throughout the lifetime of the SDK. The downside is that it would make it easy for anyone using the SDK to set deprecated fields. It would also make it confusing and unclear which fields attach to which versions. 
+
+### Multiple versions of each function
 
 ### Interface Representation of Schema
 
