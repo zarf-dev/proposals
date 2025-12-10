@@ -166,7 +166,7 @@ Connectivity Profiles will allow Zarf to abstract orchestrating what configurati
 **Signing Behavior**:
 - Supports keypair-based signing only
 - Supports cloud KMS if accessible without internet (e.g., AWS KMS via VPC endpoint)
-- Does NOT upload to transparency log (`tlogUpload = false`) - therefor does NOT contact Fulcio
+- Does NOT upload to transparency log (`tlogUpload = false`) - therefore does NOT contact Rekor
 - Does NOT contact Fulcio (no keyless signing support)
 
 **Verification Behavior**:
