@@ -309,14 +309,37 @@ Zarf publishes a JSON schema, see the [current version](https://raw.githubuserco
 
 Zarf will use the if/then/else features of the json schema to conditionally apply a schema based on the `apiVersion`. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. It's useful to have a single schema file, so that user's text editors handle different API versions without file specific annotations. Zarf will still create and utilize individual version schemas. 
 
-### Introducing a new API version
+### Deployed packages
 
-A maintainer must do the following to introduce a new API version. 
+The current deployed package struct is seen below. The `DeployPackage` object is persisted the cluster during `zarf package deploy` as a Kubernetes secret. The Data field is a json representation of the package.
 
-1. Create the struct for the API version.
-1. Create the conversion function for the struct, for instance, `v1beta1.ConvertToGeneric(pkg)` and `v1beta1.ConvertFromGeneric(pkg)`.
-1. Create the new version specific schema and update the general schema to include the latest schema version. 
-1. Update all function signatures and structs to accept fields from the new schema.  
+```go
+type DeployedPackage struct {
+	Name               string               `json:"name"`
+	Data               v1alpha1.ZarfPackage `json:"data"`
+	CLIVersion         string               `json:"cliVersion"`
+	Generation         int                  `json:"generation"`
+	DeployedComponents []DeployedComponent  `json:"deployedComponents"`
+	ConnectStrings     ConnectStrings       `json:"connectStrings,omitempty"`
+	NamespaceOverride string                `json:"namespaceOverride,omitempty"`
+}
+```
+
+In the future, when Zarf stores this secret, it will store the version of the . This will enable older versions of Zarf that don't have the latest API version to be able to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a deployed package, they will receive a printed yaml of the API version they built the package with. Storing every version ensures that there is no data loss. To achieve this, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct
+
+```go
+type DeployedPackage struct {
+	Name               string                     `json:"name"`
+  // Data is kept for backwards compatibly, once support for reading v1alpha1 packages from the cluster is removed, this field will be deleted.
+	Data               v1alpha1.ZarfPackage       `json:"data"`
+  PackageData        map[string]json.RawMessage `json:"packageData"`
+	CLIVersion         string                     `json:"cliVersion"`
+	Generation         int                        `json:"generation"`
+	DeployedComponents []DeployedComponent        `json:"deployedComponents"`
+	ConnectStrings     ConnectStrings             `json:"connectStrings,omitempty"`
+	NamespaceOverride string `json:"namespaceOverride,omitempty"`
+}
+```
 
 
 ### Test Plan
@@ -340,9 +363,9 @@ The new command `zarf dev upgrade-schema` should have unit tests in the src/cmd 
 
 Every child command under `zarf package -h` should have coverage with both the previous API version and the new API version. 
 
-There should be specific tests to ensure fields removed from newer API versions still work. 
+There should be tests to ensure fields removed from newer API versions still work when defined on older API versions. 
 
-There should be tests to ensure that a user who inspects the definition of a package built with a certain version receives back a printed yaml of their build version. These tests should span all sources: OCI, tar, cluster, and definition. 
+There should be tests for version skew. Newer API versions should be deployable on versions of Zarf before they are introduced. Likewise, there should be tests to ensure that cluster commands for these packages such as inspect and remove are successful. 
 
 ### Graduation Criteria
 
