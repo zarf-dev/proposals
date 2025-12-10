@@ -325,7 +325,7 @@ type DeployedPackage struct {
 }
 ```
 
-In the future, when Zarf stores this secret, it will store the version of the . This will enable older versions of Zarf that don't have the latest API version to be able to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a deployed package, they will receive a printed yaml of the API version they built the package with. Storing every version ensures that there is no data loss. To achieve this, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct
+In the future, when Zarf stores this secret, it will store the version the package was created with as well as all earlier API versions. This will enable older versions of Zarf that don't have the latest API version to be able to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a deployed package, they will receive a printed yaml of the API version they built the package with. Storing every version ensures that there is no data loss. To achieve this, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct.
 
 ```go
 type DeployedPackage struct {
