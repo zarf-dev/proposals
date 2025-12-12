@@ -213,6 +213,8 @@ There will be breaking changes to SDK functions every time a new API version is 
 	_, err = packager.PublishPackage(ctx, pkgLayout, dstRef, packager.PublishPackageOptions{})
 ```
 
+Additionally, there are several functions that accept a v1alpha1.ZarfPackage which are only applicable to built Zarf packages. These functions could instead accept a package layout limiting the amount of breaking changes in Zarf. Still, since most SDK users will call these functions with a package loaded from yaml, tar, or from the cluster rather than defining a ZarfPackage object, this shouldn't be a major issue for SDK users. 
+
 ## Design Details
 
 <!--
@@ -311,7 +313,7 @@ Zarf will use the if/then/else features of the json schema to conditionally appl
 
 ### Deployed packages
 
-The current deployed package struct is seen below. The `DeployPackage` object is persisted the cluster during `zarf package deploy` as a Kubernetes secret. The Data field is a json representation of the package.
+The current deployed package struct is seen below. The `DeployPackage` object is persisted to the cluster during `zarf package deploy` as a Kubernetes secret. The Data field is a json representation of the package.
 
 ```go
 type DeployedPackage struct {
@@ -325,7 +327,7 @@ type DeployedPackage struct {
 }
 ```
 
-In the future, when Zarf stores this secret, it will store the version the package was created with as well as all earlier API versions. This will enable older versions of Zarf that don't have the latest API version to be able to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a deployed package, they will receive a printed yaml of the API version they built the package with. Storing every version ensures that there is no data loss. To achieve this, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct.
+In the future, when Zarf stores this secret, it will store the version the package was created with as well as all earlier API versions, mimicking the strategy used in built packages. This will enable older versions of Zarf that don't have the latest API version to be able to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a cluster sourced deployed package, they will receive a printed yaml of the API version they built the package with. To track multiple versions, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct. The original Data object, will stay on the object for backwards compatibility, until the v1alpha1 package is no longer supported.
 
 ```go
 type DeployedPackage struct {
@@ -464,7 +466,31 @@ information to express the idea and why it was not acceptable.
 
 Rather than updating functions to accept a newer version of the schema, Zarf could have a publicly facing internal type that has every field from every version and use that throughout the SDK. The upside of this approach is that we would avoid breaking changes throughout the lifetime of the SDK. The downside is that it would make it easy for anyone using the SDK to set deprecated fields. It would also make it confusing and unclear which fields attach to which versions. 
 
-### Multiple versions of each function
+### Internal Type wrapped by Public Versioned Functions
+
+Another way an internal type could be used would be to introduce public functions such as `packager.RemoveV1alpha1()` and `packager.RemoveV1beta1()`. These functions would then call a private `packager.remove()` function that accepts the internal type. This way SDK users don't have to deal with the internal type, and Zarf could avoid the strategy in [Removed Fields](#converting-removed-fields) where newer `ZarfPackage` structs track removed fields. This was rejected because while this strategy would work with some functions, many functions, especially in `packager`, accept a `packageLayout` object. Having multiple versions of these functions makes the SDK experience less user friendly since users would need extra calls between loading their packages and calling `packager` functions. Additionally, `packageLayout` has a public mutable field of type `v1alpha1.ZarfPackage`. Removing this field, limits the opportunity of SDK users to edit their packages before packager calls.
+
+### Package Source Interface
+
+Zarf could define an interface called `PackageSource`: 
+```go
+type PackageSource interface{
+  // This function will be updated to the latest version whenever a new version is released
+  GetPackageAtLatestAPIVersion() (v1beta1.ZarfPackage)
+  GetV1Beta1Package() (v1beta1.ZarfPackage)
+  GetV1Alpha1Package() (v1alpha1.ZarfPackage)
+}
+```
+PackageLayout and DeployedPackage would both implement this interface. Functions such as `packager.Remove()` which accept either a built package or a cluster source would accept this interface. This would avoid specific package types in some function definitions. It could also allow for patterns like below where we could reach back to previous API versions to get to removed fields rather than storing [Removed Fields](#converting-removed-fields) on the objects. 
+
+```go
+if source.GetPackageAtLatestAPIVersion().Build.APIVersion == "v1alpha1" {
+  dataInjections := source.GetV1alpha1Package().Components[x].DataInjections
+  // ... run Data injection logic with this
+}
+```
+
+This was rejected because packages in Zarf's lifecycle are mutable and not taken directly from the package YAML / Kubernetes secret. The filters package, for instance, frequently changes the package. Zarf wouldn't be able to filter a package, without needing to keep logic around to filter every API version, which would add a maintenance burden. SDK users wouldn't be able to edit their packages before running functions like `packager.Remove()` or `packager.Deploy()` as it would be difficult to propagate changes to every API version. 
 
 ### Interface Representation of Schema
 
