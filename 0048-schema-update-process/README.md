@@ -156,7 +156,7 @@ During Zarf's lifetime, it will introduce, deprecate, and drop support for ZarfP
 
 The zarf.yaml in a built package will include the package definition for every supported API version. When printing the package definition to the user, for instance, with the command `zarf package inspect definition` the API version will be the version that the package was created with. A new field `.build.apiVersion` will be added to all schemas to track which API version was used at build time. 
 
-A new command `zarf dev upgrade-schema` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will create a new file `zarf-<apiversion>.yaml` with the converted package definition. It will accept a path to a directory containing a zarf.yaml file and an optional API version. For instance, A user could run `zarf dev upgrade-schema . v1beta1` and they will receive a file called `zarf-v1beta1.yaml`. Convert will not allow changing from a newer version to an older version, so running `zarf dev upgrade-schema . v1alpha1` on a `v1beta1` schema will error. This command will only accept with a local zarf.yaml file, and will not accept created packages, published packages, or deployed packages. 
+A new command `zarf dev upgrade-schema` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will create a new file `zarf-<apiversion>.yaml` with the converted package definition. It will accept a path to a directory containing a zarf.yaml file and an optional API version. For instance, a user could run `zarf dev upgrade-schema . v1beta1` and they will receive a file called `zarf-v1beta1.yaml`. Convert will not allow changing from a newer version to an older version, so running `zarf dev upgrade-schema . v1alpha1` on a `v1beta1` schema will error. This command will only accept with a local zarf.yaml file, and will not accept created packages, published packages, or deployed packages. 
 
 API versions of the package schema will not necessarily coincide with releases of the Zarf CLI. One caveat is that Zarf will likely not release an official v1.0.0 version until there is a v1 version of the schema, however it could be the case that a v2 package schema is released while the CLI version is still v1.0.0 and vice versa. 
 
@@ -226,13 +226,46 @@ proposal will be implemented, this is the place to discuss that.
 
 ### New Package Compatibility
 
+#### Built packages
 Once the latest schema is introduced, the built zarf.yaml file will contain the package definition for itself, as well as all older API versions that are still supported. For example, the built zarf.yaml in a v1beta1 package will include the v1beta1 package config and v1alpha1 package config. The built zarf.yaml for a v1alpha1 package will only include the v1alpha1 package. This is done because older API versions will always be able to convert to newer API versions without data loss, but newer API versions may include fields that are not represented in older API versions.
 
 A new API version may coincide with packages being incompatible with earlier versions of Zarf, but the logic for determining compatibility will be decoupled from the API version. Zarf will introduce a new field `build.VersionRequirements` which will be automatically populated on create, and will error on deploy or remove if the user's version is older than the required version. See [#4256](https://github.com/zarf-dev/zarf/issues/4256)
 
-Package definitions will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility, API versions will always be placed in ascending order beginning with the v1alpha1 definition. Future versions of Zarf will check the API version of each package definition and select the latest version that it understands. If Zarf see's a version that it does not understand, Zarf will log to the user that there is a new API version available that the user should consider updating to. 
+Package definitions will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility, API versions will always be placed in ascending order beginning with the v1alpha1 definition. Future versions of Zarf will check the API version of each package definition and select the latest version that it understands. This process will be implemented before any new API versions are released. If Zarf sees a version that it does not understand, Zarf will log to the user that there is a new API version available that the user should consider updating to. 
 
 A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`. 
+
+#### Deployed packages
+
+The current deployed package struct is seen below. The `DeployPackage` object is persisted to the cluster during `zarf package deploy` as a Kubernetes secret. The Data field is a json representation of the package.
+
+```go
+type DeployedPackage struct {
+	Name               string               `json:"name"`
+	Data               v1alpha1.ZarfPackage `json:"data"`
+	CLIVersion         string               `json:"cliVersion"`
+	Generation         int                  `json:"generation"`
+	DeployedComponents []DeployedComponent  `json:"deployedComponents"`
+	ConnectStrings     ConnectStrings       `json:"connectStrings,omitempty"`
+	NamespaceOverride string                `json:"namespaceOverride,omitempty"`
+}
+```
+
+In the future, when Zarf stores this secret, it will store the version the package was created with as well as all earlier API versions, mimicking the strategy used in built packages. This will enable older versions of Zarf that don't have the latest API version to be able to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a cluster sourced deployed package, they will receive a printed yaml of the API version they built the package with. To track multiple versions, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct. The original Data object, will stay on the object for backwards compatibility, until the v1alpha1 package is no longer supported.
+
+```go
+type DeployedPackage struct {
+	Name               string                     `json:"name"`
+  // Data is kept for backwards compatibility, once support for reading v1alpha1 packages from the cluster is removed, this field will be deleted.
+	Data               v1alpha1.ZarfPackage       `json:"data"`
+  PackageData        map[string]json.RawMessage `json:"packageData"`
+	CLIVersion         string                     `json:"cliVersion"`
+	Generation         int                        `json:"generation"`
+	DeployedComponents []DeployedComponent        `json:"deployedComponents"`
+	ConnectStrings     ConnectStrings             `json:"connectStrings,omitempty"`
+	NamespaceOverride string `json:"namespaceOverride,omitempty"`
+}
+```
 
 ### Conversions
 
@@ -268,7 +301,7 @@ The internal/types package will contain a superset of Zarf fields to enable conv
 
 The internal/types package will not be exposed by the SDK. Instead the convert package will expose functions such as `func V1Alpha1PkgToV1Beta1(in v1alpha1.ZarfPackage) v1beta1.ZarfPackage`. These functions will call on the internal API packages, for instance, `internalv1alpha1.ConvertToGeneric(in v1alpha.ZarfPackage) types.ZarfPackage` and `internalv1beta1.ConvertFromGeneric(in types.ZarfPackage) v1beta1.ZarfPackage`. This will give users a clean interface for SDK users while avoiding exposing the internal types. These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
 
-The public API versioned packages will expose a method on the ZarfPackage object called `Validate()`. These methods will call the internal API versioned packages where the validation logic will live. The validation logic currently in src/pkg/lint/validate.go will be moved to internal/v1alpha1. 
+The public API versioned packages will expose a method on the ZarfPackage object called `Validate()`. These methods will call the internal API versioned packages where the validation logic will live. The validation logic currently in src/pkg/lint/validate.go will be moved to internal/v1alpha1. This structure will be implemented before v1beta1 is released, and added to with each new API version. 
 
 ##### Converting 1:1 Replacements
 If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion
@@ -287,7 +320,7 @@ type ZarfComponent struct {
 	dataInjections []v1alpha1.ZarfDataInjection
   ...
 }
-// DataInjections should only be set when converting from a v1alpha1 package. After v1alpha1 packages is not supported, this functionality wil be removed. 
+// DataInjections should only be set when converting from a v1alpha1 package. After v1alpha1 packages is not supported this will be removed. 
 func (c ZarfComponent) SetDataInjections(di []v1alpha1.ZarfDataInjection)
 func (c ZarfComponent) GetDataInjections() []v1alpha1.ZarfDataInjection
 ```
@@ -309,39 +342,7 @@ Usage:
 
 Zarf publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built-in schema validation for zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also included in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
 
-Zarf will use the if/then/else features of the json schema to conditionally apply a schema based on the `apiVersion`. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. It's useful to have a single schema file, so that user's text editors handle different API versions without file specific annotations. Zarf will still create and utilize individual version schemas. 
-
-### Deployed packages
-
-The current deployed package struct is seen below. The `DeployPackage` object is persisted to the cluster during `zarf package deploy` as a Kubernetes secret. The Data field is a json representation of the package.
-
-```go
-type DeployedPackage struct {
-	Name               string               `json:"name"`
-	Data               v1alpha1.ZarfPackage `json:"data"`
-	CLIVersion         string               `json:"cliVersion"`
-	Generation         int                  `json:"generation"`
-	DeployedComponents []DeployedComponent  `json:"deployedComponents"`
-	ConnectStrings     ConnectStrings       `json:"connectStrings,omitempty"`
-	NamespaceOverride string                `json:"namespaceOverride,omitempty"`
-}
-```
-
-In the future, when Zarf stores this secret, it will store the version the package was created with as well as all earlier API versions, mimicking the strategy used in built packages. This will enable older versions of Zarf that don't have the latest API version to be able to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a cluster sourced deployed package, they will receive a printed yaml of the API version they built the package with. To track multiple versions, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct. The original Data object, will stay on the object for backwards compatibility, until the v1alpha1 package is no longer supported.
-
-```go
-type DeployedPackage struct {
-	Name               string                     `json:"name"`
-  // Data is kept for backwards compatibly, once support for reading v1alpha1 packages from the cluster is removed, this field will be deleted.
-	Data               v1alpha1.ZarfPackage       `json:"data"`
-  PackageData        map[string]json.RawMessage `json:"packageData"`
-	CLIVersion         string                     `json:"cliVersion"`
-	Generation         int                        `json:"generation"`
-	DeployedComponents []DeployedComponent        `json:"deployedComponents"`
-	ConnectStrings     ConnectStrings             `json:"connectStrings,omitempty"`
-	NamespaceOverride string `json:"namespaceOverride,omitempty"`
-}
-```
+Zarf will use the if/then/else features of the json schema to conditionally apply a schema based on the `apiVersion`. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. It's useful to have a single schema file, so that users' text editors handle different API versions without file specific annotations. Zarf will still create and utilize individual version schemas. 
 
 
 ### Test Plan
@@ -429,7 +430,7 @@ proposal:
 
 The Zarf agent will not be impacted as it does not interact with the package config.
 
-The Zarf package definition that is persisted to the cluster will change depending on `.build.apiVersion`. The rest of the data that is persisted to the cluster will remain the same. 
+New packages will be compatible with older versions of Zarf. This is detailed in the [New Package Compatibility](#new-package-compatibility) section. 
 
 ## Implementation History
 
