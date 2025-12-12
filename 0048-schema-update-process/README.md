@@ -160,7 +160,7 @@ A new command `zarf dev upgrade-schema` will be introduced to allow users to con
 
 API versions of the package schema will not necessarily coincide with releases of the Zarf CLI. One caveat is that Zarf will likely not release an official v1.0.0 version until there is a v1 version of the schema, however it could be the case that a v2 package schema is released while the CLI version is still v1.0.0 and vice versa. 
 
-Deprecated fields will not be removed until a future API version. Newer API versions will track fields removed from one API version for lossless conversions, but will not allow creation with removed fields. For instance, Data Injections will be removed in v1beta1. Users will still be able to deploy existing v1alpha1 packages until v1alpha1 support is removed, but they will not be able to create a new v1beta1 package with Data Injections. 
+Once an API version is released, fields will not be removed from it, and there will be no new required fields.
 
 Functions in Zarf will always accept the latest API version. This will result in several breaking changes in the SDK; about 30 public functions accept an object from the v1alpha1 package as of late 2025. Many SDK users should see only small changes to their workflows since common flows involve loading a package through functions such as `load.PackageDefinition()` or `packager.LoadPackage()` rather than defining specific API versions. See [SDK Breaking changes](#sdk-breaking-changes) for more details.
 <!-- ^func (\([^)]+\) )?[A-Z][a-zA-Z0-9_]*\([^)]*\bv1alpha1\. with exclude **/internal/**  to figure out the amount of v1alpha1 uses in public functions -->
@@ -188,7 +188,7 @@ As a package creator, I want to update my package definition to the v1beta1 sche
 
 #### Story 4
 
-As a Zarf maintainer, I want to introduce a new API version so that I can deprecate fields, add new required fields, and rename fields in the current package schema. I want the process to do this to be straightforward.  
+As a Zarf maintainer, I want to introduce a new API version so that I can deprecate fields, add new required fields, and rename fields in the current package schema. I want the process to do this to be straightforward. I want earlier versions of Zarf
 
 ### Risks and Mitigations
 
