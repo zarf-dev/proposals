@@ -2,7 +2,7 @@
 
 ## Summary
 
-This proposal outlines enhancements to the Zarf package signing and verification lifecycle in parity with [Cosign](). This includes the migration from Zarf's legacy signature format (`zarf.yaml.sig`) to the standardized Sigstore bundle format (`zarf.bundle.sig`) as the default signing mechanism. In doing so this creates more provenance around Zarf package provenance while ensuring that default behaviors support airgapped or otherwise security-critical environments.
+This proposal outlines enhancements to the Zarf package signing and verification lifecycle in parity with [Cosign](https://github.com/sigstore/cosign). This includes the migration from Zarf's legacy signature format (`zarf.yaml.sig`) to the standardized Sigstore bundle format (`zarf.bundle.sig`) as the default signing mechanism. In doing so this creates more options around Zarf package provenance while ensuring that default behaviors support airgapped or otherwise security-critical environments.
 
 ## Motivation
 
@@ -13,7 +13,7 @@ Zarf currently supports the legacy signature format via asymmetrical keypairs, w
 3. **Lack of keyless signing support**: Does not support keyless signing/verification
 4. **Lack of portability**: Public key distribution adds an additional artifact for every unique keypair that must be retrieved - zarf does not handle this natively
 
-These gaps create confusion for users deploying Zarf in different environments across many Zarf packages and may lead to security misconfigurations.
+These gaps create confusion for users deploying Zarf in different environments across many Zarf packages and may lead to security misconfigurations, denial of deployment, or otherwise reduced trust in the package delivery process.
 
 ### Goals
 
@@ -39,7 +39,7 @@ The [Sigstore bundle format](https://docs.sigstore.dev/about/bundle/) will becom
 
 > A Sigstore bundle is everything required to verify a signature on an artifact. This is satisfied by the Verification Material _and_ signature Content.
 
-Configuration will be exposed for including a Sigstore [Trusted Root](https://docs.sigstore.dev/about/security/#sigstores-trust-root) or the use of the Public Good Sigstore instance Trusted Root embedded in Zarf to enable verification of signed packages without any additional artifacts.
+Configuration will be exposed for including a Sigstore [Trusted Root](https://docs.sigstore.dev/about/security/#sigstores-trust-root) or the use of the Public Good Sigstore instance Trusted Root embedded in Zarf to enable verification of signed packages without any additional artifacts. The embedded Trusted Root is not meant to be the sole authoritative verification material for Zarf; rather it serves as the default verification material to enable the core signing and verification workflow while allowing for any other Trusted Root to be passed in for verification.
 
 Given a Bundle and a Trusted Root - users will have everything required to perform verification without any connectivity required. 
 
@@ -366,7 +366,20 @@ Online profile creates a dependency on Sigstore infrastructure (Rekor, Fulcio) w
 
 ## Alternatives
 
-### Alternative 1: Connectivity Profiles for configuration
+### Alternative 1: Use Sigstore-go directly for signing/verification
+
+**Description**: Integrate the [sigstore-go](https://github.com/sigstore/sigstore-go) library directly rather than wrapping Cosign CLI. Sigstore-go is a minimal dependency library designed specifically as an API for Sigstore signing and verification, offering programmatic access to bundle creation/verification without Cosign's broader feature set and dependencies.
+
+**Pros**:
+- Minimal API
+- Smaller dependency surface
+
+**Cons**:
+- Overhead of matching parity with Cosign
+
+**Rejection Reason**: Cosign provides intuitive and expected functionality and comprehensive signing/verification support out-of-the-box. Users of Zarf will be more familiar with Cosign over the underlying Sigstore-go library. Use of Cosign will be familiar to those who have been working in the cloud native supply chain ecosystem for artifacts that Zarf packages.
+
+### Alternative 2: Connectivity Profiles for configuration
 
 **Description**: Specify connectivity "profiles" that capture "online" and "offline" defaults for cosign option configurations such that all cosign flags are not exposed to end-users. 
 
@@ -380,7 +393,7 @@ Online profile creates a dependency on Sigstore infrastructure (Rekor, Fulcio) w
 
 **Rejection Reason**: Profiles create some confusion over the permutations of execution scenarios versus parity with Cosign configuration. Additionally Profiles can be implemented outside of the proposal if deemed necessary. 
 
-### Alternative 2: Always Use Online Mode
+### Alternative 3: Always Use Online Mode
 
 **Description**: Default to online verification with transparency log, make offline mode opt-in.
 
