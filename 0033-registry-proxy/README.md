@@ -228,7 +228,7 @@ It is not valid to assume a multi-node cluster has a pod running on each node so
 
 The long lived injector means that the payload configmaps will no longer be deleted from the cluster during `zarf init --registry-proxy`. This amounts to about an additional 32mb of configmaps stored in the cluster permanently.
 
-In order to allow the Zarf CLI to connect to the internal registry over mTLS Zarf will configure any https requests to the registry to use the CA and client certificates in the secret `zarf-registry-client-tls`. This secret will also be automatically be copied to every namespace that Zarf deploys into, similar to how image pull secrets are added to each namespace. This secret will be added to Flux OCI and Helm repository objects so they can connect to the Zarf registry. 
+In order to allow the Zarf CLI to connect to the internal registry over mTLS Zarf will configure any https requests to the registry to use the CA and client certificates in the secret `zarf-registry-client-tls`. This secret will be automatically copied to every namespace that Zarf deploys into, in the same way that Zarf propagates the registry image pull secrets. The agent will add this secret to Flux OCI and Helm repository objects so they can connect to the Zarf registry over mTLS. 
 
 The RegistryInfo object will receive a new field, `MTLSStrategy MTLSStrategy`, where MTLSStrategy is an enum with potential values "none" and "zarf-managed". In the future Zarf may add a "user-managed" strategy which will allow users to submit flags to `zarf init` to enable mTLS with their own certificates. 
 
