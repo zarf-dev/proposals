@@ -96,6 +96,7 @@ The motivation for this centers around the long-lived desire to have Zarf Variab
 - Design a replacement for Zarf Variables for members of the community familiar with Helm
 - Provide more flexibility for what values can be and how they can be used
 - Integrate this new design to work across the features where Zarf Variables work today
+- Provide a scalable structure to move users away from package configuration data in the viper configuration file
 
 ### Non-Goals
 
@@ -104,7 +105,9 @@ The motivation for this centers around the long-lived desire to have Zarf Variab
 
 ## Proposal
 
-The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts with a new optional `values` field under `charts`. This `values` field accepts a list of objects, each with a required `sourcePath` and `targetPath`. These fields use dot-notation (always starting with .) to map package-level values from the `sourcePath` to the chart value key specified by `targetPath`. A single `.` is a valid path for both fields and represents the root of the values.
+The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts, Manifests, Files, and Actions with a new optional `values` field. This `values` field accepts a list of objects, each with a required `sourcePath` and `targetPath`. These fields use dot-notation (always starting with .) to map package-level values from the `sourcePath` to the value key specified by `targetPath`. A single `.` is a valid path for both fields and represents the root of the values.
+
+Explicit definition for package values mapping to each supported component type allows for observable control over each component and reduces the risk for implicit override collisions between components. Additionally this structure supports import behaviors whereby the target import package component can import the package values and schema and sustainably support merging with namespaced values and nested schema entries.
 
 The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today. Zarf `files` and `manifests` would optionally allow Go templating to be able to take advantage of values as well.
 
@@ -172,7 +175,10 @@ components:
     actions:
       onDeploy:
         before:
-          - cmd: "echo \"{{ .Values.my-component.resources.limits.memory }}\""
+          - cmd: "echo \"{{ .my-component.resources.limits.memory }}\""
+      values:
+        - sourcePath: .my-component.resources
+          targetPath: .resources
 ```
 **And** it was created with the following `values-defaults.yaml` file:
 ```yaml
@@ -255,10 +261,16 @@ components:
         files:
           - my-deployment.yaml
         template: true
+        values:
+          - sourcePath: .my-component.resources
+            targetPath: .resources
     files:
       - source: my-deployment.yaml
         target: my-out-deployment.yaml
         template: true
+        values:
+          - sourcePath: .my-component.resources
+            targetPath: .resources
 ```
 ```yaml
 # my-deployment.yaml
@@ -272,7 +284,7 @@ spec:
       containers:
         - name: my-container
           resources:
-            {{ .Values.my-component.resources | toYaml }}
+            {{ .resources | toYaml }}
 ```
 **And** it was created with the following `values-defaults.yaml` file:
 ```yaml
@@ -294,9 +306,9 @@ other-component:
 
 ### Risks and Mitigations
 
-This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for now.  Because of this, the feature will need to be clearly disambiguated from Variables/Constants/Templates in documentation and, while this feature should not introduce many breaking changes being implemented alongside the existing featureset, the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping to assist with disambiguation.  If the feature gains traction and is accepted by the community, a deprecation plan for the original Zarf Variables/Constants/Templates should be created.  Likely this plan would not break `charts.variables` in existing packages and would simply prevent furutre packages from using this feature.
+This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for now.  Because of this, the feature will need to be clearly disambiguated from Variables/Constants/Templates in documentation and, while this feature should not introduce many breaking changes being implemented alongside the existing featureset, the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping to assist with disambiguation.  If the feature gains traction and is accepted by the community, a deprecation plan for the original Zarf Variables/Constants/Templates should be created.  Likely this plan would not break `charts.variables` in existing packages and would simply prevent future packages from using this feature.
 
-The schema should validate during package create that `.components[x].charts[x].values[x].sourcePath/targetPath` begin with a `.` to avoid user error. 
+The schema should validate during package create that `.components[x].charts|files|manifests|actions[x].values[x].sourcePath/targetPath` begin with a `.` to avoid user error. 
 
 This feature also could open up Zarf packages to being less declarative - especially if a package author opens up security-critical Helm values in their charts.  This caveat should be clearly documented as a concern which should also recommend a policy engine be used to enforce security-critical values within the cluster itself.
 
@@ -308,9 +320,9 @@ Zarf `files` and `manifests` may already contain Go templates that we would not 
 
 ## Design Details
 
-The new `values.files` field would be added to the `ZarfPackageConfig` schema and would accept a list of local values files or URLs, matching the existing functionality of the `valuesFiles` key under `charts`.  This key would also follow the same composability logic as the `valuesFiles` key with additional parent values files merging with and overriding any common keys from children imports.  Since this is a global field, values would be merged regardless of component, similar to how variables work today.  The `values.schema` field would simply replace the child version if it were non-empty in the parent, similar to the `namespace` or `releaseName` fields in `charts` today.
+The new `values.files` field would be added to the `ZarfPackageConfig` schema and would accept a list of local values files or URLs, matching the existing functionality of the `valuesFiles` key under `charts`. Given the relationship between Package Values and Component Imports, composability will occur by namespacing the child package values during merge with the parent. This allows for more explicit behaviors on import to prevent collisions from the child values to impact all values of that of the parents. This follows a similar model to Helm and the sub-chart key in values files. Package value schema files will be nested by the same namespace key to prevent complex schema handling and unintentional behaviors. 
 
-Each of the referenced `values.files` would be included inside the created Zarf package and stored inside of the tarball or at an OCI path so that they would travel with the package and be available to the user on deploy.  On deploy, the values (from the defaults in the `ZarfPackageConfig` and the user set values files) would be merged with set values overriding the defaults.  The resulting values would be passed to the Helm chart via the `values` field under a given `charts` entry and any actions which contained a go template (i.e. `{{ .Values.component.resources | toYaml }}`) would be templated prior to execution. This templating would work in all fields within an action definition including `cmd` and `wait` actions.
+Each of the referenced `values.files` will be merged inside the created Zarf package and stored inside of the tarball or at an OCI path so that they would travel with the package and be available to the user on deploy.  On deploy, the values (from the defaults in the `ZarfPackageConfig` and the user set values files) would be merged with set values overriding the defaults.  The resulting values would be passed to the Helm charts, manifests, files, and actions via the `values` field entry and any actions which contained a go template (i.e. `{{ .Values.component.resources | toYaml }}`) would be templated prior to execution. This templating would work in all fields within an action definition including `cmd` and `wait` actions.
 
 This feature would also implement a `setValues` field for actions that would act as a replacement for the existing `setVariables` field.  This field would take a values path and would set that path to the output of the command.  This field would also have `type` defined on it, though instead of `file`, it would take `string`, `json`, or `yaml` and then handle the standard output of the command according to that format.
 
