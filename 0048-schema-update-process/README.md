@@ -273,36 +273,36 @@ Zarf will need to handle two use cases for conversions. The first is library con
 
 #### Type API changes
 
-The [api](https://github.com/zarf-dev/zarf/tree/main/src/api) package will be structured as below:
+The api packages will be structured as below:
 
 ```bash
 # TBD to decide if we need the internal type for conversions. All the fields will be on the newer type, but it may depend on if we need to support multiple types at once since that is the only time the internal type is useful. Since the internal type is never exposed this will not be a breaking change.
 ├── internal
-│   └── types
-│     └── package.go
-│   └── v1alpha1
-│     └── convert.go
-│     └── validate.go   
-│   └── v1beta1
-│     └── convert.go
-│     └── validate.go   
-├── v1alpha1
-│   ├── convert.go
-│   ├── package.go
-│   ├── ...
-├── v1beta1
-│   ├── convert.go
-│   ├── package.go
-│   ├── ...
-├── convert
-│   ├── convert.go
+│   └──api
+│     └── types
+│       └── package.go
+│     └── v1alpha1
+│       └── convert.go
+│       └── validate.go   
+│     └── v1beta1
+│       └── convert.go
+│       └── validate.go   
+├── api
+│   └──v1alpha1
+│     ├── package.go
+│     ├── ...
+│   └──v1beta1
+│     ├── package.go
+│     ├── ...
+│   └──convert
+│     ├── convert.go
 ```
 
 The internal/types package will contain a superset of Zarf fields to enable conversions between API versions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the generic Zarf package type then convert the generic Zarf package type to v1beta1. This means Zarf only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
 
-The internal/types package will not be exposed by the SDK. Instead the convert package will expose functions such as `func V1Alpha1PkgToV1Beta1(in v1alpha1.ZarfPackage) v1beta1.ZarfPackage`. These functions will call the internal API packages, `internalv1alpha1.ConvertToGeneric(in v1alpha.ZarfPackage) types.ZarfPackage` and `internalv1beta1.ConvertFromGeneric(in types.ZarfPackage) v1beta1.ZarfPackage`. This will give users a clean interface for SDK users while avoiding exposing the internal types. These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
+The internal/types package will not be exposed by the SDK. Instead the convert package will expose functions such as `func V1Alpha1PkgToV1Beta1(in v1alpha1.ZarfPackage) v1beta1.ZarfPackage`. These functions will call the internal API packages, `internalv1alpha1.ConvertToGeneric(in v1alpha.ZarfPackage) types.ZarfPackage` and `internalv1beta1.ConvertFromGeneric(in types.ZarfPackage) v1beta1.ZarfPackage`. This will give users a clean interface for SDK users while avoiding exposing the internal types. This strategy will also keep the src/api/<version> packages focused solely on data rather than including validation or conversion logic. These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
 
-The public API versioned packages will expose a method on the ZarfPackage object called `Validate()`. These methods will call the internal API versioned packages where the validation logic will live. The validation logic currently in src/pkg/lint/validate.go will be moved to internal/v1alpha1. This structure will be implemented before v1beta1 is released, and added to with each new API version. 
+Zarf will not expose a public method such as v1alpha1.Validate() as this is a subset of the package validation required, and contains only specific logic not covered by the schema. This validation logic, currently in src/pkg/lint/validate.go, will be moved to internal/v1alpha1. This structure will be implemented before v1beta1 is released, and added to with each new API version. SDK consumers will be able to validate their package definitions using the load package 
 
 ##### Converting 1:1 Replacements
 If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion
