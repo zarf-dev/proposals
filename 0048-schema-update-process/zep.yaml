@@ -4,7 +4,7 @@ title: Schema update process
 zep-number: 48
 authors:
   - "@austinabro321"
-status: provisional
+status: implementable
 creation-date: 10-16-2025
 reviewers:
   - "@zarf-dev"
