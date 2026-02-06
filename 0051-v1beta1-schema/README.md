@@ -180,6 +180,12 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration).
 
+### Component Imports
+
+There will be a new Kind called ZarfComponentConfig to allow declaring a single component to be imported from other packages. It will have it's own schema, and this schema will be verified on create and publish. ZarfComponentConfigs would be introduced alongside the v1beta1 schema, and will be importable only from v1beta1 packages. Components from ZarfPackageConfigs will not be importable from v1beta1 packages. 
+
+ZarfComponentConfigs will be able to define their own values and valuesSchema. The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will error. ZarfComponentConfig files will have no default name as zarf.yaml files do. This will encourage users to give their files descriptive names and help encourage a flatter directory structure as users will not default to having a new folder for each component. The top level `.component` field will be a list to allow for the same component to be defined with different flavors, OSs or architectures. If a user tries to define more than one component without specifying the `.only` key, or if the only key is the same flavor for two components, then they will receive an error.
+
 ### Package Templates
 
 The Zarf v1alpha1 schema allows for package templates during create using the ###ZARF_PKG_TMPL_*### format. This functionality will be removed in the v1beta1 schema. To replace this functionality, a new command `zarf package template` will be introduced. This command will take in a zarf.tpl.yaml file, and will output a zarf.gen.yaml file based on the go templating result. The command will accept a flag `--set` to set templates and a flag `--set-file` which will accept a file with defined go templates.
