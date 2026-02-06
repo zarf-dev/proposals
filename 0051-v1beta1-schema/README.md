@@ -146,7 +146,9 @@ Zarf will determine the schema of the package definition using the existing opti
 
 The v1beta1 schema will remove, replace, and rename several fields. View this [zarf.yaml](zarf.yaml) to see a package definition with reasonable values for each key. 
 
-### Removed Fields
+### Schema changes
+
+#### Removed Fields
 
 If a package has these fields defined then `zarf dev upgrade-schema` will error with and print a recommendation for an alternative.
 
@@ -155,7 +157,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].charts.[x].variables` will be removed. Its successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev upgrade-schema`.
 - `.component.[x].default` will be removed. It set the default option for groups and (y/n) interactive prompts for optional components. Groups are removed, and we've generally seen the user base shift away from optional components. 
 
-### Replaced / Restructured Fields
+#### Replaced / Restructured Fields
 
 `zarf dev upgrade-schema` will automatically migrate these fields.
 
@@ -167,7 +169,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.After.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
 - `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
 
-### Renamed Fields
+#### Renamed Fields
 
 `zarf dev upgrade-schema` will automatically migrate these fields.
 
@@ -177,6 +179,20 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `.components.[x].charts`.
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration).
+
+### Package Templates
+
+The Zarf v1alpha1 schema allows for package templates during create using the ###ZARF_PKG_TMPL_*### format. This functionality will be removed in the v1beta1 schema. To replace this functionality, a new command `zarf package template` will be introduced. This command will take in a zarf.tpl.yaml file, and will output a zarf.gen.yaml file based on the go templating result. The command will accept a flag `--set` to set templates and a flag `--set-file` which will accept a file with defined go templates.
+
+Remote components will be introduced as the spiritual successor to skeleton packages within v1beta1. If a remote component includes templates, users will be required to run `zarf package template` then run `zarf package publish`. There will be no templating during create. This differs from Skeleton packages today which are published before templating, and templated on create.  
+
+The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml` then fallback to a `zarf.gen.yaml`.  
+
+`zarf package template` would follow component imports, so running `zarf package template` on a package that has a `.import.path` pointing to a directory containing a `zarf.tpl.yaml` will template the file. Since zarf.yaml files can have custom names if `import.path` points to a file called `<name>.yaml.gen`, then `zarf package template` will look for a file called `<name>.tpl.yaml`. Each file will be templated separately, so if a user creates import paths using package templating, their import paths will be searched for `zarf.tpl.yaml` files with the above logic.
+
+Package templates will be required to have a value, otherwise the command will fail. 
+
+The deliminator for go templates during `zarf package template` will be `[[ ]]`. This will separate package templates from the standard go template deliminator `{{ }}` which are used during on deploy actions.
 
 ### User Stories (Optional)
 
