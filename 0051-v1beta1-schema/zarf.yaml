@@ -6,7 +6,6 @@ metadata:
   version: v1.0.0
   uncompressed: false
   architecture: amd64
-  airgap: true # changed from yolo
   annotations: # All of these are v0 fields that will be deprecated in favor of a choose your own adventure label map
     authors: cool-kidz
     documentation: https://my-package-documentation.com
@@ -134,7 +133,6 @@ components:
         description: action-description
         wait:
           cluster: # Only one of cluster / network can be used
-            apiVersion: v1
             kind: pod
             name: my-pod
             namespace: pod-ns
@@ -166,7 +164,6 @@ components:
         description: action-description
         wait:
           cluster: # Only one of cluster / network can be used
-            apiVersion: v1
             kind: pod
             name: my-pod
             namespace: pod-ns
@@ -198,7 +195,6 @@ components:
         description: action-description
         wait:
           cluster: # Only one of cluster / network can be used
-            apiVersion: v1
             kind: pod
             name: my-pod
             namespace: pod-ns
@@ -242,7 +238,6 @@ components:
         description: action-description
         wait:
           cluster: # Only one of cluster / network can be used
-            apiVersion: v1
             kind: pod
             name: my-pod
             namespace: pod-ns
@@ -274,7 +269,6 @@ components:
         description: action-description
         wait:
           cluster: # Only one of cluster / network can be used
-            apiVersion: v1
             kind: pod
             name: my-pod
             namespace: pod-ns
@@ -306,7 +300,6 @@ components:
         description: action-description
         wait:
           cluster: # Only one of cluster / network can be used
-            apiVersion: v1
             kind: pod
             name: my-pod
             namespace: pod-ns
@@ -350,7 +343,6 @@ components:
         description: action-description
         wait:
           cluster: # Only one of cluster / network can be used
-            apiVersion: v1
             kind: pod
             name: my-pod
             namespace: pod-ns
@@ -382,7 +374,6 @@ components:
         description: action-description
         wait:
           cluster: # Only one of cluster / network can be used
-            apiVersion: v1
             kind: pod
             name: my-pod
             namespace: pod-ns
@@ -414,7 +405,6 @@ components:
         description: action-description
         wait:
           cluster: # Only one of cluster / network can be used
-            apiVersion: v1
             kind: pod
             name: my-pod
             namespace: pod-ns

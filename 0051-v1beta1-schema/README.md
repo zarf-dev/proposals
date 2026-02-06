@@ -156,6 +156,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].dataInjections` will be removed. There will be a guide in Zarf's documentation for alternatives. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
 - `.components.[x].charts.[x].variables` will be removed. Its successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev upgrade-schema`.
 - `.component.[x].default` will be removed. It set the default option for groups and (y/n) interactive prompts for optional components. Groups are removed, and we've generally seen the user base shift away from optional components. 
+- `.metadata.yolo` will be removed. Its successor will be connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580)
 
 #### Replaced / Restructured Fields
 
@@ -165,7 +166,6 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
-- `.components[x].actions.[onAny].wait.cluster` will receive a new required sub field, `.apiVersion`. During conversion, `.apiVersion` will be added to the object but kept empty. Users will be warned that they must fill this field out, otherwise create will error. 
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.After.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
 - `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
 
@@ -174,11 +174,15 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 `zarf dev upgrade-schema` will automatically migrate these fields.
 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`.
-- `.metadata.yolo` will be renamed to `.metadata.airgap`. `airgap` will default to true.
 - `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. Since `required` currently defaults to false, components will now default to being required.
 - `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `.components.[x].charts`.
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration).
+
+
+### Behavior Changes
+
+There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. Currently when `.cluster.condition` is empty Zarf will wait until the resource exists. In the v1beta1 schema, Zarf will wait for the resource to be ready using kstatus readiness checks. 
 
 ### Component Imports
 
@@ -310,62 +314,6 @@ components:
         releaseName: cool-release-name
         valuesFiles:
           - values.yaml
-```
-
-#### Story 2
-
-As a user of health checks in my package, I have the following `zarf.yaml` in v1alpha1:
-
-```yaml
-kind: ZarfPackageConfig
-metadata:
-  name: health-checks
-  description: Deploys a simple pod to test health checks
-
-components:
-  - name: health-checks
-    required: true
-    manifests:
-      - name: ready-pod
-        namespace: health-checks
-        noWait: true
-        files:
-          - ready-pod.yaml
-    healthChecks:
-      - name: ready-pod
-        namespace: health-checks
-        apiVersion: v1
-        kind: Pod
-```
-
-I want to move to the latest schema, so I run `zarf dev upgrade-schema`, which produces:
-
-```yaml
-apiVersion: v1beta1
-kind: ZarfPackageConfig
-metadata:
-  name: health-checks
-  description: Deploys a simple pod to test health checks
-
-components:
-  - name: health-checks
-    optional: false  # Changed from `required: true`
-    manifests:
-      - name: ready-pod
-        namespace: health-checks
-        wait: false  # Changed from `noWait: true`
-        files:
-          - ready-pod.yaml
-    actions:
-      onDeploy:
-        after:
-          - wait:
-              cluster:
-                kind: Pod
-                name: ready-pod
-                namespace: health-checks
-                apiVersion: v1
-                # condition is empty, so Kstatus will be used for readiness check
 ```
 
 #### Story 3
@@ -586,12 +534,6 @@ type OCISource struct {
 	Version string `json:"version"`
 }
 ```
-
-#### Zarf Tools wait-for Changes
-
-`zarf tools wait-for` is the underlying engine to `.wait.cluster`. Currently, `zarf tools wait-for` shells out to `zarf tools kubectl wait`. In the future, `wait-for` will optionally accept an API version alongside the resource kind. If API version is set and condition is empty, then kstatus will be used as `wait-for`'s engine. 
-
-v1alpha1 packages do not have `.apiVersion` as a sub field under `.wait.cluster`, so they will always use the existing engine, avoiding breaking changes. v1beta1 packages will require that `apiVersion` is set.
 
 ### Test Plan
 
