@@ -202,13 +202,13 @@ If a remote component includes templates, users will be required to run `zarf pa
 
 The Zarf v1alpha1 schema allows for package templates during create using the ###ZARF_PKG_TMPL_*### format. This functionality will be removed in the v1beta1 schema. To replace this functionality, a new command `zarf package template` will be introduced. This command will take in a zarf.tpl.yaml file, and will output a zarf.gen.yaml file based on the go templating result. The command will accept a flag `--set` to set templates and a flag `--set-file` which will accept a file with defined go templates.
 
-The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml` then fallback to a `zarf.gen.yaml`.  
+The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml`, then fall back to a `zarf.gen.yaml`.  
 
-`zarf package template` would follow component imports, so running `zarf package template` on a package that has a `.import.path` pointing to a directory containing a `zarf.tpl.yaml` will template the file. Since zarf.yaml files can have custom names if `import.path` points to a file called `<name>.yaml.gen`, then `zarf package template` will look for a file called `<name>.tpl.yaml`. Each file will be templated separately, so if a user creates import paths using package templating, their import paths will be searched for `zarf.tpl.yaml` files with the above logic.
+`zarf package template` will follow component imports, so running `zarf package template` on a package that has a `.import.path` pointing to a directory containing a `zarf.tpl.yaml` will template the file. Since zarf.yaml files can have custom names, if `import.path` points to a file called `<name>.gen.yaml`, then `zarf package template` will look for a file called `<name>.tpl.yaml`. Each file will be templated separately, so if a user creates import paths using package templating, their import paths will be searched for `zarf.tpl.yaml` files with the above logic.
 
-Package templates will be required to have a value, otherwise the command will fail. 
+Package templates will be required to have a value; otherwise the command will fail. 
 
-The deliminator for go templates during `zarf package template` will be `[[ ]]`. This will separate package templates from the standard go template deliminator `{{ }}` which are used during on deploy actions.
+The delimiter for Go templates during `zarf package template` will be `[[ ]]`. This will separate package templates from the standard gG template delimiter `{{ }}` which are used during on-deploy actions.
 
 ### User Stories (Optional)
 
