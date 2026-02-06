@@ -368,6 +368,74 @@ components:
                 # condition is empty, so Kstatus will be used for readiness check
 ```
 
+#### Story 3
+
+As a package creator, I have a logging component that I maintain locally and want to use a monitoring component published by my team to an OCI registry. I combine both into a single v1beta1 package.
+
+First, I define my local logging component in `logging.yaml`:
+
+```yaml
+apiVersion: v1beta1
+kind: ZarfComponentConfig
+components:
+  - name: logging
+    charts:
+      - name: loki
+        namespace: logging
+        local:
+          path: loki-chart
+        valuesFiles:
+          - loki-values.yaml
+```
+
+My teammate has published a monitoring component to our registry. Its source file, `monitoring.yaml`, looked like this before publishing:
+
+```yaml
+apiVersion: v1beta1
+kind: ZarfComponentConfig
+components:
+  - name: monitoring
+    charts:
+      - name: kube-prometheus-stack
+        namespace: monitoring
+        helmRepo:
+          url: https://prometheus-community.github.io/helm-charts
+          name: kube-prometheus-stack
+          version: 60.0.0
+        valuesFiles:
+          - prometheus-values.yaml
+```
+
+They published it with:
+
+```bash
+zarf package publish component monitoring.yaml oci://ghcr.io/my-org/components
+```
+
+Now I create a v1beta1 package that imports both components -- the local one by file path and the remote one by URL:
+
+```yaml
+apiVersion: v1beta1
+kind: ZarfPackageConfig
+metadata:
+  name: observability
+  description: Combines logging and monitoring into a single package
+
+components:
+  - name: logging
+    import:
+      path: logging.yaml
+  - name: monitoring
+    import:
+      url: oci://ghcr.io/my-org/components/monitoring
+```
+
+I can then create my package as usual:
+
+```bash
+zarf package create
+```
+
 ### Risks and Mitigations
 
 <!--
