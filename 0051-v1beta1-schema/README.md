@@ -377,9 +377,10 @@ First, I define my local logging component in `logging.yaml`:
 ```yaml
 apiVersion: v1beta1
 kind: ZarfComponentConfig
+metadata:
+  name: logging
 components:
-  - name: logging
-    charts:
+  - charts:
       - name: loki
         namespace: logging
         local:
@@ -393,9 +394,11 @@ My teammate has published a monitoring component to our registry. Its source fil
 ```yaml
 apiVersion: v1beta1
 kind: ZarfComponentConfig
+metadata:
+  name: monitoring
+  version: 1.0.0
 components:
-  - name: monitoring
-    charts:
+  - charts:
       - name: kube-prometheus-stack
         namespace: monitoring
         helmRepo:
@@ -427,10 +430,66 @@ components:
       path: logging.yaml
   - name: monitoring
     import:
-      url: oci://ghcr.io/my-org/components/monitoring
+      url: oci://ghcr.io/my-org/components/monitoring:1.0.0
 ```
 
 I can then create my package as usual:
+
+```bash
+zarf package create
+```
+
+#### Story 4
+
+As a package creator, I want to template image references and metadata into my package at build time. I write a `zarf.tpl.yaml` that uses Go templates with the `[[ ]]` delimiter:
+
+```yaml
+apiVersion: v1beta1
+kind: ZarfPackageConfig
+metadata:
+  name: my-app
+  description: "my-app [[ .ENVIRONMENT ]]"
+
+components:
+  - name: my-app
+    charts:
+      - name: my-app
+        namespace: my-app
+        oci:
+          url: oci://ghcr.io/my-org/charts/my-app
+          version: 1.0.0
+    images:
+      - [[ .MY_IMAGE ]]
+```
+
+I generate a `zarf.gen.yaml` for a specific release:
+
+```bash
+zarf package template --set ENVIRONMENT=upstream --set ghcr.io/my-org/my-image:0.0.1
+```
+
+This produces `zarf.gen.yaml`:
+
+```yaml
+apiVersion: v1beta1
+kind: ZarfPackageConfig
+metadata:
+  name: my-app
+  description: "my-app upstream"
+
+components:
+  - name: my-app
+    charts:
+      - name: my-app
+        namespace: my-app
+        oci:
+          url: oci://ghcr.io/my-org/charts/my-app
+          version: 1.0.0
+    images:
+      - ghcr.io/my-org/my-app:v2.4.1
+```
+
+I can then create my package from the generated file:
 
 ```bash
 zarf package create
