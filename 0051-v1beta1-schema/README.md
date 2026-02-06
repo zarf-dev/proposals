@@ -182,21 +182,21 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 ### Component Imports
 
-There will be a new Kind called ZarfComponentConfig to allow declaring a single component to be imported from other packages. It will have it's own schema, and this schema will be verified on create and publish. ZarfComponentConfigs would be introduced alongside the v1beta1 schema, and will be importable only from v1beta1 packages. Components from ZarfPackageConfigs will not be importable from v1beta1 packages. 
+There will be a new Kind called ZarfComponentConfig to allow declaring a single component to be imported from other packages. It will have its own schema, and this schema will be verified on create and publish. ZarfComponentConfigs will be introduced alongside the v1beta1 schema, and will be importable only from v1beta1 packages. Components from ZarfPackageConfigs will not be importable from v1beta1 packages. 
 
 ZarfComponentConfigs will be able to define their own values and valuesSchema. The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will error. ZarfComponentConfig files will have no default name as zarf.yaml files do. This will encourage users to give their files descriptive names and help encourage a flatter directory structure as users will not default to having a new folder for each component. The top level `.component` field will be a list to allow for the same component to be defined with different flavors, OSs or architectures. If a user tries to define more than one component without specifying the `.only` key, or if the only key is the same flavor for two components, then they will receive an error.
 
-The `.import.path` field will not accept directories, users will give the filepath to the ZarfComponentConfig file they'd like to import.
+The `.import.path` field will not accept directories; users will give the filepath to the ZarfComponentConfig file they'd like to import.
 
-The `zarf dev` commands that accepts a directory containing a `zarf.yaml`, lint, inspect, and find-images, will accept component config files. For instance, `zarf dev inspect definition my-component-config.yaml`.
+The `zarf dev` commands that accept a directory containing a `zarf.yaml`, lint, inspect, and find-images, will accept component config files. For instance, `zarf dev inspect definition my-component-config.yaml`.
 
 #### Remote Components
 
-Skeleton packages will be replaced by remote components. Instead of publishing an entire package, users will be able to publish a ZarfComponentConfig. This component will behave similarly to skeleton packages in that local resources will be published alongside it, while remote resources will be pulled at create time.
+Skeleton packages will be replaced by remote components. Instead of publishing an entire package, users will be able to publish a ZarfComponentConfig. This component will behave similarly to Skeleton packages in that local resources will be published alongside it, while remote resources will be pulled at create time.
 
-Remote components will be published using a new sub-command `zarf package publish component <component-file>`. This command will have the flag `--flavor` and `--all-variants`. When `--all-variants` is passed all components will be published regardless of their `.only` block. 
+Remote components will be published using a new sub-command `zarf package publish component <component-file>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all components will be published regardless of their `.only` block. 
 
-If a remote component includes templates, users will be required to run `zarf package template` then run `zarf package publish`. There will be no templating during create. This differs from Skeleton packages today which are published before templating. See [Package Templates](#package-templates) for more details.
+If a remote component includes templates, users will be required to run `zarf package template` and then run `zarf package publish`. There will be no templating during create. This differs from Skeleton packages which are published before templating. See [Package Templates](#package-templates) for more details.
 
 ### Package Templates
 
