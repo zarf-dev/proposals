@@ -190,7 +190,7 @@ There will be a new Kind called ZarfComponentConfig to allow declaring a single 
 
 ZarfComponentConfigs will be able to define their own values and valuesSchema. The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will error. ZarfComponentConfig files will have no default name as zarf.yaml files do. This will encourage users to give their files descriptive names and help encourage a flatter directory structure as users will not default to having a new folder for each component. The top level `.component` field will be a list to allow for the same component to be defined with different flavors, OSs or architectures. If a user tries to define more than one component without specifying the `.only` key, or if the only key is the same flavor for two components, then they will receive an error.
 
-The `.import.path` field will not accept directories; users will give the filepath to the ZarfComponentConfig file they'd like to import.
+The `.import.path` field will not accept directories; users will give the filepath to the ZarfComponentConfig file they are importing.
 
 The `zarf dev` commands that accept a directory containing a `zarf.yaml`, lint, inspect, and find-images, will accept component config files. For instance, `zarf dev inspect definition my-component-config.yaml`.
 
