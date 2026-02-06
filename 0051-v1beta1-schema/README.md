@@ -182,7 +182,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 ### Behavior Changes
 
-There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. Currently when `.cluster.condition` is empty Zarf will wait until the resource exists. In the v1beta1 schema, Zarf will wait for the resource to be ready using kstatus readiness checks. 
+There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig when `.cluster.condition` is empty Zarf will wait until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty Zarf will wait for the resource to be ready using kstatus readiness checks. 
 
 ### Component Imports
 
