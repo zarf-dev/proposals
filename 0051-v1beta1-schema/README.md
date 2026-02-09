@@ -157,6 +157,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].charts.[x].variables` will be removed. Its successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev upgrade-schema`.
 - `.component.[x].default` will be removed. It set the default option for groups and (y/n) interactive prompts for optional components. Groups are removed, and we've generally seen the user base shift away from optional components. 
 - `.metadata.yolo` will be removed. Its successor will be connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580)
+- `.components.[x].import.name` will be removed given that component imports will be changed. See [ZarfComponentConfig](#zarfcomponentconfig)
 
 #### Replaced / Restructured Fields
 

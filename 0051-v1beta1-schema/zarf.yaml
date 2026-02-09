@@ -48,7 +48,6 @@ components:
       - ubuntu
     flavor: a-flavor # this will only be used when there are multiple components
   import:
-    name: other-component-name
     path: ABCD # Only path or URL will be used, not both
     url: oci://
   manifests:
