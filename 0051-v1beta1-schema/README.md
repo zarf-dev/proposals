@@ -189,7 +189,7 @@ There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`
 
 The v1beta1 APIVersion will introduce a new `Kind` alongside ZarfPackageConfig called ZarfComponentConfig. ZarfComponentConfig files will allow declaring a component to be imported from other packages. It will have its own schema, and this schema will be verified on create and publish. ZarfComponentConfigs will be importable only from v1beta1 packages. Components from other ZarfPackageConfigs will not be importable in v1beta1 packages.
 
-A ZarfComponentConfig must define exactly one of `component` or `variants`. The `component` field is a single object representing a component that applies in all contexts. The `variants` field is a list of components where each entry must specify the `.only` key to define when that variant applies (e.g. different flavors, OSs, or architectures). If the `.only` key has the same value for two variants, the user will receive an error. Setting both `component` and `variants` will produce a schema error.
+A ZarfComponentConfig must define exactly one of `component` or `variants`. The `component` field is a single object representing a component that is always importable. The `variants` field is a list of components where each entry must specify the `.only` key to define when that variant applies (e.g. flavors, OSs, or architectures). If the `.only` key has the same value for two variants, the user will receive an error. View the schema of this object in [design details](#zarf-component-config-schema)
 
 The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and help encourage a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
 
@@ -201,17 +201,17 @@ The `zarf dev` commands that accept a directory containing a `zarf.yaml`, lint, 
 
 Skeleton packages will be replaced by remote components. Instead of publishing an entire package, users will be able to publish a ZarfComponentConfig. This component will behave similarly to Skeleton packages in that local resources will be published alongside it, while remote resources will be pulled at create time.
 
-Remote components will be published using a new sub-command `zarf package publish component <component-file>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.only` block.
+Remote components will be published using a new sub-command `zarf package publish component <component-file>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.only` block. If the `.component` block is specified instead, `--all-variants` will have no affect when true, but will not error. 
 
 Unlike Skeleton packages, which are published with unresolved templates, remote components must be fully templated before publishing. See [Package Templates](#package-templates) for more detail.
 
 ### Package Templates
 
-The Zarf v1alpha1 schema allows for package templates during create using the ###ZARF_PKG_TMPL_*### format. This functionality will be removed in the v1beta1 schema. To replace this functionality, a new command `zarf dev template` will be introduced. This command will take in a zarf.tpl.yaml file, and will output a zarf.gen.yaml file based on the go templating result. The command will accept a flag `--set` to set templates and a flag `--set-file` which will accept a values file to define templates.
+The Zarf v1alpha1 schema allows for package templates during create using the ###ZARF_PKG_TMPL_*### format. This format will be replaced in the v1beta1 schema with go templating. Additionally, instead of templating on create, a new command `zarf dev template` will be introduced. This command will take in a zarf.tpl.yaml file, and will output a zarf.gen.yaml file based on the go templating result. The command will accept a flag `--set` to set templates and a flag `--set-file` which will accept a values style file to define templates.
 
 The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml`, then fall back to a `zarf.gen.yaml`.  
 
-`zarf dev template` will have logic to follow local component imports. If the `.import.path` points to a file called `<base>.tpl.yaml` Zarf will template the file and edit the value of `import.path` to be `<base>.gen.yaml`. Users that prefer to template in separate steps may set their import path to `<base>.gen.yaml`. Zarf will template imports after the current file is finished templating, so a user will be able to template the value of `.import.path` into a `.tpl.yaml` file and Zarf will template the given file.
+`zarf dev template` will have logic to follow local component imports. If the `.import.path` points to a file called `<base>.tpl.yaml` Zarf will template the file and edit the value of `import.path` to be `<base>.gen.yaml`. Users that prefer to template in separate steps may set their import path to `<base>.gen.yaml`. Zarf will template imports after the current file is finished templating, so a user will be able to template the value of `.import.path` into a `<base>.tpl.yaml` file and Zarf will template the given file.
 
 Package templates will be required to have a value; otherwise the command will fail. 
 
