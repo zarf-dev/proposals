@@ -556,7 +556,7 @@ type ComponentConfig struct {
 	Component *Component `json:"component,omitempty"`
 	// A list of component variants, each with a distinct .only filter. Use this when the
 	// component has different definitions for different flavors, OSs, or architectures.
-	Variants []Component `json:"variants,omitempty"`
+	Variants []Variant `json:"variants,omitempty"`
 	// Values imports Zarf values files for templating and overriding Helm values.
 	Values ZarfValues `json:"values,omitempty"`
 	// Zarf-generated publish data for the component config.
@@ -565,9 +565,6 @@ type ComponentConfig struct {
 
 // Component is a reduced component definition used in component configs.
 type Component struct {
-	// Filter when this component is included in package creation or deployment.
-	// Required when used in the variants list.
-	Only ZarfComponentOnlyTarget `json:"only,omitempty"`
 	// Import a component from another Zarf component config.
 	Import ZarfComponentImport `json:"import,omitempty"`
 	// Kubernetes manifests to be included in a generated Helm chart on package deploy.
@@ -584,6 +581,13 @@ type Component struct {
 	Repos []string `json:"repos,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
 	Actions ZarfComponentActions `json:"actions,omitempty"`
+}
+
+// Variant is a component definition with a required filter for when it applies.
+type Variant struct {
+	Component
+	// Filter when this variant is included in package creation or deployment.
+	Only ZarfComponentOnlyTarget `json:"only"`
 }
 
 // ZarfComponentMetadata holds metadata about a component config.
