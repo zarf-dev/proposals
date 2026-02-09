@@ -36,6 +36,8 @@ values:
   files:
     - values.yaml
   schema: values-schema.json
+documentation:
+  my-file: "file.md"  
 components:
 - name: a-component
   description: Zarf description
@@ -94,6 +96,10 @@ components:
     template: false # Disable go-template processing for this file
   images:
   - podinfo@v1
+  imageArchives:
+  - path: podinfo.tar
+    images:
+      - podinfo:local
   repos:
   - https://github.com/defenseunicorns/zarf
   actions:
