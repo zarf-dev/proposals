@@ -753,7 +753,7 @@ Major milestones might include:
 -->
 
 - 2025-10-21: Proposal submitted
-- 2025-02-12: 
+- 2025-02-12: Introduce Zarf Component Config, package templating changes, and Zarf features
 
 ## Drawbacks
 
