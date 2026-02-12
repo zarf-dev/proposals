@@ -753,12 +753,16 @@ Major milestones might include:
 -->
 
 - 2025-10-21: Proposal submitted
+- 2025-02-12: 
 
 ## Drawbacks
 
 <!--
 Why should this ZEP _not_ be implemented?
 -->
+
+### Component Import Reworks
+Removing the ability to import components from packages directly, and instead requiring Zarf Component Config files, will require a sizable portion of the user base to rewrite files. We believe this is a worthwhile tradeoff as this re-write should leave users with a clearer directory structure, enhanced package validation, and a more intuitive import system.  
 
 ## Alternatives
 
@@ -767,3 +771,7 @@ What other approaches did you consider, and why did you rule them out? These do
 not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
+
+### Component Import Schema
+
+Another possibility for the [component imports schema](#component-import-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.only` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allows for builtin schema validation, requiring the `.only` key with `.variants[]` but not with `.component`. 
