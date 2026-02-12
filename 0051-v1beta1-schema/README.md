@@ -180,10 +180,33 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration).
 
+### New Fields
+
+- `.components[x].features` will be introduced to avoid magic names in Init package components. See [Zarf Features](#zarf-features) for more details.
 
 ### Behavior Changes
 
+#### Wait Changes
+
 There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig when `.cluster.condition` is empty Zarf will wait until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty Zarf will wait for the resource to be ready using kstatus readiness checks. 
+
+#### Zarf Features
+
+In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain init logic. For instance, the injector is always run when an init component has a name "zarf-seed-registry". These magical names have caused confusion for custom init package creators [#4528](https://github.com/zarf-dev/zarf/issues/4528) and leave little room for configurability. 
+
+There will be a new "features" key on components that should make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.features.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent features don't allow setting specific values, as those features already have Helm charts. There will be validation that ensures that Features are only used in packages that are `Kind: ZarfInitConfig`. This validation will run after the import chain is resolved. 
+
+View the full schema in [Zarf Features Schema](#zarf-features-schema). There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity given Zarf Features are the only difference.
+
+```yaml
+- name: zarf-seed-registry
+  features:
+    isRegistry: true
+    injector:
+      enabled: true
+      values:
+        tolerations: ".injector.tolerations"
+```
 
 ### ZarfComponentConfig
 
@@ -581,6 +604,8 @@ type Component struct {
 	Repos []string `json:"repos,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
 	Actions ZarfComponentActions `json:"actions,omitempty"`
+  // Features of the Zarf CLI 
+  Features ZarfComponentFeatures `json:features,omitempty"`
 }
 
 // Variant is a component definition with a required filter for when it applies.
@@ -613,6 +638,26 @@ type ComponentPublishData struct {
 }
 ```
 
+### Zarf Features Schema
+
+The schema for Zarf Features:
+
+```go
+type ZarfComponentFeatures struct {                                                                                                                             
+  IsRegistry bool       `json:"isRegistry,omitempty"`
+  Injector   *Injector  `json:"injector,omitempty"`
+  IsAgent    bool       `json:"isAgent,omitempty"`
+}                                                                                                                                                      
+                                                                                                                                                                  
+type Injector struct {
+  Enabled bool             `json:"enabled"`
+  Values  *InjectorValues  `json:"values,omitempty"`
+}
+
+type InjectorValues struct {
+  Tolerations string `json:"tolerations,omitempty"`
+}
+```
 
 ### Test Plan
 

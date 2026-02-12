@@ -1,4 +1,4 @@
-kind: ZarfPackageConfig
+kind: ZarfInitConfig
 apiVersion: v1beta1
 metadata:
   name: everything-zarf-package
@@ -54,6 +54,13 @@ components:
   import:
     path: ABCD # Only path or URL will be used, not both
     url: oci://
+  features:
+    isRegistry: false
+    injector:
+      enabled: true
+      values:
+        tolerations: ".injector.tolerations"
+    isAgent: false
   manifests:
   - name: manifest
     namespace: manifest-ns
