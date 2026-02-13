@@ -188,7 +188,7 @@ As a package creator, I want to update my package definition to the v1beta1 sche
 
 #### Story 4
 
-As a Zarf maintainer, I want to introduce a new API version so that I can deprecate fields, add new required fields, and rename fields in the current package schema. I want the process to do this to be straightforward. I want earlier versions of Zarf
+As a Zarf maintainer, I want to introduce a new API version so that I can deprecate fields, add new required fields, and rename fields in the current package schema. I want the process to do this to be straightforward. I want earlier versions of Zarf to handle deploying packages from the new schema, even on versions not including the new schema. If the package is not deployable, then the user should see a clear version requirement. 
 
 ### Risks and Mitigations
 
