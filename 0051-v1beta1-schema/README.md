@@ -224,7 +224,7 @@ The `zarf dev` commands that accept a directory containing a `zarf.yaml`, lint, 
 
 Skeleton packages will be replaced by remote components. Instead of publishing an entire package, users will be able to publish a ZarfComponentConfig. This component will behave similarly to Skeleton packages in that local resources will be published alongside it, while remote resources will be pulled at create time.
 
-Remote components will be published using a new sub-command `zarf package publish component <component-file>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.only` block. If the `.component` block is supplied instead of a `.variants` block, `--all-variants` will have no effect. 
+Remote components will be published using the new command `zarf component publish <component-file>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.only` block. If the `.component` block is supplied instead of a `.variants` block, `--all-variants` will have no effect. 
 
 Unlike Skeleton packages, which are published with unresolved templates, remote components must be fully templated before publishing. See [Package Templates](#package-templates) for more detail.
 
@@ -386,7 +386,7 @@ component:
 They published it with:
 
 ```bash
-zarf package publish component monitoring.yaml oci://ghcr.io/my-org/components
+zarf component publish monitoring.yaml oci://ghcr.io/my-org/components
 ```
 
 Now I create a v1beta1 package that imports both components -- the local one by file path and the remote one by URL:
