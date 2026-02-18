@@ -104,7 +104,8 @@ components:
     extractPath: /path/to/extract
     template: false # Disable go-template processing for this file
   images:
-  - podinfo@v1
+    - name: - podinfo@v1
+      source: "registry" # optional - registry is the default value
   imageArchives:
   - path: podinfo.tar
     images:

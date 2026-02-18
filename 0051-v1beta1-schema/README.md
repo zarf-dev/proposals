@@ -169,6 +169,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.After.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
 - `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
+- `.component.[x].images` will move from a list of strings to a list of objects. The ZarfImage object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pull images from the Docker Daemon.
 
 #### Renamed Fields
 
@@ -433,7 +434,7 @@ components:
           url: oci://ghcr.io/my-org/charts/my-app
           version: 1.0.0
     images:
-      - [[ .MY_IMAGE ]]
+      - name: [[ .MY_IMAGE ]]
 ```
 
 I generate a `zarf.gen.yaml` for a specific release:
@@ -460,7 +461,7 @@ components:
           url: oci://ghcr.io/my-org/charts/my-app
           version: 1.0.0
     images:
-      - ghcr.io/my-org/my-image:0.0.1
+      - name: ghcr.io/my-org/my-image:0.0.1
 ```
 
 I can then create my package from the generated file:
@@ -597,7 +598,7 @@ type Component struct {
 	// Files or folders to place on disk during package deployment.
 	Files []ZarfFile `json:"files,omitempty"`
 	// List of OCI images to include in the package.
-	Images []string `json:"images,omitempty"`
+	Images []ZarfImage `json:"images,omitempty"`
 	// List of Tar files of images to bring into the package.
 	ImageArchives []ImageArchive `json:"imageArchives,omitempty"`
 	// List of git repos to include in the package.
