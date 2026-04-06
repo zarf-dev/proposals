@@ -158,7 +158,7 @@ The zarf.yaml in a built package will include the package definition for every s
 
 A new command `zarf dev upgrade-schema` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will create a new file `zarf-<apiversion>.yaml` with the converted package definition. It will accept a path to a directory containing a zarf.yaml file and an optional flag, `--to`, to declare the API version. For instance, a user could run `zarf dev upgrade-schema . --to v1beta1` and they will receive a file called `zarf-v1beta1.yaml`. Convert will not allow changing from a newer version to an older version, so running `zarf dev upgrade-schema . --to=v1alpha1` on a `v1beta1` schema will error. This command will only accept with a local package definition, and will not accept created packages, published packages, or deployed packages. 
 
-API versions of the package schema will not necessarily coincide with releases of the Zarf CLI. One caveat is that Zarf will likely not release an official v1.0.0 version until there is a v1 version of the schema, however it could be the case that a v2 package schema is released while the CLI version is still v1.0.0 and vice versa. 
+API versions of the package schema will not necessarily coincide with releases of the Zarf CLI. For instance, Zarf may release a 1.0 version, while the newest package definition API version is v1beta1.
 
 Once an API version is released, fields will not be removed from it, and there will be no new required fields.
 
