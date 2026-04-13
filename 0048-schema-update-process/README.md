@@ -154,7 +154,7 @@ below is for the real nitty-gritty.
 
 During Zarf's lifetime, it will introduce, deprecate, and drop support for ZarfPackageConfig API versions. Once a version is deprecated, users will still be able to perform all package operations such as create, publish, and deploy, but will receive warnings that they should upgrade. Zarf will drop support for an API version one year after it is deprecated. Once an API version is no longer supported, Zarf will error if a user tries to perform common package operations with that API version such as `zarf package create`, `zarf package publish`, or `zarf package deploy`. Even after Zarf drops official support for an API version, Zarf will still work with the commands `zarf package inspect`, `zarf package remove`, and `zarf package pull` for an additional year. These commands will help users understand their unsupported existing packages, which may have already been deployed to cluster, so that they can migrate them. The SDK will follow the same timeline, I.E. one year for `packager.Create`, two years for `packager.Pull`. 
 
-The zarf.yaml in a built package will include the package definition for every supported API version. When printing the package definition to the user, for example with the command `zarf package inspect definition`, the printed definition will be the API version that the package was created with. A new field `.build.apiVersion` will be added to all schemas to track which API version was used at build time. 
+The zarf.yaml in a built package will include the package definition for every supported API version. When printing the package definition to the user, for example with the command `zarf package inspect definition`, the printed definition will be the API version that the package was created with. A new field `.build.originalApiVersion` will be added to all schemas to track which API version was used at build time. 
 
 A new command `zarf dev upgrade-schema` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will create a new file `zarf-<apiversion>.yaml` with the converted package definition. It will accept a path to a directory containing a zarf.yaml file and an optional flag, `--to`, to declare the API version. For instance, a user could run `zarf dev upgrade-schema . --to v1beta1` and they will receive a file called `zarf-v1beta1.yaml`. Convert will not allow changing from a newer version to an older version, so running `zarf dev upgrade-schema . --to=v1alpha1` on a `v1beta1` schema will error. This command will only accept a local package definition, and will not accept created packages, published packages, or deployed packages. 
 
@@ -233,7 +233,7 @@ A new API version may coincide with packages being incompatible with earlier ver
 
 The zarf.yaml file within a built package will be separated by the standard YAML `---`. Currently, Zarf only checks the first yaml object in the zarf.yaml file. To maintain backwards compatibility, API versions will always be placed in ascending order beginning with the v1alpha1 definition. Future versions of Zarf will check the API version of each package definition and select the latest version that it understands. This process will be implemented before any new API versions are released. If Zarf sees a version that it does not understand, Zarf will log to the user that there is a new API version available that the user should consider updating to. 
 
-A new field on all future schemas called `.build.apiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`. 
+A new field on all future schemas called `.build.originalApiVersion` will be introduced to track which apiVersion was used at build time. This field will be used to determine which version of the package definition will be printed to the user during `zarf package inspect definition` and the interactive prompts of `zarf package deploy|remove`. 
 
 #### Deployed packages
 
@@ -488,7 +488,7 @@ type PackageSource interface{
 PackageLayout and DeployedPackage would both implement this interface. Functions such as `packager.Remove()` which accept either a built package or a cluster source would accept this interface. This would avoid specific package types in some function definitions. It could also allow for patterns like below where we could reach back to previous API versions to get to removed fields rather than storing [Removed Fields](#converting-removed-fields) on the objects. 
 
 ```go
-if source.GetPackageAtLatestAPIVersion().Build.APIVersion == "v1alpha1" {
+if source.GetPackageAtLatestAPIVersion().Build.OriginalApiVersion == "v1alpha1" {
   dataInjections := source.GetV1alpha1Package().Components[x].DataInjections
   // ... run Data injection logic with this
 }
