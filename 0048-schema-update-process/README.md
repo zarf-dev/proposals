@@ -402,9 +402,12 @@ If this feature will eventually be deprecated, plan for it:
 - Wait at least two versions before fully removing it.
 -->
 
-`zarf dev upgrade-schema` will be released alongside the v1beta1 schema. Given that this is a simple command with low amounts of risk, it will not go through a phased maturity process (i.e., alpha/beta/stable). 
-
-When a new schema is introduced, creating a package using the newer version will be behind a feature flag. After the feature flag is enabled by default, there will be no more breaking changes to the schema. There will not a phased maturity process for the API version.  
+A new API version will not go through alpha/beta/GA, but instead will be GA when publicly released. Implementing a new schema version should follow this approach:
+- Introduce the new Go type and schema.
+- Implement the conversion and validation logic.
+- Implement upgrading to the newer schema version with `zarf dev upgrade-schema`.
+- Implement loading the new API version. This will enable commands such as `zarf dev inspect`, `zarf dev lint`, and `zarf dev find-images`.
+- Implement creating and deploying packages with the new API version. Change public functions to use the new Go type. There should be extensive e2e tests for creating and deploying packages.
 
 ### Upgrade / Downgrade Strategy
 
