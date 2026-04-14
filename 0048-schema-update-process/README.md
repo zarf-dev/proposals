@@ -158,7 +158,7 @@ During Zarf's lifetime, it will introduce, deprecate, and drop support for ZarfP
 
 The zarf.yaml in a built package will include the package definition for every supported API version. When printing the package definition to the user, for example with the command `zarf package inspect definition`, the printed definition will be the API version that the package was created with. A new field `.build.originalApiVersion` will be added to all schemas to track which API version was used at build time.
 
-A new command `zarf dev upgrade-schema` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will create a new file `zarf-<apiversion>.yaml` with the converted package definition. It will accept a path to a directory containing a zarf.yaml file and an optional flag, `--to`, to declare the API version. For instance, a user could run `zarf dev upgrade-schema . --to v1beta1` and they will receive a file called `zarf-v1beta1.yaml`. Convert will not allow changing from a newer version to an older version, so running `zarf dev upgrade-schema . --to=v1alpha1` on a `v1beta1` schema will error. This command will only accept a local package definition, and will not accept created packages, published packages, or deployed packages. 
+A new command `zarf dev upgrade-schema` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will output the converted package definition for the latest schema version. It will accept a path to a directory containing a zarf.yaml file and an optional flag, `--to`, to declare the API version. For instance, a user could run `zarf dev upgrade-schema . --to v1beta1` and they will receive the converted package definition to stdout. Convert will not allow changing from a newer version to an older version, so running `zarf dev upgrade-schema . --to=v1alpha1` on a `v1beta1` schema will error. This command will only accept a local package definition, and will not accept created packages, published packages, or deployed packages. 
 
 API versions of the package schema will not necessarily coincide with releases of the Zarf CLI. For instance, Zarf may release a 1.0 version, while the newest package definition API version is v1beta1.
 
@@ -335,7 +335,10 @@ func (c ZarfComponent) GetDataInjections() []v1alpha1.ZarfDataInjection
 The usage docs for `zarf dev upgrade-schema` will look like below:
 
 ```bash
-upgrades the existing zarf package config to the given API version. Defaults to latest API version if not given. 
+Converts and outputs the existing zarf package config to the given API version. Defaults to latest API version.
+
+# Replace your zarf.yaml file with the latest API version
+$ zarf dev upgrade-schema . > zarf.yaml
 
 Usage:
   zarf dev upgrade-schema [ DIRECTORY ] [flags]
