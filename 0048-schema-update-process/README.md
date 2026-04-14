@@ -154,11 +154,11 @@ below is for the real nitty-gritty.
 
 All future package definition schemas will require a root level `apiVersion` field; the v1alpha1 schema already has an optional `apiVersion` field. If this field is not set, v1alpha1 will be assumed.
 
-During Zarf's lifetime, it will introduce, deprecate, and drop support for ZarfPackageConfig API versions. Once a version is deprecated, users will still be able to perform all package operations such as create, publish, and deploy, but will receive warnings that they should upgrade. Zarf will drop support for an API version one year after it is deprecated. Once an API version is no longer supported, Zarf will error if a user tries to perform common package operations with that API version such as `zarf package create`, `zarf package publish`, or `zarf package deploy`. Even after Zarf drops official support for an API version, Zarf will still work with the commands `zarf package inspect`, `zarf package remove`, and `zarf package pull` for an additional year. These commands will help users understand their unsupported existing packages, which may have already been deployed to cluster, so that they can migrate them. The SDK will follow the same timeline, I.E. one year for `packager.Create`, two years for `packager.Pull`. 
+During Zarf's lifetime, it will introduce, deprecate, and drop support for ZarfPackageConfig API versions. Once a version is deprecated, users will still be able to perform all package operations such as create, publish, and deploy, but will receive warnings that they should upgrade. Zarf will drop support for an API version one year after it is deprecated. Once an API version is no longer supported, Zarf will error if a user tries to perform common package operations with that API version such as `zarf package create`, `zarf package publish`, or `zarf package deploy`. Even after Zarf drops official support for an API version, Zarf will still work with the commands `zarf package inspect`, `zarf package remove`, and `zarf package pull` for an additional year. These commands will help users understand their unsupported existing packages, which may have already been deployed to cluster, so that they can migrate them. The SDK will follow the same timeline, i.e. one year for `packager.Create`, two years for `packager.Pull`. 
 
 The zarf.yaml in a built package will include the package definition for every supported API version. When printing the package definition to the user, for example with the command `zarf package inspect definition`, the printed definition will be the latest API version by default. A new flag `--api-version` will be introduced to `zarf package inspect definition` and `zarf dev inspect definition` to allow configuring the output. 
 
-A new command `zarf dev upgrade-schema` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will output the converted package definition for the latest schema version. It will accept a path to a directory containing a zarf.yaml file and an optional flag, `--to`, to declare the API version. For instance, a user could run `zarf dev upgrade-schema . --to v1beta1` and they will receive the converted package definition to stdout. Convert will not allow changing from a newer version to an older version, so running `zarf dev upgrade-schema . --to=v1alpha1` on a `v1beta1` schema will error. This command will only accept a local package definition, and will not accept created packages, published packages, or deployed packages. 
+A new command `zarf dev upgrade-schema` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will output the converted package definition for the latest schema version. It will accept a path to a directory containing a zarf.yaml file and an optional flag, `--to`, to declare the API version. For instance, a user could run `zarf dev upgrade-schema . --to v1beta1` and they will receive the converted package definition to stdout. The command will not allow changing from a newer version to an older version, so running `zarf dev upgrade-schema . --to=v1alpha1` on a `v1beta1` schema will error. This command will only accept a local package definition, and will not accept created packages, published packages, or deployed packages. 
 
 API versions of the package schema will not necessarily coincide with releases of the Zarf CLI. For instance, Zarf may release a 1.0 version, while the newest package definition API version is v1beta1.
 
@@ -186,7 +186,7 @@ As a package creator, I want to create and publish packages using the newer API 
 
 #### Story 3
 
-As a package creator, I want to update my package definition to the v1beta1 schema, so I run `zarf dev upgrade-schema --to v1beta1` with a zarf.yaml in my current directory and it creates the converted package definition in a file called zarf-v1beta1.yaml.
+As a package creator, I want to update my package definition to the v1beta1 schema, so I run `zarf dev upgrade-schema --to v1beta1` with a zarf.yaml in my current directory and it outputs the converted package definition to stdout.
 
 #### Story 4
 
@@ -251,7 +251,7 @@ type DeployedPackage struct {
 }
 ```
 
-In the future, when Zarf stores this secret, it will store the version the package was created with as well as all earlier API versions, mimicking the strategy used in built packages. This will enable older versions of Zarf that don't have the latest API version to be able to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a cluster sourced deployed package, they will receive a printed yaml of the API version they built the package with. To track multiple versions, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct. The original Data object, will stay on the object for backwards compatibility, until the v1alpha1 package is no longer supported.
+In the future, when Zarf stores this secret, it will store the version the package was created with as well as all earlier API versions, mimicking the strategy used in built packages. This will enable older versions of Zarf that don't have the latest API version to be able to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a cluster sourced deployed package, they will receive a printed yaml of the API version they built the package with. To track multiple versions, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct. The original Data object will stay on the object for backwards compatibility, until the v1alpha1 package is no longer supported.
 
 ```go
 type DeployedPackage struct {
@@ -302,14 +302,14 @@ The internal/types package will contain a superset of Zarf fields to enable conv
 
 The internal/types package will not be exposed by the SDK. Instead the convert package will expose functions such as `func V1Alpha1PkgToV1Beta1(in v1alpha1.ZarfPackage) v1beta1.ZarfPackage`. These functions will call the internal API packages, `internalv1alpha1.ConvertToGeneric(in v1alpha.ZarfPackage) types.ZarfPackage` and `internalv1beta1.ConvertFromGeneric(in types.ZarfPackage) v1beta1.ZarfPackage`. This will give users a clean interface for SDK users while avoiding exposing the internal types. This strategy will also keep the src/api/<version> packages focused solely on data rather than including validation or conversion logic. These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
 
-Zarf will not expose a public method such as v1alpha1.Validate() as this is a subset of the package validation required, and contains only specific logic not covered by the schema. This validation logic, currently in src/pkg/lint/validate.go, will be moved to internal/v1alpha1. This structure will be implemented before v1beta1 is released, and added to with each new API version. SDK consumers will be able to validate their package definitions using the load package 
+Zarf will not expose a public method such as v1alpha1.Validate() as this is a subset of the package validation required, and contains only specific logic not covered by the schema. This validation logic, currently in src/pkg/lint/validate.go, will be moved to internal/v1alpha1. This structure will be implemented before v1beta1 is released, and added to with each new API version. Package validation will continue to occur in `load.PackageDefinition`, keeping the SDK flow the same. 
 
 ##### Converting 1:1 Replacements
-If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion
+If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion.
 
 ##### Converting Removed Fields
 
-When Zarf internally converts an older schema version to a newer schema version (for example, while deploying a v1alpha1 package), it must always convert to the latest schema version without data loss. To achieve this, fields that were removed from earlier schema versions are preserved as private fields in later schema versions. These private fields are kept out of the new json schema. These fields will have private fields have getters and setters so that they can be set. Once the API version that fields originate from is unsupported, then these fields will be deleted. 
+When Zarf internally converts an older schema version to a newer schema version (for example, while deploying a v1alpha1 package), it must always convert to the latest schema version without data loss. To achieve this, fields that were removed from earlier schema versions are preserved as private fields in later schema versions. These private fields are kept out of the new JSON schema. These private fields will have getters and setters so that they can be accessed. Once the API version that the fields originate from is unsupported, then these fields will be deleted. 
 
 A concrete example of how this will be implemented is seen with `dataInjections` from v1alpha1 to v1beta1. Below is a code snippet for the v1beta1 schema object. `dataInjections` is set as a private field on the v1beta1 Zarf component so that it can be set during conversions between v1alpha1 and v1beta1. While it is an object on the struct, because it's a private field, `dataInjections` will not be included in the v1beta1 schema, and since Zarf validates against the schema on create, users will be unable to create v1beta1 packages with `dataInjections` set.
 
@@ -455,7 +455,7 @@ Major milestones might include:
 -->
 
 - 2025-10-18: Proposal submitted
-- 2025-12-08: Updated proposal to focus more on the process Zarf maintainer should follow to ensure that new API versions can be introduced
+- 2025-12-08: Updated proposal to focus more on the process Zarf maintainers should follow to ensure that new API versions can be introduced
 
 ## Drawbacks
 
@@ -478,7 +478,7 @@ Rather than updating functions to accept a newer version of the schema, Zarf cou
 
 ### Internal Type wrapped by Public Versioned Functions
 
-Another way an internal type could be used would be to introduce public functions such as `packager.RemoveV1alpha1()` and `packager.RemoveV1beta1()`. These functions would then call a private `packager.remove()` function that accepts the internal type. This way SDK users don't have to deal with the internal type, and Zarf could avoid the strategy in [Removed Fields](#converting-removed-fields) where newer `ZarfPackage` structs track removed fields. This was rejected because while this strategy would work with some functions, many functions, especially in `packager`, accept a `packageLayout` object. Having multiple versions of these functions makes the SDK experience less user friendly since users would need extra calls between loading their packages and calling `packager` functions. Additionally, `packageLayout` has a public mutable field of type `v1alpha1.ZarfPackage`. Removing this field, limits the opportunity of SDK users to edit their packages before packager calls.
+Another way an internal type could be used would be to introduce public functions such as `packager.RemoveV1alpha1()` and `packager.RemoveV1beta1()`. These functions would then call a private `packager.remove()` function that accepts the internal type. This way SDK users don't have to deal with the internal type, and Zarf could avoid the strategy in [Removed Fields](#converting-removed-fields) where newer `ZarfPackage` structs track removed fields. This was rejected because while this strategy would work with some functions, many functions, especially in `packager`, accept a `packageLayout` object. Having multiple versions of these functions makes the SDK experience less user friendly since users would need extra calls between loading their packages and calling `packager` functions. Additionally, `packageLayout` has a public mutable field of type `v1alpha1.ZarfPackage`. Removing this field limits the opportunity of SDK users to edit their packages before packager calls.
 
 ### Package Source Interface
 
@@ -506,13 +506,13 @@ This was rejected because packages in Zarf's lifecycle are mutable and not taken
 
 Rather than updating functions to accept a newer version of the schema, Zarf could have an interface that all SDK functions accept. The interface would have getter functions for each item that is common between active schemas. 
 
-The downside of this approach is that each API version has sub-structs for each item. For instance, each schema will it's own version of the [ZarfComponentActions](https://github.com/zarf-dev/zarf/blob/a26516131a5df8dd2ddc93ec1f2e59bd959c971d/src/api/v1alpha1/component.go#L246) and all of the sub-structs underneath this sub-struct. The interface would return an internal type that the concrete types would need to convert their data to. 
+The downside of this approach is that each API version has sub-structs for each item. For instance, each schema will have its own version of the [ZarfComponentActions](https://github.com/zarf-dev/zarf/blob/a26516131a5df8dd2ddc93ec1f2e59bd959c971d/src/api/v1alpha1/component.go#L246) and all of the sub-structs underneath this sub-struct. The interface would return an internal type that the concrete types would need to convert their data to. 
 
-Another issue is that each function that accepts a sub-struct of the Zarf schema, would need to accept a the larger interface, even if it only a small part of the schema is required. Additionally, because there are items that are not common across schemas there would need to be type checks for certain schema versions. This would get more complex to maintain as more schemas version are added. 
+Another issue is that each function that accepts a sub-struct of the Zarf schema, would need to accept the larger interface, even if only a small part of the schema is required. Additionally, because there are items that are not common across schemas there would need to be type checks for certain schema versions. This would get more complex to maintain as more schema versions are added. 
 
 ### Automatically generating conversion functions
 
-It would be possible to write automation to generate functions that will convert one the unchanged fields from one API version to another rather than a maintainer manually writing up these functions. Kubernetes takes this approach. 
+It would be possible to write automation to generate functions that will convert the unchanged fields from one API version to another rather than a maintainer manually writing up these functions. Kubernetes takes this approach. 
 
 Automation here is initially rejected because this is likely something that will only be done on a rare cadence, likely at least 6+ months between conversions. Additionally, the Zarf package schema is the only type to consider currently. For the foreseeable future, it will likely be simpler to generate manually. If we find that this takes up a significant amount of time, then this can be re-evaluated. 
 
