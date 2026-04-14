@@ -237,7 +237,7 @@ The zarf.yaml file within a built package will be separated by the standard YAML
 
 #### Deployed packages
 
-The current deployed package struct is seen below. The `DeployPackage` object is persisted to the cluster during `zarf package deploy` as a Kubernetes secret. The Data field is a json representation of the package.
+The current deployed package struct is seen below. The `DeployedPackage` object is persisted to the cluster during `zarf package deploy` as a Kubernetes secret. The Data field is a JSON representation of the package.
 
 ```go
 type DeployedPackage struct {
@@ -321,7 +321,7 @@ type ZarfComponent struct {
 	dataInjections []v1alpha1.ZarfDataInjection
   ...
 }
-// DataInjections should only be set when converting from a v1alpha1 package. After v1alpha1 packages is not supported this will be removed. 
+// DataInjections should only be set when converting from a v1alpha1 package. After v1alpha1 packages are not supported this will be removed. 
 func (c ZarfComponent) SetDataInjections(di []v1alpha1.ZarfDataInjection)
 func (c ZarfComponent) GetDataInjections() []v1alpha1.ZarfDataInjection
 ```
@@ -348,7 +348,7 @@ Flags:
 
 Zarf publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built-in schema validation for zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also included in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
 
-Zarf will use the if/then/else features of the json schema to conditionally apply a schema based on the `apiVersion`. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. It's useful to have a single schema file, so that users' text editors handle different API versions without file specific annotations. Zarf will still create and utilize individual version schemas. 
+Zarf will use the if/then/else features of the JSON schema to conditionally apply a schema based on the `apiVersion`. If the `apiVersion` is `v1alpha1` then the schema will evaluate the zarf.yaml file according to the v1alpha1 schema. If the `apiVersion` is v1beta1 then the zarf.yaml will be evaluated according to the v1beta1 schema. It's useful to have a single schema file, so that users' text editors handle different API versions without file-specific annotations. Zarf will still create and utilize individual version schemas. 
 
 
 ### Test Plan
@@ -478,7 +478,7 @@ Rather than updating functions to accept a newer version of the schema, Zarf cou
 
 ### Internal Type wrapped by Public Versioned Functions
 
-Another way an internal type could be used would be to introduce public functions such as `packager.RemoveV1alpha1()` and `packager.RemoveV1beta1()`. These functions would then call a private `packager.remove()` function that accepts the internal type. This way SDK users don't have to deal with the internal type, and Zarf could avoid the strategy in [Removed Fields](#converting-removed-fields) where newer `ZarfPackage` structs track removed fields. This was rejected because while this strategy would work with some functions, many functions, especially in `packager`, accept a `packageLayout` object. Having multiple versions of these functions makes the SDK experience less user friendly since users would need extra calls between loading their packages and calling `packager` functions. Additionally, `packageLayout` has a public mutable field of type `v1alpha1.ZarfPackage`. Removing this field limits the opportunity of SDK users to edit their packages before packager calls.
+Another way an internal type could be used would be to introduce public functions such as `packager.RemoveV1alpha1()` and `packager.RemoveV1beta1()`. These functions would then call a private `packager.remove()` function that accepts the internal type. This way SDK users don't have to deal with the internal type, and Zarf could avoid the strategy in [Removed Fields](#converting-removed-fields) where newer `ZarfPackage` structs track removed fields. This was rejected because while this strategy would work with some functions, many functions, especially in `packager`, accept a `packageLayout` object. Having multiple versions of these functions makes the SDK experience less user-friendly since users would need extra calls between loading their packages and calling `packager` functions. Additionally, `packageLayout` has a public mutable field of type `v1alpha1.ZarfPackage`. Removing this field limits the opportunity of SDK users to edit their packages before packager calls.
 
 ### Package Source Interface
 
@@ -500,7 +500,7 @@ if source.GetPackageAtLatestAPIVersion().Build.OriginalApiVersion == "v1alpha1" 
 }
 ```
 
-This was rejected because packages in Zarf's lifecycle are mutable and not taken directly from the package YAML / Kubernetes secret. The filters package, for instance, frequently changes the package. Zarf wouldn't be able to filter a package, without needing to keep logic around to filter every API version, which would add a maintenance burden. SDK users wouldn't be able to edit their packages before running functions like `packager.Remove()` or `packager.Deploy()` as it would be difficult to propagate changes to every API version. 
+This was rejected because packages in Zarf's lifecycle are mutable and not taken directly from the package YAML / Kubernetes secret. The filters package, for instance, frequently changes the package. Zarf wouldn't be able to filter a package without needing to keep logic around to filter every API version, which would add a maintenance burden. SDK users wouldn't be able to edit their packages before running functions like `packager.Remove()` or `packager.Deploy()` as it would be difficult to propagate changes to every API version. 
 
 ### Interface Representation of Schema
 
@@ -508,7 +508,7 @@ Rather than updating functions to accept a newer version of the schema, Zarf cou
 
 The downside of this approach is that each API version has sub-structs for each item. For instance, each schema will have its own version of the [ZarfComponentActions](https://github.com/zarf-dev/zarf/blob/a26516131a5df8dd2ddc93ec1f2e59bd959c971d/src/api/v1alpha1/component.go#L246) and all of the sub-structs underneath this sub-struct. The interface would return an internal type that the concrete types would need to convert their data to. 
 
-Another issue is that each function that accepts a sub-struct of the Zarf schema, would need to accept the larger interface, even if only a small part of the schema is required. Additionally, because there are items that are not common across schemas there would need to be type checks for certain schema versions. This would get more complex to maintain as more schema versions are added. 
+Another issue is that each function that accepts a sub-struct of the Zarf schema would need to accept the larger interface, even if only a small part of the schema is required. Additionally, because there are items that are not common across schemas, there would need to be type checks for certain schema versions. This would get more complex to maintain as more schema versions are added. 
 
 ### Automatically generating conversion functions
 
