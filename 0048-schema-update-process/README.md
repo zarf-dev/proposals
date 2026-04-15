@@ -186,7 +186,7 @@ As a package creator, I want to create and publish packages using the newer API 
 
 #### Story 3
 
-As a package creator, I want to update my package definition to the v1beta1 schema, so I run `zarf dev upgrade-schema --to v1beta1` with a zarf.yaml in my current directory and it outputs the converted package definition to stdout.
+As a package creator, I want to update my package definition to the v1beta1 schema, so I run `zarf dev upgrade-schema . --to v1beta1 > zarf.yaml` against the directory containing my zarf.yaml. The command writes the converted definition to stdout, replacing my existing zarf.yaml.
 
 #### Story 4
 

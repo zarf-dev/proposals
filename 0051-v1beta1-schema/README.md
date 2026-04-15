@@ -130,7 +130,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Discuss how the Zarf codebase will shift to handle multiple API versions. This is detailed in [0048-schema-update-process](https://github.com/zarf-dev/proposals/pull/49).
+- Discuss how the Zarf codebase will shift to handle multiple API versions. This is detailed in [0048-schema-update-process](../0048-schema-update-process/README.md).
 
 ## Proposal
 
@@ -142,7 +142,7 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. If `apiVersion` is not set, then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev upgrade-schema`. `apiVersion` will be a required field in v1beta1.
+Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. If `apiVersion` is not set, then Zarf will assume it is a v1alpha1 package. `apiVersion` will be a required field in v1beta1. Users will be able to upgrade there package definitions using `zarf dev upgrade-schema`, which writes the converted definition to stdout. 
 
 The v1beta1 schema will remove, replace, and rename several fields. View this [zarf.yaml](zarf.yaml) to see a package definition with reasonable values for each key.
 
@@ -194,9 +194,9 @@ There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`
 
 In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain init logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators [#4528](https://github.com/zarf-dev/zarf/issues/4528) and leave little room for configurability.
 
-There will be a new "features" key on components that should make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.features.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent features don't allow setting specific values, as those features already have Helm charts. There will be validation that ensures Features are only used in packages that are `Kind: ZarfInitConfig`. This validation will run after the import chain is resolved.
+There will be a new "features" key on components that should make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.features.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent features don't allow setting specific values, as those features already have Helm charts. There will be validation that ensures Features are only used in packages that are `Kind: ZarfInitConfig` in `internal/api/v1beta1/validate.go`.
 
-View the full schema in [Zarf Features Schema](#zarf-features-schema). There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity, given Zarf Features are the only difference.
+View the full schema in [Zarf Features Schema](#zarf-features-schema). There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity.
 
 ```yaml
 - name: zarf-seed-registry
@@ -293,7 +293,7 @@ components:
           - values.yaml
 ```
 
-I want to upgrade to the v1beta1 schema, so I run `zarf dev upgrade-schema`, which produces:
+I want to upgrade to the v1beta1 schema, so I run `zarf dev upgrade-schema . > zarf.yaml`. Which produces:
 
 ```yaml
 apiVersion: v1beta1
@@ -500,7 +500,7 @@ The ZarfChart object will be restructured to match the code block below. Exactly
 
 During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior.
 
-Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub object, or drop it when not applicable.
+Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048-schema-update-process](../0048-schema-update-process/README.md#converting-removed-fields). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub object, or drop it when not applicable.
 
 ```go
 // ZarfChart defines a helm chart to be deployed.
@@ -676,7 +676,7 @@ when drafting this test plan.
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
-There will be e2e tests for creating, deploying, and publishing a v1beta1 package. As the schema nears GA, existing tests will shift to use the v1beta1 schema.
+There will be e2e tests for creating, deploying, and publishing a v1beta1 package. Existing tests will shift to use the v1beta1 schema over time.
 
 ### Graduation Criteria
 
