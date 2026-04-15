@@ -702,7 +702,7 @@ If this feature will eventually be deprecated, plan for it:
 - Wait at least two versions before fully removing it.
 -->
 
-The v1beta1 schema will not have an alpha/beta/GA phase. Creating a package with the v1beta1 schema will initially be behind a feature flag for at least two releases after the v1beta1 schema is introduced. During this time, the v1beta1 schema may remove or rename fields. Once the feature flag is enabled by default, there will be no removed or renamed fields until the next schema version. 
+The v1beta1 schema will not have an alpha/beta/GA phase. It will follow the graduation criteria laid out by [0048-schema-update-process](../0048-schema-update-process/README.md#graduation-criteria).
 
 Deprecation:
 - This schema will likely be deprecated one day in favor of a v1 schema. It will not be deprecated until after the next schema version is generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least one year.
@@ -723,7 +723,7 @@ proposal:
   make use of the proposal?
 -->
 
-See proposal in [ZEP-0048](https://github.com/zarf-dev/proposals/issues/48).
+See the proposal section in [0048-schema-update-process](../0048-schema-update-process/README.md#proposal)
 
 ### Version Skew Strategy
 
@@ -737,7 +737,7 @@ proposal:
   - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
 -->
 
-See version skew strategy in [ZEP-0048](https://github.com/zarf-dev/proposals/issues/48).
+See the version skew strategy in  [0048-schema-update-process](../0048-schema-update-process/README.md#version-skew-strategy)
 
 ## Implementation History
 
