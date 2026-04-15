@@ -142,7 +142,7 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. If `apiVersion` is not set, then Zarf will assume it is a v1alpha1 package. `apiVersion` will be a required field in v1beta1. Users will be able to upgrade there package definitions using `zarf dev upgrade-schema`, which writes the converted definition to stdout. 
+Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. If `apiVersion` is not set, then Zarf will assume it is a v1alpha1 package. `apiVersion` will be a required field in v1beta1. Users will be able to upgrade their package definitions using `zarf dev upgrade-schema`, which writes the converted definition to stdout. 
 
 The v1beta1 schema will remove, replace, and rename several fields. View this [zarf.yaml](zarf.yaml) to see a package definition with reasonable values for each key.
 
@@ -166,7 +166,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`.
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendors` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
-- `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.after.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
+- `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.after.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [wait changes](#wait-changes).
 - `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
 - `.components.[x].images` will move from a list of strings to a list of objects. The ZarfImage object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon.
 
@@ -224,7 +224,7 @@ The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, 
 
 Skeleton packages will be replaced by remote components. Instead of publishing an entire package, users will be able to publish a ZarfComponentConfig. This component will behave similarly to Skeleton packages in that local resources will be published alongside it, while remote resources will be pulled at create time.
 
-Remote components will be published using the new command `zarf component publish <component-file>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.only` block. If the `.component` block is supplied instead of a `.variants` block, `--all-variants` will have no effect.
+Remote components will be published using the new command `zarf component publish <component-file> <oci-repo>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.only` block. If the `.component` block is supplied instead of a `.variants` block, `--all-variants` will have no effect.
 
 Unlike Skeleton packages, which are published with unresolved templates, remote components must be fully templated before publishing. See [Package Templates](#package-templates) for more detail.
 
@@ -296,13 +296,10 @@ components:
 I want to upgrade to the v1beta1 schema, so I run `zarf dev upgrade-schema . > zarf.yaml`. Which produces:
 
 ```yaml
-apiVersion: v1beta1
+apiVersion: zarf.dev/v1beta1
 kind: ZarfPackageConfig
 metadata:
   name: helm-charts
-  description: Example showcasing multiple ways to deploy helm charts
-  version: 0.0.1
-
 components:
   - name: demo-helm-charts
     optional: false  # Changed from `required: true`
@@ -349,7 +346,7 @@ As a package creator, I have a logging component that I maintain locally and wan
 First, I define my local logging component in `logging.yaml`:
 
 ```yaml
-apiVersion: v1beta1
+apiVersion: zarf.dev/v1beta1
 kind: ZarfComponentConfig
 metadata:
   name: logging
@@ -366,7 +363,7 @@ component:
 My teammate has published a monitoring component to our registry. Its source file, `monitoring.yaml`, looked like this before publishing:
 
 ```yaml
-apiVersion: v1beta1
+apiVersion: zarf.dev/v1beta1
 kind: ZarfComponentConfig
 metadata:
   name: monitoring
@@ -392,7 +389,7 @@ zarf component publish monitoring.yaml oci://ghcr.io/my-org/components
 Now I create a v1beta1 package that imports both components -- the local one by file path and the remote one by URL:
 
 ```yaml
-apiVersion: v1beta1
+apiVersion: zarf.dev/v1beta1
 kind: ZarfPackageConfig
 metadata:
   name: observability
@@ -418,7 +415,7 @@ zarf package create
 As a package creator, I want to template image references and metadata into my package at build time. I write a `zarf.tpl.yaml` that uses Go templates with the `[[ ]]` delimiter:
 
 ```yaml
-apiVersion: v1beta1
+apiVersion: zarf.dev/v1beta1
 kind: ZarfPackageConfig
 metadata:
   name: app
@@ -445,17 +442,17 @@ zarf dev template --set ENVIRONMENT=personal --set MY_IMAGE=ghcr.io/my-org/my-im
 This produces `zarf.gen.yaml`:
 
 ```yaml
-apiVersion: v1beta1
+apiVersion: zarf.dev/v1beta1
 kind: ZarfPackageConfig
 metadata:
-  name: my-app
-  description: "my-app personal"
+  name: app
+  description: "app personal"
 
 components:
-  - name: my-app
+  - name: app
     charts:
-      - name: my-app
-        namespace: my-app
+      - name: app
+        namespace: app
         oci:
           url: oci://ghcr.io/my-org/charts/my-app
           version: 1.0.0
