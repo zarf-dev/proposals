@@ -130,7 +130,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Discuss how the Zarf codebase will shift to handle multiple API versions. This is detailed in [0048-schema-update-process](https://github.com/zarf-dev/proposals/pull/49)
+- Discuss how the Zarf codebase will shift to handle multiple API versions. This is detailed in [0048-schema-update-process](https://github.com/zarf-dev/proposals/pull/49).
 
 ## Proposal
 
@@ -165,8 +165,8 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions will be appended to the `actions.[onAny].after` list.
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`.
-- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
-- `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.After.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
+- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendors` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
+- `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.after.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
 - `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
 - `.components.[x].images` will move from a list of strings to a list of objects. The ZarfImage object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon.
 
@@ -194,9 +194,9 @@ There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`
 
 In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain init logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators [#4528](https://github.com/zarf-dev/zarf/issues/4528) and leave little room for configurability.
 
-There will be a new "features" key on components that should make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.features.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent features don't allow setting specific values, as those features already have Helm charts. There will be validation that ensures that Features are only used in packages that are `Kind: ZarfInitConfig`. This validation will run after the import chain is resolved.
+There will be a new "features" key on components that should make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.features.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent features don't allow setting specific values, as those features already have Helm charts. There will be validation that ensures Features are only used in packages that are `Kind: ZarfInitConfig`. This validation will run after the import chain is resolved.
 
-View the full schema in [Zarf Features Schema](#zarf-features-schema). There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity given Zarf Features are the only difference.
+View the full schema in [Zarf Features Schema](#zarf-features-schema). There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity, given Zarf Features are the only difference.
 
 ```yaml
 - name: zarf-seed-registry
@@ -210,15 +210,15 @@ View the full schema in [Zarf Features Schema](#zarf-features-schema). There wil
 
 ### ZarfComponentConfig
 
-The v1beta1 APIVersion will introduce a new `Kind` alongside ZarfPackageConfig called ZarfComponentConfig. ZarfComponentConfig files will allow declaring a component to be imported from other packages. It will have its own schema, and this schema will be verified on create and publish. ZarfComponentConfigs will be importable only from v1beta1 packages. Components from other ZarfPackageConfigs will not be importable in v1beta1 packages.
+The v1beta1 APIVersion will introduce a new `Kind` alongside ZarfPackageConfig called ZarfComponentConfig. ZarfComponentConfig files will allow declaring a component to be imported from other packages. It will have its own schema, and this schema will be verified on create and publish. ZarfComponentConfigs will be importable only by v1beta1 packages. Components from other ZarfPackageConfigs will not be importable in v1beta1 packages.
 
-A ZarfComponentConfig must define exactly one of `component` or `variants`. The `component` field is a single object representing a component that is always importable. The `variants` field is a list of components where each entry must specify the `.only` key to define when that variant applies (e.g. flavors, OSs, or architectures). If the `.only` key has the same value for two variants, the user will receive an error. View the schema of this object in [design details](#zarf-component-config-schema).
+A ZarfComponentConfig must define exactly one of `component` or `variants`. The `component` field is a single object representing a component that is always importable. The `variants` field is a list of components where each entry must specify the `.only` key to define when that variant applies (e.g. flavors, OSes, or architectures). If the `.only` key has the same value for two variants, the user will receive an error. View the schema of this object in [design details](#zarf-component-config-schema).
 
-The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and help encourage a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
+The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and promote a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
 
-The `.import.path` field will not accept directories; users will give the filepath to the ZarfComponentConfig file they are importing.
+The `.import.path` field will not accept directories; users will give the file path to the ZarfComponentConfig file they are importing.
 
-The `zarf dev` commands that accept a directory containing a `zarf.yaml`, lint, inspect, and find-images, will accept component config files. For instance, `zarf dev inspect definition my-component-config.yaml`.
+The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, inspect, and find-images) will accept component config files. For instance, `zarf dev inspect definition my-component-config.yaml`.
 
 #### Remote Components
 
@@ -234,11 +234,11 @@ The Zarf v1alpha1 schema allows for package templates during create using the ##
 
 The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml`, then fall back to a `zarf.gen.yaml`.
 
-`zarf dev template` will have logic to follow local component imports. If the `.import.path` points to a file called `<base>.tpl.yaml` Zarf will template the file and edit the value of `import.path` to be `<base>.gen.yaml`. Users that prefer to template in separate steps may set their import path to `<base>.gen.yaml`. Zarf will template imports after the current file is finished templating, so a user will be able to template the value of `.import.path` into a `<base>.tpl.yaml` file and Zarf will template the given file.
+`zarf dev template` will have logic to follow local component imports. If the `.import.path` points to a file called `<base>.tpl.yaml`, Zarf will template the file and edit the value of `import.path` to be `<base>.gen.yaml`. Users that prefer to template in separate steps may set their import path to `<base>.gen.yaml`. Zarf will template imports after the current file is finished templating, so a user will be able to template the value of `.import.path` into a `<base>.tpl.yaml` file and Zarf will template the given file.
 
 Package templates will be required to have a value; otherwise the command will fail.
 
-The delimiter for Go templates during `zarf dev template` will be `[[ ]]`. This will separate package templates from the standard Go template delimiter `{{ }}` which are used during on-deploy actions.
+The delimiter for Go templates during `zarf dev template` will be `[[ ]]`. This will separate package templates from the standard Go template delimiter `{{ }}`, which is used during on-deploy actions.
 
 ### User Stories (Optional)
 
@@ -481,7 +481,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use to achieve a similar result.
+The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. The docs website added a page for migration to inform users how to switch https://docs.zarf.dev/best-practices/data-injections-migration/.
 
 The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and there will be no automatic conversion to its replacement Zarf values. There must be documentation on how users can utilize Zarf values as an alternative to chart variables.
 
@@ -500,14 +500,14 @@ The ZarfChart object will be restructured to match the code block below. Exactly
 
 During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior.
 
-Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top level `version` field to the right sub object, or drop it when not applicable.
+Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub object, or drop it when not applicable.
 
 ```go
 // ZarfChart defines a helm chart to be deployed.
 type ZarfChart struct {
 	// The name of the chart within Zarf; note that this must be unique and does not need to be the same as the name in the chart repo.
 	Name string `json:"name"`
-  // The version of the chart. This field is removed for the schema, but kept as a backwards compatibility shim so v1alpha1 packages can be converted to v1beta1
+  // The version of the chart. This field is removed for the schema, but kept as a backwards compatibility shim so v1alpha1 packages can be converted to v1beta1.
   version string
 	// The Helm repo where the chart is stored
 	HelmRepo HelmRepoSource `json:"helmRepo,omitempty"`
@@ -521,29 +521,29 @@ type ZarfChart struct {
 	Namespace string `json:"namespace,omitempty"`
 	// The name of the Helm release to create (defaults to the Zarf name of the chart).
 	ReleaseName string `json:"releaseName,omitempty"`
-	// Whether to not wait for chart resources to be ready before continuing.
+	// Whether to wait for chart resources to be ready before continuing.
 	Wait *bool `json:"wait,omitempty"`
 	// List of local values file paths or remote URLs to include in the package; these will be merged together when deployed.
 	ValuesFiles []string `json:"valuesFiles,omitempty"`
-  // [alpha] List of values sources to their Helm override target
+  // [alpha] List of value sources mapped to their Helm override targets.
 	Values []ZarfChartValue `json:"values,omitempty"`
 }
 
 // HelmRepoSource represents a Helm chart stored in a Helm repository.
 type HelmRepoSource struct {
-	// The name of a chart within a Helm repository
+	// The name of a chart within a Helm repository.
 	RepoName string `json:"repoName,omitempty"`
-	// The URL of the chart repository where the helm chart is stored.
+	// The URL of the chart repository where the Helm chart is stored.
 	URL string `json:"url"`
-  // The version of the chart to deploy; for git-based charts this is also the tag of the git repo by default (when not using the '@' syntax for 'repos').
+  // The version of the chart to deploy; for Git-based charts this is also the tag of the Git repo by default (when not using the '@' syntax for 'repos').
 	Version string `json:"version"`
 }
 
 // GitRepoSource represents a Helm chart stored in a Git repository.
 type GitRepoSource struct {
-	// The URL of the git repository where the helm chart is stored.
+	// The URL of the Git repository where the Helm chart is stored.
 	URL string `json:"url"`
-	// The subdirectory to the chart within a git repo.
+	// The subdirectory containing the chart within a Git repo.
 	Path string `json:"path,omitempty"`
 }
 
@@ -555,7 +555,7 @@ type LocalRepoSource struct {
 
 // OCISource represents a Helm chart stored in an OCI registry.
 type OCISource struct {
-	// The URL of the OCI registry where the helm chart is stored.
+	// The URL of the OCI registry where the Helm chart is stored.
 	URL     string `json:"url"`
 	Version string `json:"version"`
 }
@@ -578,7 +578,7 @@ type ComponentConfig struct {
 	// A single component definition that applies in all contexts.
 	Component *Component `json:"component,omitempty"`
 	// A list of component variants, each with a distinct .only filter. Use this when the
-	// component has different definitions for different flavors, OSs, or architectures.
+	// component has different definitions for different flavors, OSes, or architectures.
 	Variants []Variant `json:"variants,omitempty"`
 	// Values imports Zarf values files for templating and overriding Helm values.
 	Values ZarfValues `json:"values,omitempty"`
@@ -604,7 +604,7 @@ type Component struct {
 	Repos []string `json:"repos,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
 	Actions ZarfComponentActions `json:"actions,omitempty"`
-  // Features of the Zarf CLI
+  // Features of the Zarf CLI.
   Features ZarfComponentFeatures `json:"features,omitempty"`
 }
 
@@ -702,7 +702,7 @@ If this feature will eventually be deprecated, plan for it:
 - Wait at least two versions before fully removing it.
 -->
 
-The v1beta1 schema will not have an alpha/beta/GA phase. It will follow the graduation criteria laid out by [0048-schema-update-process](../0048-schema-update-process/README.md#graduation-criteria).
+The v1beta1 schema will not have an alpha/beta/GA phase. It will follow the graduation criteria laid out in [0048-schema-update-process](../0048-schema-update-process/README.md#graduation-criteria).
 
 Deprecation:
 - This schema will likely be deprecated one day in favor of a v1 schema. It will not be deprecated until after the next schema version is generally available. Once deprecated, Zarf will still support the v1beta1 schema for at least one year.
@@ -762,7 +762,7 @@ Why should this ZEP _not_ be implemented?
 -->
 
 ### Component Import Reworks
-Removing the ability to import components from packages directly, and instead requiring Zarf Component Config files, will require a sizable portion of the user base to rewrite files. We believe this is a worthwhile tradeoff as this re-write should leave users with a clearer directory structure, enhanced package validation, and a more intuitive import system.
+Removing the ability to import components from packages directly, and instead requiring Zarf Component Config files, will require a sizable portion of the user base to rewrite files. We believe this is a worthwhile tradeoff as this rewrite should leave users with a clearer directory structure, enhanced package validation, and a more intuitive import system.
 
 ## Alternatives
 
@@ -774,4 +774,4 @@ information to express the idea and why it was not acceptable.
 
 ### Component Import Schema
 
-Another possibility for the [component imports schema](#component-import-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.only` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allows for builtin schema validation, requiring the `.only` key with `.variants[]` but not with `.component`.
+Another possibility for the [component imports schema](#component-import-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.only` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allow for built-in schema validation, requiring the `.only` key with `.variants[]` but not with `.component`.
