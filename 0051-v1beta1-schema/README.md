@@ -92,7 +92,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Several fields in the v1alpha1 ZarfPackageConfig can be restructured to provide a more intuitive experience. Other fields that have a poor user experience and add unnecessary overhead to Zarf should be removed. A new schema version, v1beta1, provides the opportunity to make these changes.
+Several fields in the v1alpha1 ZarfPackageConfig should be restructured to provide a more intuitive experience. Other fields that have a poor user experience and add unnecessary overhead to Zarf should be removed. Introducing a new schema version, v1beta1, provides the opportunity to make these changes.
 
 ## Motivation
 
@@ -152,10 +152,10 @@ The v1beta1 schema will remove, replace, and rename several fields. View this [z
 
 If a package has these fields defined then `zarf dev upgrade-schema` will error and print a recommendation for an alternative.
 
-- `.components.[x].group` will be removed. Users should use `components[x].only.flavor` instead.
-- `.components.[x].dataInjections` will be removed. There will be a guide in Zarf's documentation for alternatives. See [#3926](https://github.com/zarf-dev/zarf/issues/3926).
-- `.components.[x].charts.[x].variables` will be removed. Its successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev upgrade-schema`.
-- `.metadata.yolo` will be removed. Its successor will be connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580).
+- `.components.[x].group` will be removed. A similar functionality was introduced with the field `components[x].only.flavor`. This shifts component selection to the create side, and is the recommended replacement. 
+- `.components.[x].dataInjections` will be removed. https://docs.zarf.dev/best-practices/data-injections-migration/ details migrating off of this field.
+- `.components.[x].charts.[x].variables` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead.
+- `.metadata.yolo` will be removed. Its successor is connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580).
 - `.components.[x].import.name` will be removed given that component imports will be changed. See [ZarfComponentConfig](#zarfcomponentconfig).
 
 #### Replaced / Restructured Fields
@@ -188,15 +188,15 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 #### Wait Changes
 
-There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig, when `.cluster.condition` is empty, Zarf will wait until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty, Zarf will wait for the resource to be ready using kstatus readiness checks.
+There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig, when `.cluster.condition` is empty, Zarf waits until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty, Zarf will wait for the resource to be ready using kstatus readiness checks.
 
 #### Zarf Features
 
-In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain init logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators [#4528](https://github.com/zarf-dev/zarf/issues/4528) and leave little room for configurability.
+In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators, [#4528](https://github.com/zarf-dev/zarf/issues/4528), and leave little room for configurability.
 
-There will be a new "features" key on components that should make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.features.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent features don't allow setting specific values, as those features already have Helm charts. There will be validation that ensures Features are only used in packages that are `Kind: ZarfInitConfig` in `internal/api/v1beta1/validate.go`.
+A new "features" key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.features.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent features don't allow setting specific values, as those features already have Helm charts. There will be validation that ensures Features are only used in packages that are `Kind: ZarfInitConfig`. There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity.
 
-View the full schema in [Zarf Features Schema](#zarf-features-schema). There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity.
+View the full schema in [Zarf Features Schema](#zarf-features-schema). 
 
 ```yaml
 - name: zarf-seed-registry
@@ -212,13 +212,13 @@ View the full schema in [Zarf Features Schema](#zarf-features-schema). There wil
 
 The v1beta1 APIVersion will introduce a new `Kind` alongside ZarfPackageConfig called ZarfComponentConfig. ZarfComponentConfig files will allow declaring a component to be imported from other packages. It will have its own schema, and this schema will be verified on create and publish. ZarfComponentConfigs will be importable only by v1beta1 packages. Components from other ZarfPackageConfigs will not be importable in v1beta1 packages.
 
-A ZarfComponentConfig must define exactly one of `component` or `variants`. The `component` field is a single object representing a component that is always importable. The `variants` field is a list of components where each entry must specify the `.only` key to define when that variant applies (e.g. flavors, OSes, or architectures). If the `.only` key has the same value for two variants, the user will receive an error. View the schema of this object in [design details](#zarf-component-config-schema).
+A ZarfComponentConfig must either the `component` or `variants` field. The `component` field is a single object representing a component that is importable by any package. The `variants` field is a list of components where each entry must specify the `.only` to differentiate itself from the other components (e.g. flavors, OSes, or architectures). Zarf will error if two components under `variants` have the same value for `.only`. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
 
 The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and promote a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
 
 The `.import.path` field will not accept directories; users will give the file path to the ZarfComponentConfig file they are importing.
 
-The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, inspect, and find-images) will accept component config files. For instance, `zarf dev inspect definition my-component-config.yaml`.
+The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, inspect, and find-images) will accept component config files. For example, `zarf dev inspect definition my-component-config.yaml`.
 
 #### Remote Components
 
@@ -234,7 +234,7 @@ The Zarf v1alpha1 schema allows for package templates during create using the ##
 
 The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml`, then fall back to a `zarf.gen.yaml`.
 
-`zarf dev template` will have logic to follow local component imports. If the `.import.path` points to a file called `<base>.tpl.yaml`, Zarf will template the file and edit the value of `import.path` to be `<base>.gen.yaml`. Users that prefer to template in separate steps may set their import path to `<base>.gen.yaml`. Zarf will template imports after the current file is finished templating, so a user will be able to template the value of `.import.path` into a `<base>.tpl.yaml` file and Zarf will template the given file.
+`zarf dev template` will have logic to follow local component imports. If the `.import.path` points to a file called `<base>.tpl.yaml`, Zarf will template the `<base>.tpl.yaml` file and edit the value of `import.path` to be `<base>.gen.yaml`. Users that prefer to template in separate steps may set their import path to `<base>.gen.yaml`. Zarf will template imports after the current file is finished templating, so a user will be able to template the value of `.import.path` into a `<base>.tpl.yaml` file and Zarf will template the given file.
 
 Package templates will be required to have a value; otherwise the command will fail.
 
