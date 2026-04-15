@@ -1,5 +1,5 @@
 kind: ZarfInitConfig
-apiVersion: v1beta1
+apiVersion: zarf.dev/v1beta1
 metadata:
   name: everything-zarf-package
   description: A zarf package with a non empty value for every key - this demonstrates the changes proposed by ZEP-0051
@@ -23,9 +23,6 @@ build: # Everything here is created by Zarf not be users
   version: v1.0.0
   migrations:
     - scripts-to-actions
-  versionRequirements:
-    - version: 0.65.0
-      reason: "the package structure of Helm charts changed"
   registryOverrides:
     gcr.io: my-gcr.com
   differential: true
@@ -104,7 +101,7 @@ components:
     extractPath: /path/to/extract
     template: false # Disable go-template processing for this file
   images:
-    - name: - podinfo@v1
+    - name: podinfo@v1
       source: "registry" # optional - registry is the default value
   imageArchives:
   - path: podinfo.tar

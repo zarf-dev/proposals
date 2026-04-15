@@ -287,7 +287,7 @@ components:
         version: 6.4.0
         namespace: podinfo-from-repo
         url: https://stefanprodan.github.io/podinfo
-        repoName: podinfo
+        name: podinfo
         releaseName: cool-release-name
         valuesFiles:
           - values.yaml
@@ -532,7 +532,7 @@ type ZarfChart struct {
 // HelmRepoSource represents a Helm chart stored in a Helm repository.
 type HelmRepoSource struct {
 	// The name of a chart within a Helm repository.
-	RepoName string `json:"repoName,omitempty"`
+	Name string `json:"name,omitempty"`
 	// The URL of the chart repository where the Helm chart is stored.
 	URL string `json:"url"`
   // The version of the chart to deploy; for Git-based charts this is also the tag of the Git repo by default (when not using the '@' syntax for 'repos').
