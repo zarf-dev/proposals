@@ -92,7 +92,7 @@ feedback and reduce unnecessary changes.
 [documentation style guide]: https://docs.zarf.dev/contribute/style-guide/
 -->
 
-Several fields in the v1alpha1 ZarfPackageConfig can be restructured to provide a more intuitive experience. Other fields that have a poor user experience and add unnecessary overhead to Zarf should be removed. A new schema version, v1beta1, provides the opportunity to make these changes. 
+Several fields in the v1alpha1 ZarfPackageConfig can be restructured to provide a more intuitive experience. Other fields that have a poor user experience and add unnecessary overhead to Zarf should be removed. A new schema version, v1beta1, provides the opportunity to make these changes.
 
 ## Motivation
 
@@ -130,7 +130,7 @@ What is out of scope for this ZEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Discuss how the Zarf codebase will shift to handle multiple API versions. This is detailed in [0048-schema-upgrade-process](https://github.com/zarf-dev/proposals/pull/49)
+- Discuss how the Zarf codebase will shift to handle multiple API versions. This is detailed in [0048-schema-update-process](https://github.com/zarf-dev/proposals/pull/49)
 
 ## Proposal
 
@@ -142,9 +142,9 @@ desired outcome and how success will be measured. The "Design Details" section
 below is for the real nitty-gritty.
 -->
 
-Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. If `apiVersion` is not set, then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev upgrade-schema`. `apiVersion` will be a required field in v1beta1. 
+Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. If `apiVersion` is not set, then Zarf will assume it is a v1alpha1 package. Users will be able to automatically upgrade their package to the v1beta1 schema by running `zarf dev upgrade-schema`. `apiVersion` will be a required field in v1beta1.
 
-The v1beta1 schema will remove, replace, and rename several fields. View this [zarf.yaml](zarf.yaml) to see a package definition with reasonable values for each key. 
+The v1beta1 schema will remove, replace, and rename several fields. View this [zarf.yaml](zarf.yaml) to see a package definition with reasonable values for each key.
 
 ### Schema changes
 
@@ -152,11 +152,11 @@ The v1beta1 schema will remove, replace, and rename several fields. View this [z
 
 If a package has these fields defined then `zarf dev upgrade-schema` will error and print a recommendation for an alternative.
 
-- `.components.[x].group` will be removed. Users will be recommended to use `components[x].only.flavor` instead.     
-- `.components.[x].dataInjections` will be removed. There will be a guide in Zarf's documentation for alternatives. See [#3926](https://github.com/zarf-dev/zarf/issues/3926). 
+- `.components.[x].group` will be removed. Users should use `components[x].only.flavor` instead.
+- `.components.[x].dataInjections` will be removed. There will be a guide in Zarf's documentation for alternatives. See [#3926](https://github.com/zarf-dev/zarf/issues/3926).
 - `.components.[x].charts.[x].variables` will be removed. Its successor is [Zarf values](../0021-zarf-values/), but there will be no automated migration with `zarf dev upgrade-schema`.
-- `.metadata.yolo` will be removed. Its successor will be connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580)
-- `.components.[x].import.name` will be removed given that component imports will be changed. See [ZarfComponentConfig](#zarfcomponentconfig)
+- `.metadata.yolo` will be removed. Its successor will be connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580).
+- `.components.[x].import.name` will be removed given that component imports will be changed. See [ZarfComponentConfig](#zarfcomponentconfig).
 
 #### Replaced / Restructured Fields
 
@@ -164,11 +164,11 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 - `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions will be appended to the `actions.[onAny].after` list.
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
-- `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`. 
+- `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`.
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, `vendors` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.After.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus style readiness checks when `.wait.cluster.condition` is empty. See [Zarf Tools wait-for Changes](#zarf-tools-wait-for-changes).
-- `.component.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes)
-- `.component.[x].images` will move from a list of strings to a list of objects. The ZarfImage object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pull images from the Docker Daemon.
+- `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
+- `.components.[x].images` will move from a list of strings to a list of objects. The ZarfImage object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon.
 
 #### Renamed Fields
 
@@ -188,13 +188,13 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 #### Wait Changes
 
-There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig when `.cluster.condition` is empty Zarf will wait until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty Zarf will wait for the resource to be ready using kstatus readiness checks. 
+There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig, when `.cluster.condition` is empty, Zarf will wait until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty, Zarf will wait for the resource to be ready using kstatus readiness checks.
 
 #### Zarf Features
 
-In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain init logic. For instance, the injector is always run when an init component has a name "zarf-seed-registry". These magical names have caused confusion for custom init package creators [#4528](https://github.com/zarf-dev/zarf/issues/4528) and leave little room for configurability. 
+In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain init logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators [#4528](https://github.com/zarf-dev/zarf/issues/4528) and leave little room for configurability.
 
-There will be a new "features" key on components that should make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.features.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent features don't allow setting specific values, as those features already have Helm charts. There will be validation that ensures that Features are only used in packages that are `Kind: ZarfInitConfig`. This validation will run after the import chain is resolved. 
+There will be a new "features" key on components that should make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.features.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent features don't allow setting specific values, as those features already have Helm charts. There will be validation that ensures that Features are only used in packages that are `Kind: ZarfInitConfig`. This validation will run after the import chain is resolved.
 
 View the full schema in [Zarf Features Schema](#zarf-features-schema). There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity given Zarf Features are the only difference.
 
@@ -224,19 +224,19 @@ The `zarf dev` commands that accept a directory containing a `zarf.yaml`, lint, 
 
 Skeleton packages will be replaced by remote components. Instead of publishing an entire package, users will be able to publish a ZarfComponentConfig. This component will behave similarly to Skeleton packages in that local resources will be published alongside it, while remote resources will be pulled at create time.
 
-Remote components will be published using the new command `zarf component publish <component-file>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.only` block. If the `.component` block is supplied instead of a `.variants` block, `--all-variants` will have no effect. 
+Remote components will be published using the new command `zarf component publish <component-file>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.only` block. If the `.component` block is supplied instead of a `.variants` block, `--all-variants` will have no effect.
 
 Unlike Skeleton packages, which are published with unresolved templates, remote components must be fully templated before publishing. See [Package Templates](#package-templates) for more detail.
 
 ### Package Templates
 
-The Zarf v1alpha1 schema allows for package templates during create using the ###ZARF_PKG_TMPL_*### format. This format will be replaced in the v1beta1 schema with Go templating. Additionally, instead of templating on create, a new command `zarf dev template` will be introduced. This command will take in a zarf.tpl.yaml file, and will output a zarf.gen.yaml file based on the go templating result. The command will accept a flag `--set` to set templates and a flag `--set-file` which will accept a values style file to define templates.
+The Zarf v1alpha1 schema allows for package templates during create using the ###ZARF_PKG_TMPL_*### format. This format will be replaced in the v1beta1 schema with Go templating. Additionally, instead of templating on create, a new command `zarf dev template` will be introduced. This command will take in a zarf.tpl.yaml file, and will output a zarf.gen.yaml file based on the Go templating result. The command will accept a flag `--set` to set templates and a flag `--set-file` which will accept a values style file to define templates.
 
-The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml`, then fall back to a `zarf.gen.yaml`.  
+The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml`, then fall back to a `zarf.gen.yaml`.
 
 `zarf dev template` will have logic to follow local component imports. If the `.import.path` points to a file called `<base>.tpl.yaml` Zarf will template the file and edit the value of `import.path` to be `<base>.gen.yaml`. Users that prefer to template in separate steps may set their import path to `<base>.gen.yaml`. Zarf will template imports after the current file is finished templating, so a user will be able to template the value of `.import.path` into a `<base>.tpl.yaml` file and Zarf will template the given file.
 
-Package templates will be required to have a value; otherwise the command will fail. 
+Package templates will be required to have a value; otherwise the command will fail.
 
 The delimiter for Go templates during `zarf dev template` will be `[[ ]]`. This will separate package templates from the standard Go template delimiter `{{ }}` which are used during on-deploy actions.
 
@@ -342,7 +342,7 @@ components:
           - values.yaml
 ```
 
-#### Story 3
+#### Story 2
 
 As a package creator, I have a logging component that I maintain locally and want to use a monitoring component published by my team to an OCI registry. I combine both into a single v1beta1 package.
 
@@ -413,7 +413,7 @@ I can then create my package as usual:
 zarf package create
 ```
 
-#### Story 4
+#### Story 3
 
 As a package creator, I want to template image references and metadata into my package at build time. I write a `zarf.tpl.yaml` that uses Go templates with the `[[ ]]` delimiter:
 
@@ -481,9 +481,9 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use to achieve a similar result. 
+The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. There must be documentation to present to users so they know what alternatives they can use to achieve a similar result.
 
-The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and there will be no automatic conversion to its replacement Zarf values. There must be documentation on how users can utilize Zarf values as an alternative to chart variables. 
+The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and there will be no automatic conversion to its replacement Zarf values. There must be documentation on how users can utilize Zarf values as an alternative to chart variables.
 
 ## Design Details
 
@@ -498,9 +498,9 @@ proposal will be implemented, this is the place to discuss that.
 
 The ZarfChart object will be restructured to match the code block below. Exactly one of sub-objects `helmRepo`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
 
-During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior. 
+During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior.
 
-Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note, this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top level `version` field to the right sub object, or drop it when not applicable. 
+Zarf uses the top level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048](https://github.com/zarf-dev/proposals/pull/49/files). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top level `version` field to the right sub object, or drop it when not applicable.
 
 ```go
 // ZarfChart defines a helm chart to be deployed.
@@ -543,7 +543,7 @@ type HelmRepoSource struct {
 type GitRepoSource struct {
 	// The URL of the git repository where the helm chart is stored.
 	URL string `json:"url"`
-	// The sub directory to the chart within a git repo.
+	// The subdirectory to the chart within a git repo.
 	Path string `json:"path,omitempty"`
 }
 
@@ -604,8 +604,8 @@ type Component struct {
 	Repos []string `json:"repos,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
 	Actions ZarfComponentActions `json:"actions,omitempty"`
-  // Features of the Zarf CLI 
-  Features ZarfComponentFeatures `json:features,omitempty"`
+  // Features of the Zarf CLI
+  Features ZarfComponentFeatures `json:"features,omitempty"`
 }
 
 // Variant is a component definition with a required filter for when it applies.
@@ -643,12 +643,12 @@ type ComponentPublishData struct {
 The schema for Zarf Features:
 
 ```go
-type ZarfComponentFeatures struct {                                                                                                                             
+type ZarfComponentFeatures struct {
   IsRegistry bool       `json:"isRegistry,omitempty"`
   Injector   *Injector  `json:"injector,omitempty"`
   IsAgent    bool       `json:"isAgent,omitempty"`
-}                                                                                                                                                      
-                                                                                                                                                                  
+}
+
 type Injector struct {
   Enabled bool             `json:"enabled"`
   Values  *InjectorValues  `json:"values,omitempty"`
@@ -676,7 +676,7 @@ when drafting this test plan.
 existing tests to make this code solid enough prior to committing the changes necessary
 to implement this proposal.
 
-There will be e2e tests for creating, deploying, and publishing a v1beta1 package. As the schema is nears GA, existing tests will shift to use the v1beta1 schema.
+There will be e2e tests for creating, deploying, and publishing a v1beta1 package. As the schema nears GA, existing tests will shift to use the v1beta1 schema.
 
 ### Graduation Criteria
 
@@ -723,7 +723,7 @@ proposal:
   make use of the proposal?
 -->
 
-See the proposal section in [0048-schema-update-process](../0048-schema-update-process/README.md#proposal)
+See the proposal section in [0048-schema-update-process](../0048-schema-update-process/README.md#proposal).
 
 ### Version Skew Strategy
 
@@ -737,7 +737,7 @@ proposal:
   - (i.e. the Zarf Agent and CLI? The init package and the CLI?)
 -->
 
-See the version skew strategy in  [0048-schema-update-process](../0048-schema-update-process/README.md#version-skew-strategy)
+See the version skew strategy in [0048-schema-update-process](../0048-schema-update-process/README.md#version-skew-strategy).
 
 ## Implementation History
 
@@ -753,7 +753,7 @@ Major milestones might include:
 -->
 
 - 2025-10-21: Proposal submitted
-- 2025-02-12: Introduce Zarf Component Config, package templating changes, and Zarf features
+- 2026-02-12: Introduced Zarf Component Config, package templating changes, and Zarf features
 
 ## Drawbacks
 
@@ -762,7 +762,7 @@ Why should this ZEP _not_ be implemented?
 -->
 
 ### Component Import Reworks
-Removing the ability to import components from packages directly, and instead requiring Zarf Component Config files, will require a sizable portion of the user base to rewrite files. We believe this is a worthwhile tradeoff as this re-write should leave users with a clearer directory structure, enhanced package validation, and a more intuitive import system.  
+Removing the ability to import components from packages directly, and instead requiring Zarf Component Config files, will require a sizable portion of the user base to rewrite files. We believe this is a worthwhile tradeoff as this re-write should leave users with a clearer directory structure, enhanced package validation, and a more intuitive import system.
 
 ## Alternatives
 
@@ -774,4 +774,4 @@ information to express the idea and why it was not acceptable.
 
 ### Component Import Schema
 
-Another possibility for the [component imports schema](#component-import-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.only` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allows for builtin schema validation, requiring the `.only` key with `.variants[]` but not with `.component`. 
+Another possibility for the [component imports schema](#component-import-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.only` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allows for builtin schema validation, requiring the `.only` key with `.variants[]` but not with `.component`.
