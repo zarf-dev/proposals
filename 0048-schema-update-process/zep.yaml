@@ -12,17 +12,17 @@ approvers:
   - "@zarf-dev"
 
 see-also:
-  # Will add the v1 schema here when applicable
+  - "/0051-v1beta1-schema"
 replaces:
 
 # The target maturity stage in the current dev cycle for this ZEP.
-stage: ga
+stage: alpha
 
 # The most recent milestone for which work toward delivery of this ZEP has been
 # done. This can be the current (upcoming) milestone, if it is being actively
 # worked on.
-latest-milestone: "v0.74.2"
+latest-milestone: "v0.75.0"
 
 # The milestone at which this feature was, or is targeted to be, at each stage.
 milestone:
-  stable: "v0.74.2"
+  stable: "TBD"
