@@ -472,6 +472,10 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
+### Use only one API version
+
+Instead of introducing a new schema, we could overtime remove and introduce fields on the existing package schema. This was rejected as we believe a new schema will provide a more intuitive experience for developers and maintainers. For instance, attempting to implement the proposed Helm changes would result in a large, confusing schema. Likewise, it would be difficult to change defaults, such as moving from required to optional, since we wouldn't have a new API version to signal that there is a breaking change. Additionally, removing deprecated fields such as `dataInjections` would require a major version change. Keeping the API version and CLI version decoupled allows flexibility to make the changes we need.
+
 ### Public Facing Internal Type
 
 Rather than updating functions to accept a newer version of the schema, Zarf could have a publicly facing internal type that has every field from every version and use that throughout the SDK. The upside of this approach is that we would avoid breaking changes throughout the lifetime of the SDK. The downside is that it would make it easy for anyone using the SDK to set deprecated fields. It would also make it confusing and unclear which fields attach to which versions. 
