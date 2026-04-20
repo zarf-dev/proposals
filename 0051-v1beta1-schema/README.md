@@ -184,7 +184,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 ### New Fields
 
-- `.components[x].features` will be introduced to avoid magic names in Init package components. See [Zarf Features](#zarf-features) for more details.
+- `.components[x].services` will be introduced to avoid magic names in Init package components. See [Zarf Services](#zarf-services) for more details.
 
 ### Behavior Changes
 
@@ -192,17 +192,17 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig, when `.cluster.condition` is empty, Zarf waits until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty, Zarf will wait for the resource to be ready using kstatus readiness checks.
 
-#### Zarf Features
+#### Zarf Services
 
 In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators, [#4528](https://github.com/zarf-dev/zarf/issues/4528), and leave little room for configurability.
 
-A new "features" key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.features.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent features don't allow setting specific values, as those features already have Helm charts. There will be validation that ensures Features are only used in packages that are `Kind: ZarfInitConfig`. There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity.
+A new "services" key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.services.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent services don't allow setting specific values, as those services already have Helm charts. There will be validation that ensures Services are only used in packages that are `Kind: ZarfInitConfig`. There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity.
 
-View the full schema in [Zarf Features Schema](#zarf-features-schema). 
+View the full schema in [Zarf Services Schema](#zarf-services-schema). 
 
 ```yaml
 - name: zarf-seed-registry
-  features:
+  services:
     isRegistry: true
     injector:
       enabled: true
@@ -603,8 +603,8 @@ type Component struct {
 	Repos []string `json:"repos,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
 	Actions ZarfComponentActions `json:"actions,omitempty"`
-  // Features of the Zarf CLI.
-  Features ZarfComponentFeatures `json:"features,omitempty"`
+  // Zarf CLI services and infrastructure such as the registry, injector, and agent.
+  Services ZarfComponentServices `json:"services,omitempty"`
 }
 
 // Variant is a component definition with a required filter for when it applies.
@@ -637,12 +637,12 @@ type ComponentPublishData struct {
 }
 ```
 
-### Zarf Features Schema
+### Zarf Services Schema
 
-The schema for Zarf Features:
+The schema for Zarf Services:
 
 ```go
-type ZarfComponentFeatures struct {
+type ZarfComponentServices struct {
   IsRegistry bool       `json:"isRegistry,omitempty"`
   Injector   *Injector  `json:"injector,omitempty"`
   IsAgent    bool       `json:"isAgent,omitempty"`
@@ -752,7 +752,7 @@ Major milestones might include:
 -->
 
 - 2025-10-21: Proposal submitted
-- 2026-02-12: Introduced Zarf Component Config, package templating changes, and Zarf features
+- 2026-02-12: Introduced Zarf Component Config, package templating changes, and Zarf services
 
 ## Drawbacks
 
