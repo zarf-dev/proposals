@@ -228,7 +228,7 @@ Skeleton packages will be replaced by remote components. Instead of publishing a
 
 Remote components will be published using the new command `zarf component publish <component-file> <oci-repo>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.only` block. If the `.component` block is supplied instead of a `.variants` block, `--all-variants` will have no effect.
 
-Unlike Skeleton packages, which are published with unresolved templates, remote components must be fully templated before publishing. See [Package Templates](#package-templates) for more detail.
+Unlike Skeleton packages, which are published with unresolved templates, remote components must be fully templated before publishing. By templating before publish, we avoid issues with validating a non-templated package ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and stay aligned with the overall [Package Templates](#package-templates) strategy.
 
 ### Package Templates
 
