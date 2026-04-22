@@ -168,6 +168,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions will be appended to the `actions.[onAny].after` list.
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`.
+- `.components.[x].only.cluster.architecture` will be inlined to `.components.[x].target.architecture`. This is more accurate as the field checks the `.metadata.architecture` on create, rather than the cluster during deploy. Note that `.only` was renamed to `.target`
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendors` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.after.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [wait changes](#wait-changes).
 - `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
