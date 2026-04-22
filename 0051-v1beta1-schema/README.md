@@ -184,6 +184,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration).
 - `.components.[x].only` will be renamed to `.components.[x].target`.
+- `.components.[x].repos` will be renamed to `.components.[x].repositories`
 
 ### New Fields
 
@@ -335,7 +336,7 @@ components:
 
       - name: podinfo-repo
         namespace: podinfo-from-repo
-        helmRepo:
+        helmRepository:
           url: https://stefanprodan.github.io/podinfo
           name: podinfo  # Changed from `repoName`
           version: 6.4.0
@@ -377,7 +378,7 @@ component:
   charts:
     - name: kube-prometheus-stack
       namespace: monitoring
-      helmRepo:
+      helmRepository:
         url: https://prometheus-community.github.io/helm-charts
         name: kube-prometheus-stack
         version: 60.0.0
@@ -498,9 +499,9 @@ proposal will be implemented, this is the place to discuss that.
 
 ### Zarf Helm Chart Changes
 
-The ZarfChart object will be restructured to match the code block below. Exactly one of sub-objects `helmRepo`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
+The ZarfChart object will be restructured to match the code block below. Exactly one of sub-objects `helmRepository`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
 
-During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.gitRepoSource.URL`. This is consistent with the current Zarf behavior.
+During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.git.URL`. This is consistent with the current Zarf behavior.
 
 Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048-schema-update-process](../0048-schema-update-process/README.md#converting-removed-fields). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub object, or drop it when not applicable.
 
@@ -511,12 +512,12 @@ type ZarfChart struct {
 	Name string `json:"name"`
   // The version of the chart. This field is removed for the schema, but kept as a backwards compatibility shim so v1alpha1 packages can be converted to v1beta1.
   version string
-	// The Helm repo where the chart is stored
-	HelmRepo *HelmRepoSource `json:"helmRepo,omitempty"`
-	// The Git repo where the chart is stored
-	Git *GitRepoSource `json:"git,omitempty"`
+	// The Helm repository where the chart is stored
+	HelmRepository *HelmRepositorySource `json:"helmRepository,omitempty"`
+	// The Git repository where the chart is stored
+	Git *GitSource `json:"git,omitempty"`
 	// The local path where the chart is stored
-	Local *LocalRepoSource `json:"local,omitempty"`
+	Local *LocalSource `json:"local,omitempty"`
 	// The OCI registry where the chart is stored
 	OCI *OCISource `json:"oci,omitempty"`
 	// The namespace to deploy the chart to.
@@ -531,8 +532,8 @@ type ZarfChart struct {
 	Values []ZarfChartValue `json:"values,omitempty"`
 }
 
-// HelmRepoSource represents a Helm chart stored in a Helm repository.
-type HelmRepoSource struct {
+// HelmRepositorySource represents a Helm chart stored in a Helm repository.
+type HelmRepositorySource struct {
 	// The name of a chart within a Helm repository.
 	Name string `json:"name,omitempty"`
 	// The URL of the chart repository where the Helm chart is stored.
@@ -541,16 +542,16 @@ type HelmRepoSource struct {
 	Version string `json:"version"`
 }
 
-// GitRepoSource represents a Helm chart stored in a Git repository.
-type GitRepoSource struct {
+// GitSource represents a Helm chart stored in a Git repository.
+type GitSource struct {
 	// The URL of the Git repository where the Helm chart is stored.
 	URL string `json:"url"`
 	// The subdirectory containing the chart within a Git repo.
 	Path string `json:"path,omitempty"`
 }
 
-// LocalRepoSource represents a Helm chart stored locally.
-type LocalRepoSource struct {
+// LocalSource represents a Helm chart stored locally.
+type LocalSource struct {
 	// The path to a local chart's folder or .tgz archive.
 	Path string `json:"path"`
 }
@@ -602,8 +603,8 @@ type Component struct {
 	Images []ZarfImage `json:"images,omitempty"`
 	// List of Tar files of images to bring into the package.
 	ImageArchives []ImageArchive `json:"imageArchives,omitempty"`
-	// List of git repos to include in the package.
-	Repos []string `json:"repos,omitempty"`
+	// List of git repositories to include in the package.
+	Repositories []string `json:"repositories,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
 	Actions ZarfComponentActions `json:"actions,omitempty"`
   // Zarf CLI services and infrastructure such as the registry, injector, and agent.
