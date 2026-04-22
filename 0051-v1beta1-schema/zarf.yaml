@@ -15,7 +15,7 @@ metadata:
     image: https://my-image-url-to-use-in-deprecated-zarf-ui
     anyway-you-want-it: thats-the-way-you-need-it
   allowNamespaceOverride: true
-build: # Everything here is created by Zarf not be users
+build: # Everything here is created by Zarf not by users
   terminal: my-computer
   user: my-user
   architecture: amd64
@@ -79,7 +79,7 @@ components:
     - sourcePath: ".app.name"
       targetPath: ".appName"
     schemaValidation: true
-    helmRepo: # Only one of helm, git, oci, url, or local is allowed
+    helmRepo: # Only one of helmRepo, git, oci, url, or local is allowed
       url: https://stefanprodan.github.io/podinfo
       name: podinfo # replaces repoName since it's only applicable in this situation
       version: 6.4.0

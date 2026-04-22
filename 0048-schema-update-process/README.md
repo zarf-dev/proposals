@@ -474,7 +474,7 @@ information to express the idea and why it was not acceptable.
 
 ### Use only one API version
 
-Instead of introducing a new schema, we could overtime remove and introduce fields on the existing package schema. This was rejected as we believe a new schema will provide a more intuitive experience for developers and maintainers. For instance, attempting to implement the proposed Helm changes would result in a large, confusing schema. Likewise, it would be difficult to change defaults, such as moving from required to optional, since we wouldn't have a new API version to signal that there is a breaking change. Additionally, removing deprecated fields such as `dataInjections` would require a major version change. Keeping the API version and CLI version decoupled allows flexibility to make the changes we need.
+Instead of introducing a new schema, we could over time remove and introduce fields on the existing package schema. This was rejected as we believe a new schema will provide a more intuitive experience for developers and maintainers. For instance, attempting to implement the proposed Helm changes would result in a large, confusing schema. Likewise, it would be difficult to change defaults, such as moving from required to optional, since we wouldn't have a new API version to signal that there is a breaking change. Additionally, removing deprecated fields such as `dataInjections` would require a major version change. Keeping the API version and CLI version decoupled allows flexibility to make the changes we need.
 
 ### Public Facing Internal Type
 
