@@ -45,8 +45,6 @@ components:
     localOS: darwin
     cluster:
       architecture: amd64
-      distros:
-      - ubuntu
     flavor: a-flavor # this will only be used when there are multiple components
   import:
     path: ABCD # Only path or URL will be used, not both

@@ -159,6 +159,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].charts.[x].variables` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead.
 - `.metadata.yolo` will be removed. Its successor is connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580).
 - `.components.[x].import.name` will be removed given that component imports will be changed. See [ZarfComponentConfig](#zarfcomponentconfig).
+- `.components.[x].only.cluster.distro` will be removed. This field was never used for anything and there are plans to use it currently.
 
 #### Replaced / Restructured Fields
 
