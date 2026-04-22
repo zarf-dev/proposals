@@ -578,10 +578,10 @@ type ComponentConfig struct {
 	Metadata ZarfComponentMetadata `json:"metadata"`
   // Exactly one of Component or Variants must be set.
 	// A single component definition that applies in all contexts.
-	Component *Component `json:"component,omitempty"`
+	Component *Component `json:"component,omitempty" jsonschema:"oneof_required=component"`
 	// A list of component variants, each with a distinct .target filter. Use this when the
 	// component has different definitions for different flavors, OSes, or architectures.
-	Variants []Variant `json:"variants,omitempty"`
+	Variants []Variant `json:"variants,omitempty" jsonschema:"oneof_required=variants"`
 	// Values imports Zarf values files for templating and overriding Helm values.
 	Values ZarfValues `json:"values,omitempty"`
 	// Zarf-generated publish data for the component config.
