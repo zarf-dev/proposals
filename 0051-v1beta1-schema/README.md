@@ -568,7 +568,7 @@ The schema for the Zarf component config will look like so:
 // ComponentConfig is the top-level structure of a Zarf component config file.
 type ComponentConfig struct {
 	// The API version of the component config.
-	APIVersion string `json:"apiVersion,omitempty" jsonschema:"enum=zarf.dev/v1beta1"`
+	APIVersion string `json:"apiVersion" jsonschema:"enum=zarf.dev/v1beta1"`
 	// The kind of component config.
 	Kind ZarfPackageKind `json:"kind" jsonschema:"enum=ZarfComponentConfig,default=ZarfComponentConfig"`
 	// Component metadata.
