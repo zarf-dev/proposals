@@ -534,7 +534,7 @@ type HelmRepoSource struct {
 	Name string `json:"name,omitempty"`
 	// The URL of the chart repository where the Helm chart is stored.
 	URL string `json:"url"`
-  // The version of the chart to deploy; for Git-based charts this is also the tag of the Git repo by default (when not using the '@' syntax for 'repos').
+  // The version of the chart in the Helm repository.
 	Version string `json:"version"`
 }
 
