@@ -161,7 +161,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].charts.[x].variables` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead.
 - `.metadata.yolo` will be removed. Its successor is connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580).
 - `.components.[x].import.name` will be removed given that component imports will be changed. See [ZarfComponentConfig](#zarfcomponentconfig).
-- `.components.[x].only.cluster.distro` will be removed. This field was never used for anything and there are plans to use it currently.
+- `.components.[x].only.cluster.distro` will be removed. This field was never used for anything and there are no plans to use it currently.
 
 #### Replaced / Restructured Fields
 
@@ -171,7 +171,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`.
 - `.components.[x].only.cluster.architecture` will be inlined to `.components.[x].target.architecture`. This is more accurate as the field checks the `.metadata.architecture` on create, rather than the cluster during deploy. Note that `.only` was renamed to `.target`. Since `.cluster.distro` will be removed, the `.cluster` parent field will be deleted. 
-- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendors` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
+- `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendor` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.after.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [wait changes](#wait-changes).
 - `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
 - `.components.[x].images` will move from a list of strings to a list of objects. The `Image` object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon. During component imports, the merge strategy will change from a simple append, to a merge based on `name`. `source` and any future fields will favor the base component value if set, and otherwise use the imported component value. 
@@ -501,13 +501,11 @@ proposal will be implemented, this is the place to discuss that.
 
 ### Zarf Helm Chart Changes
 
-The `Chart` object will be restructured to match the code block below. Exactly one of sub-objects `helmRepository`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
+The `Chart` object will be restructured as seen in [package.go](package.go#L246-L312). Exactly one of sub-objects `helmRepository`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/zarf-dev/zarf/issues/2245).
 
 During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.git.URL`. This is consistent with the current Zarf behavior.
 
 Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048-schema-update-process](../0048-schema-update-process/README.md#converting-removed-fields). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub object, or drop it when not applicable.
-
-View the restructured `Chart` schema and its source sub-objects in [package.go](package.go#L246-L310).
 
 ### Zarf Component Config Schema
 
@@ -628,4 +626,4 @@ information to express the idea and why it was not acceptable.
 
 ### Component Import Schema
 
-Another possibility for the [component imports schema](#component-import-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.target` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allow for built-in schema validation, requiring the `.target` key with `.variants[]` but not with `.component`.
+Another possibility for the [component config schema](#zarf-component-config-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.target` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allow for built-in schema validation, requiring the `.target` key with `.variants[]` but not with `.component`.

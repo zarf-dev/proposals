@@ -267,6 +267,8 @@ type Chart struct {
 	ValuesFiles []string `json:"valuesFiles,omitempty"`
 	// List of value sources mapped to their Helm override targets.
 	Values []ChartValue `json:"values,omitempty"`
+	// Whether to validate the chart's values against its JSON schema. Defaults to true.
+	SchemaValidation *bool `json:"schemaValidation,omitempty"`
 }
 
 // ChartValue maps a values source path to a Helm chart target path.

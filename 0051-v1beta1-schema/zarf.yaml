@@ -6,7 +6,7 @@ metadata:
   version: v1.0.0
   uncompressed: false
   architecture: amd64
-  annotations: # All of these are v0 fields that will be deprecated in favor of a choose your own adventure label map
+  annotations: # All of these are v1alpha1 fields that will be deprecated in favor of a choose your own adventure label map
     authors: cool-kidz
     documentation: https://my-package-documentation.com
     source: https://my-git-server/my-package
@@ -43,13 +43,12 @@ components:
   optional: false # Component is required (default behavior)
   target:
     localOS: darwin
-    cluster:
-      architecture: amd64
+    architecture: amd64
     flavor: a-flavor # this will only be used when there are multiple components
   import:
     path: ABCD # Only path or URL will be used, not both
     url: oci://
-  features:
+  services:
     isRegistry: false
     injector:
       enabled: true
@@ -77,12 +76,12 @@ components:
     - sourcePath: ".app.name"
       targetPath: ".appName"
     schemaValidation: true
-    helmRepository: # Only one of helmRepository, git, oci, url, or local is allowed
+    helmRepository: # Only one of helmRepository, git, oci, or local is allowed
       url: https://stefanprodan.github.io/podinfo
       name: podinfo # replaces repoName since it's only applicable in this situation
       version: 6.4.0
     git:
-      url: https://stefanprodan.github.io/podinfo
+      url: https://github.com/stefanprodan/podinfo.git@6.4.0
       path: charts/podinfo
     oci:
       url: oci://ghcr.io/stefanprodan/charts/podinfo
@@ -99,7 +98,7 @@ components:
     extractPath: /path/to/extract
     template: false # Disable go-template processing for this file
   images:
-    - name: podinfo@v1
+    - name: podinfo:v1
       source: "registry" # optional - registry is the default value
   imageArchives:
   - path: podinfo.tar
