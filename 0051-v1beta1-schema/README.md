@@ -154,7 +154,7 @@ The v1beta1 schema will remove, replace, and rename several fields. View this [z
 
 If a package has these fields defined then `zarf dev upgrade-schema` will error and print a recommendation for an alternative.
 
-- `.components.[x].group` will be removed. A similar functionality was introduced with the field `components[x].only.flavor`. This shifts component selection to the create side, and is the recommended replacement. 
+- `.components.[x].group` will be removed. A similar functionality was introduced with the field `components[x].target.flavor`. This shifts component selection to the create side, and is the recommended replacement. 
 - `.components.[x].dataInjections` will be removed. https://docs.zarf.dev/best-practices/data-injections-migration/ details migrating off of this field.
 - `.components.[x].charts.[x].variables` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead.
 - `.metadata.yolo` will be removed. Its successor is connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580).
@@ -181,6 +181,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `.components.[x].charts`.
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration).
+- `.components.[x].only` will be renamed to `.components.[x].target`.
 
 ### New Fields
 
@@ -214,7 +215,7 @@ View the full schema in [Zarf Services Schema](#zarf-services-schema).
 
 The v1beta1 APIVersion will introduce a new `Kind` alongside ZarfPackageConfig called ZarfComponentConfig. ZarfComponentConfig files will allow declaring a component to be imported from other packages. It will have its own schema, and this schema will be verified on create and publish. ZarfComponentConfigs will be importable only by v1beta1 packages. Components from other ZarfPackageConfigs will not be importable in v1beta1 packages.
 
-A ZarfComponentConfig must declare either the `component` or `variants` field. The `component` field is a single object representing a component that is importable by any package. The `variants` field is a list of components where each entry must specify the `.only` to differentiate itself from the other components (e.g. flavors, OSes, or architectures). Zarf will error if two components under `variants` have the same value for `.only`. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
+A ZarfComponentConfig must declare either the `component` or `variants` field. The `component` field is a single object representing a component that is importable by any package. The `variants` field is a list of components where each entry must specify the `.target` to differentiate itself from the other components (e.g. flavors, OSes, or architectures). Zarf will error if two components under `variants` have the same value for `.target`. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
 
 The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and promote a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
 
@@ -226,7 +227,7 @@ The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, 
 
 Skeleton packages will be replaced by remote components. Instead of publishing an entire package, users will be able to publish a ZarfComponentConfig. This component will behave similarly to Skeleton packages in that local resources will be published alongside it, while remote resources will be pulled at create time.
 
-Remote components will be published using the new command `zarf component publish <component-file> <oci-repo>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.only` block. If the `.component` block is supplied instead of a `.variants` block, `--all-variants` will have no effect.
+Remote components will be published using the new command `zarf component publish <component-file> <oci-repo>`. This command will have the flags `--flavor` and `--all-variants`. When `--all-variants` is used, all variants will be published regardless of their `.target` block. If the `.component` block is supplied instead of a `.variants` block, `--all-variants` will have no effect.
 
 Unlike Skeleton packages, which are published with unresolved templates, remote components must be fully templated before publishing. By templating before publish, we avoid issues with validating a non-templated package ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and stay aligned with the overall [Package Templates](#package-templates) strategy.
 
@@ -576,7 +577,7 @@ type ComponentConfig struct {
   // Exactly one of Component or Variants must be set.
 	// A single component definition that applies in all contexts.
 	Component *Component `json:"component,omitempty"`
-	// A list of component variants, each with a distinct .only filter. Use this when the
+	// A list of component variants, each with a distinct .target filter. Use this when the
 	// component has different definitions for different flavors, OSes, or architectures.
 	Variants []Variant `json:"variants,omitempty"`
 	// Values imports Zarf values files for templating and overriding Helm values.
@@ -611,7 +612,7 @@ type Component struct {
 type Variant struct {
 	Component
 	// Filter when this variant is included in package creation or deployment.
-	Only ZarfComponentOnlyTarget `json:"only"`
+	Target ZarfComponentTarget `json:"target"`
 }
 
 // ZarfComponentMetadata holds metadata about a component config.
@@ -773,4 +774,4 @@ information to express the idea and why it was not acceptable.
 
 ### Component Import Schema
 
-Another possibility for the [component imports schema](#component-import-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.only` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allow for built-in schema validation, requiring the `.only` key with `.variants[]` but not with `.component`.
+Another possibility for the [component imports schema](#component-import-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.target` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allow for built-in schema validation, requiring the `.target` key with `.variants[]` but not with `.component`.

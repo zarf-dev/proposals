@@ -41,7 +41,7 @@ components:
 - name: a-component
   description: Zarf description
   optional: false # Component is required (default behavior)
-  only:
+  target:
     localOS: darwin
     cluster:
       architecture: amd64
