@@ -204,7 +204,7 @@ In the v1alpha1 schema, Zarf looks at init component names to determine when to 
 
 A new "services" key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.services.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent services don't allow setting specific values, as those services already have Helm charts. There will be validation that ensures Services are only used in packages that are `Kind: ZarfInitConfig`. There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity.
 
-View the full schema in [Zarf Services Schema](#zarf-services-schema). 
+View the full schema in [package.go](package.go#L204-L226). 
 
 ```yaml
 - name: zarf-seed-registry
@@ -507,162 +507,11 @@ During conversion, Zarf will detect the method of consuming the chart and create
 
 Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048-schema-update-process](../0048-schema-update-process/README.md#converting-removed-fields). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub object, or drop it when not applicable.
 
-```go
-// Chart defines a helm chart to be deployed.
-type Chart struct {
-	// The name of the chart within Zarf; note that this must be unique and does not need to be the same as the name in the chart repo.
-	Name string `json:"name"`
-  // The version of the chart. This field is removed for the schema, but kept as a backwards compatibility shim so v1alpha1 packages can be converted to v1beta1.
-  version string
-	// The Helm repository where the chart is stored
-	HelmRepository *HelmRepositorySource `json:"helmRepository,omitempty"`
-	// The Git repository where the chart is stored
-	Git *GitSource `json:"git,omitempty"`
-	// The local path where the chart is stored
-	Local *LocalSource `json:"local,omitempty"`
-	// The OCI registry where the chart is stored
-	OCI *OCISource `json:"oci,omitempty"`
-	// The namespace to deploy the chart to.
-	Namespace string `json:"namespace,omitempty"`
-	// The name of the Helm release to create (defaults to the Zarf name of the chart).
-	ReleaseName string `json:"releaseName,omitempty"`
-	// Whether to wait for chart resources to be ready before continuing.
-	Wait *bool `json:"wait,omitempty"`
-	// List of local values file paths or remote URLs to include in the package; these will be merged together when deployed.
-	ValuesFiles []string `json:"valuesFiles,omitempty"`
-  // [alpha] List of value sources mapped to their Helm override targets.
-	Values []ChartValue `json:"values,omitempty"`
-}
-
-// HelmRepositorySource represents a Helm chart stored in a Helm repository.
-type HelmRepositorySource struct {
-	// The name of a chart within a Helm repository.
-	Name string `json:"name,omitempty"`
-	// The URL of the chart repository where the Helm chart is stored.
-	URL string `json:"url"`
-  // The version of the chart in the Helm repository.
-	Version string `json:"version"`
-}
-
-// GitSource represents a Helm chart stored in a Git repository.
-type GitSource struct {
-	// The URL of the Git repository where the Helm chart is stored.
-	URL string `json:"url"`
-	// The subdirectory containing the chart within a Git repo.
-	Path string `json:"path,omitempty"`
-}
-
-// LocalSource represents a Helm chart stored locally.
-type LocalSource struct {
-	// The path to a local chart's folder or .tgz archive.
-	Path string `json:"path"`
-}
-
-// OCISource represents a Helm chart stored in an OCI registry.
-type OCISource struct {
-	// The URL of the OCI registry where the Helm chart is stored.
-	URL     string `json:"url"`
-	Version string `json:"version"`
-}
-```
+View the restructured `Chart` schema and its source sub-objects in [package.go](package.go#L246-L310).
 
 ### Zarf Component Config Schema
 
-The schema for the Zarf component config will look like so:
-
-```go
-// ComponentConfig is the top-level structure of a Zarf component config file.
-type ComponentConfig struct {
-	// The API version of the component config.
-	APIVersion string `json:"apiVersion" jsonschema:"enum=zarf.dev/v1beta1"`
-	// The kind of component config.
-	Kind PackageKind `json:"kind" jsonschema:"enum=ZarfComponentConfig,default=ZarfComponentConfig"`
-	// Component metadata.
-	Metadata ComponentMetadata `json:"metadata"`
-  // Exactly one of Component or Variants must be set.
-	// A single component definition that applies in all contexts.
-	Component *ImportableComponent `json:"component,omitempty" jsonschema:"oneof_required=component"`
-	// A list of component variants, each with a distinct .target filter. Use this when the
-	// component has different definitions for different flavors, OSes, or architectures.
-	Variants []Variant `json:"variants,omitempty" jsonschema:"oneof_required=variants"`
-	// Values imports Zarf values files for templating and overriding Helm values.
-	Values Values `json:"values,omitempty"`
-	// Zarf-generated publish data for the component config.
-	PublishData ComponentPublishData `json:"publishData,omitempty"`
-}
-
-// ImportableComponent is a reduced component definition used in component configs.
-type ImportableComponent struct {
-	// Import a component from another Zarf component config.
-	Import ComponentImport `json:"import,omitempty"`
-	// Kubernetes manifests to be included in a generated Helm chart on package deploy.
-	Manifests []Manifest `json:"manifests,omitempty"`
-	// Helm charts to install during package deploy.
-	Charts []Chart `json:"charts,omitempty"`
-	// Files or folders to place on disk during package deployment.
-	Files []File `json:"files,omitempty"`
-	// List of OCI images to include in the package.
-	Images []Image `json:"images,omitempty"`
-	// List of Tar files of images to bring into the package.
-	ImageArchives []ImageArchive `json:"imageArchives,omitempty"`
-	// List of git repositories to include in the package.
-	Repositories []string `json:"repositories,omitempty"`
-	// Custom commands to run at various stages of a package lifecycle.
-	Actions ComponentActions `json:"actions,omitempty"`
-  // Zarf CLI services and infrastructure such as the registry, injector, and agent.
-  Services ComponentServices `json:"services,omitempty"`
-}
-
-// Variant is a component definition with a required filter for when it applies.
-type Variant struct {
-	ImportableComponent
-	// Filter when this variant is included in package creation or deployment.
-	Target ComponentTarget `json:"target"`
-}
-
-// ComponentMetadata holds metadata about a component config.
-type ComponentMetadata struct {
-	// Name to identify this component config.
-	Name string `json:"name" jsonschema:"pattern=^[a-z0-9][a-z0-9\\-]*$"`
-	// Additional information about this component config.
-	Description string `json:"description,omitempty"`
-	// Generic string to track the component config version.
-	Version string `json:"version,omitempty"`
-	// Annotations contains arbitrary metadata about the component config.
-	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
-// ComponentPublishData is written during publish to track details of the component config.
-type ComponentPublishData struct {
-	// The version of Zarf used to build this component config.
-	ZarfVersion string `json:"zarfVersion"`
-	// Any migrations that have been run on this component config.
-	Migrations []string `json:"migrations,omitempty"`
-	// Requirements for specific package operations.
-	VersionRequirements []VersionRequirement `json:"versionRequirements,omitempty"`
-}
-```
-
-### Zarf Services Schema
-
-The schema for Zarf Services:
-
-```go
-type ComponentServices struct {
-  IsRegistry bool       `json:"isRegistry,omitempty"`
-  Injector   *Injector  `json:"injector,omitempty"`
-  IsAgent    bool       `json:"isAgent,omitempty"`
-}
-
-type Injector struct {
-  Enabled bool             `json:"enabled"`
-  Values  *InjectorValues  `json:"values,omitempty"`
-}
-
-type InjectorValues struct {
-  Tolerations string `json:"tolerations,omitempty"`
-}
-```
+View the schema for the Zarf component config in [componentConfig.go](componentConfig.go).
 
 ### Test Plan
 
