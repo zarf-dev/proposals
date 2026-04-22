@@ -18,42 +18,42 @@ const (
 	FileVariableType VariableType = "file"
 )
 
-// ZarfPackageKind is an enum of the different kinds of Zarf packages.
-type ZarfPackageKind string
+// PackageKind is an enum of the different kinds of Zarf packages.
+type PackageKind string
 
 const (
 	// ZarfInitConfig is the kind of Zarf package used during `zarf init`.
-	ZarfInitConfig ZarfPackageKind = "ZarfInitConfig"
+	ZarfInitConfig PackageKind = "ZarfInitConfig"
 	// ZarfPackageConfig is the default kind of Zarf package.
-	ZarfPackageConfig ZarfPackageKind = "ZarfPackageConfig"
+	ZarfPackageConfig PackageKind = "ZarfPackageConfig"
 	// APIVersion is the api version of this package.
 	APIVersion string = "zarf.dev/v1beta1"
 )
 
-// ZarfPackage is the top-level structure of a Zarf package definition.
-type ZarfPackage struct {
+// Package is the top-level structure of a Zarf package definition.
+type Package struct {
 	// The API version of the Zarf package.
 	APIVersion string `json:"apiVersion" jsonschema:"enum=zarf.dev/v1beta1"`
 	// The kind of Zarf package.
-	Kind ZarfPackageKind `json:"kind" jsonschema:"enum=ZarfInitConfig,enum=ZarfPackageConfig,default=ZarfPackageConfig"`
+	Kind PackageKind `json:"kind" jsonschema:"enum=ZarfInitConfig,enum=ZarfPackageConfig,default=ZarfPackageConfig"`
 	// Package metadata.
-	Metadata ZarfMetadata `json:"metadata,omitempty"`
+	Metadata Metadata `json:"metadata,omitempty"`
 	// Zarf-generated package build data.
-	Build ZarfBuildData `json:"build,omitempty"`
+	Build BuildData `json:"build,omitempty"`
 	// List of components to deploy in this package.
-	Components []ZarfComponent `json:"components" jsonschema:"minItems=1"`
+	Components []Component `json:"components" jsonschema:"minItems=1"`
 	// Constant template values applied on deploy.
 	Constants []Constant `json:"constants,omitempty"`
 	// Variable template values applied on deploy.
 	Variables []InteractiveVariable `json:"variables,omitempty"`
 	// Values imports Zarf values files for templating and overriding Helm values.
-	Values ZarfValues `json:"values,omitempty"`
+	Values Values `json:"values,omitempty"`
 	// Documentation files included in the package.
 	Documentation map[string]string `json:"documentation,omitempty"`
 }
 
-// ZarfMetadata holds information about the package.
-type ZarfMetadata struct {
+// Metadata holds information about the package.
+type Metadata struct {
 	// Name to identify this Zarf package.
 	Name string `json:"name" jsonschema:"pattern=^[a-z0-9][a-z0-9\\-]*$"`
 	// Additional information about this Zarf package.
@@ -70,8 +70,8 @@ type ZarfMetadata struct {
 	AllowNamespaceOverride *bool `json:"allowNamespaceOverride,omitempty"`
 }
 
-// ZarfBuildData is written during package create to track details of the created package.
-type ZarfBuildData struct {
+// BuildData is written during package create to track details of the created package.
+type BuildData struct {
 	// The machine name that created this package.
 	Terminal string `json:"terminal,omitempty"`
 	// The username who created this package.
@@ -104,8 +104,8 @@ type VersionRequirement struct {
 	Reason string `json:"reason"`
 }
 
-// ZarfValues defines values files and schema for templating and overriding Helm values.
-type ZarfValues struct {
+// Values defines values files and schema for templating and overriding Helm values.
+type Values struct {
 	// List of values file paths to include.
 	Files []string `json:"files,omitempty"`
 	// Path to a JSON schema file for validating values.
@@ -151,8 +151,8 @@ type Constant struct {
 	Pattern string `json:"pattern,omitempty"`
 }
 
-// ZarfComponent is the primary functional grouping of assets to deploy by Zarf.
-type ZarfComponent struct {
+// Component is the primary functional grouping of assets to deploy by Zarf.
+type Component struct {
 	// The name of the component.
 	Name string `json:"name" jsonschema:"pattern=^[a-z0-9][a-z0-9\\-]*$"`
 	// Message to include during package deploy describing the purpose of this component.
@@ -162,29 +162,29 @@ type ZarfComponent struct {
 	// Do not install this component unless explicitly requested. Defaults to false, meaning the component is required.
 	Optional *bool `json:"optional,omitempty"`
 	// Filter when this component is included in package creation or deployment.
-	Target ZarfComponentTarget `json:"target,omitempty"`
+	Target ComponentTarget `json:"target,omitempty"`
 	// Import a component from another Zarf component config.
-	Import ZarfComponentImport `json:"import,omitempty"`
+	Import ComponentImport `json:"import,omitempty"`
 	// Zarf CLI services and infrastructure such as the registry, injector, and agent.
-	Services ZarfComponentServices `json:"services,omitempty"`
+	Services ComponentServices `json:"services,omitempty"`
 	// Kubernetes manifests to be included in a generated Helm chart on package deploy.
-	Manifests []ZarfManifest `json:"manifests,omitempty"`
+	Manifests []Manifest `json:"manifests,omitempty"`
 	// Helm charts to install during package deploy.
-	Charts []ZarfChart `json:"charts,omitempty"`
+	Charts []Chart `json:"charts,omitempty"`
 	// Files or folders to place on disk during package deployment.
-	Files []ZarfFile `json:"files,omitempty"`
+	Files []File `json:"files,omitempty"`
 	// List of OCI images to include in the package.
-	Images []ZarfImage `json:"images,omitempty"`
+	Images []Image `json:"images,omitempty"`
 	// List of tar archives of images to include in the package.
 	ImageArchives []ImageArchive `json:"imageArchives,omitempty"`
 	// List of git repositories to include in the package.
 	Repositories []string `json:"repositories,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
-	Actions ZarfComponentActions `json:"actions,omitempty"`
+	Actions ComponentActions `json:"actions,omitempty"`
 }
 
-// ZarfComponentTarget filters a component to only apply for a given local OS, architecture, or flavor.
-type ZarfComponentTarget struct {
+// ComponentTarget filters a component to only apply for a given local OS, architecture, or flavor.
+type ComponentTarget struct {
 	// Only deploy component to specified OS.
 	LocalOS string `json:"localOS,omitempty" jsonschema:"enum=linux,enum=darwin,enum=windows"`
 	// Only include component for the given package architecture.
@@ -193,16 +193,16 @@ type ZarfComponentTarget struct {
 	Flavor string `json:"flavor,omitempty"`
 }
 
-// ZarfComponentImport is a reference to an imported Zarf component config.
-type ZarfComponentImport struct {
+// ComponentImport is a reference to an imported Zarf component config.
+type ComponentImport struct {
 	// The path to the component config file to import.
 	Path string `json:"path,omitempty"`
 	// The URL to a Zarf component config to import via OCI.
 	URL string `json:"url,omitempty" jsonschema:"pattern=^oci://.*$"`
 }
 
-// ZarfComponentServices defines Zarf CLI services to enable for an init component.
-type ZarfComponentServices struct {
+// ComponentServices defines Zarf CLI services to enable for an init component.
+type ComponentServices struct {
 	// Whether this component provides a registry.
 	IsRegistry bool `json:"isRegistry,omitempty"`
 	// Injector configuration for the component.
@@ -225,8 +225,8 @@ type InjectorValues struct {
 	Tolerations string `json:"tolerations,omitempty"`
 }
 
-// ZarfManifest defines raw manifests Zarf will deploy as a helm chart.
-type ZarfManifest struct {
+// Manifest defines raw manifests Zarf will deploy as a helm chart.
+type Manifest struct {
 	// A name to give this collection of manifests; this will become the name of the dynamically-created helm chart.
 	Name string `json:"name" jsonschema:"maxLength=40"`
 	// The namespace to deploy the manifests to.
@@ -243,8 +243,8 @@ type ZarfManifest struct {
 	Template *bool `json:"template,omitempty"`
 }
 
-// ZarfChart defines a helm chart to be deployed.
-type ZarfChart struct {
+// Chart defines a helm chart to be deployed.
+type Chart struct {
 	// The name of the chart within Zarf; note that this must be unique and does not need to be the same as the name in the chart repository.
 	Name string `json:"name"`
 	// The version of the chart. This field is removed from the schema, but kept as a backwards compatibility shim so v1alpha1 packages can be converted to v1beta1.
@@ -266,11 +266,11 @@ type ZarfChart struct {
 	// List of local values file paths or remote URLs to include in the package; these will be merged together when deployed.
 	ValuesFiles []string `json:"valuesFiles,omitempty"`
 	// List of value sources mapped to their Helm override targets.
-	Values []ZarfChartValue `json:"values,omitempty"`
+	Values []ChartValue `json:"values,omitempty"`
 }
 
-// ZarfChartValue maps a values source path to a Helm chart target path.
-type ZarfChartValue struct {
+// ChartValue maps a values source path to a Helm chart target path.
+type ChartValue struct {
 	// The source path for the value.
 	SourcePath string `json:"sourcePath"`
 	// The target path within the Helm chart values.
@@ -309,8 +309,8 @@ type OCISource struct {
 	Version string `json:"version"`
 }
 
-// ZarfFile defines a file to deploy.
-type ZarfFile struct {
+// File defines a file to deploy.
+type File struct {
 	// Local folder or file path or remote URL to pull into the package.
 	Source string `json:"source"`
 	// Optional SHA256 checksum of the file.
@@ -327,8 +327,8 @@ type ZarfFile struct {
 	Template *bool `json:"template,omitempty"`
 }
 
-// ZarfImage defines an OCI image to include in the package.
-type ZarfImage struct {
+// Image defines an OCI image to include in the package.
+type Image struct {
 	// The image reference.
 	Name string `json:"name"`
 	// The source to pull the image from. Defaults to "registry".
@@ -343,30 +343,30 @@ type ImageArchive struct {
 	Images []string `json:"images"`
 }
 
-// ZarfComponentActions are ActionSets that map to different Zarf package operations.
-type ZarfComponentActions struct {
+// ComponentActions are ActionSets that map to different Zarf package operations.
+type ComponentActions struct {
 	// Actions to run during package creation.
-	OnCreate ZarfComponentActionSet `json:"onCreate,omitempty"`
+	OnCreate ComponentActionSet `json:"onCreate,omitempty"`
 	// Actions to run during package deployment.
-	OnDeploy ZarfComponentActionSet `json:"onDeploy,omitempty"`
+	OnDeploy ComponentActionSet `json:"onDeploy,omitempty"`
 	// Actions to run during package removal.
-	OnRemove ZarfComponentActionSet `json:"onRemove,omitempty"`
+	OnRemove ComponentActionSet `json:"onRemove,omitempty"`
 }
 
-// ZarfComponentActionSet is a set of actions to run during a Zarf package operation.
-type ZarfComponentActionSet struct {
+// ComponentActionSet is a set of actions to run during a Zarf package operation.
+type ComponentActionSet struct {
 	// Default configuration for all actions in this set.
-	Defaults ZarfComponentActionDefaults `json:"defaults,omitempty"`
+	Defaults ComponentActionDefaults `json:"defaults,omitempty"`
 	// Actions to run at the start of an operation.
-	Before []ZarfComponentAction `json:"before,omitempty"`
+	Before []ComponentAction `json:"before,omitempty"`
 	// Actions to run at the end of an operation.
-	After []ZarfComponentAction `json:"after,omitempty"`
+	After []ComponentAction `json:"after,omitempty"`
 	// Actions to run if any operation in this set fails.
-	OnFailure []ZarfComponentAction `json:"onFailure,omitempty"`
+	OnFailure []ComponentAction `json:"onFailure,omitempty"`
 }
 
-// ZarfComponentActionDefaults sets the default configs for child actions.
-type ZarfComponentActionDefaults struct {
+// ComponentActionDefaults sets the default configs for child actions.
+type ComponentActionDefaults struct {
 	// Hide the output of commands during execution (default false).
 	Mute bool `json:"mute,omitempty"`
 	// Default timeout for commands.
@@ -381,8 +381,8 @@ type ZarfComponentActionDefaults struct {
 	Shell Shell `json:"shell,omitempty"`
 }
 
-// ZarfComponentAction represents a single action to run during a Zarf package operation.
-type ZarfComponentAction struct {
+// ComponentAction represents a single action to run during a Zarf package operation.
+type ComponentAction struct {
 	// Hide the output of the command during package deployment (default false).
 	Mute *bool `json:"mute,omitempty"`
 	// Timeout for the command.
@@ -404,7 +404,7 @@ type ZarfComponentAction struct {
 	// Description of the action to be displayed during package execution instead of the command.
 	Description string `json:"description,omitempty"`
 	// Wait for a condition to be met before continuing.
-	Wait *ZarfComponentActionWait `json:"wait,omitempty"`
+	Wait *ComponentActionWait `json:"wait,omitempty"`
 	// Template enables go-template processing on the cmd field.
 	Template *bool `json:"template,omitempty"`
 }
@@ -431,16 +431,16 @@ type SetValue struct {
 	Type SetValueType `json:"type,omitempty"`
 }
 
-// ZarfComponentActionWait specifies a condition to wait for before continuing.
-type ZarfComponentActionWait struct {
+// ComponentActionWait specifies a condition to wait for before continuing.
+type ComponentActionWait struct {
 	// Wait for a condition to be met in the cluster before continuing. Only one of cluster or network can be specified.
-	Cluster *ZarfComponentActionWaitCluster `json:"cluster,omitempty"`
+	Cluster *ComponentActionWaitCluster `json:"cluster,omitempty"`
 	// Wait for a condition to be met on the network before continuing. Only one of cluster or network can be specified.
-	Network *ZarfComponentActionWaitNetwork `json:"network,omitempty"`
+	Network *ComponentActionWaitNetwork `json:"network,omitempty"`
 }
 
-// ZarfComponentActionWaitCluster specifies a cluster-level condition to wait for.
-type ZarfComponentActionWaitCluster struct {
+// ComponentActionWaitCluster specifies a cluster-level condition to wait for.
+type ComponentActionWaitCluster struct {
 	// The kind of resource to wait for.
 	Kind string `json:"kind" jsonschema:"example=Pod,example=Deployment"`
 	// The name of the resource or selector to wait for.
@@ -451,8 +451,8 @@ type ZarfComponentActionWaitCluster struct {
 	Condition string `json:"condition,omitempty" jsonschema:"example=Available,'{.status.availableReplicas}'=23"`
 }
 
-// ZarfComponentActionWaitNetwork specifies a network-level condition to wait for.
-type ZarfComponentActionWaitNetwork struct {
+// ComponentActionWaitNetwork specifies a network-level condition to wait for.
+type ComponentActionWaitNetwork struct {
 	// The protocol to wait for.
 	Protocol string `json:"protocol" jsonschema:"enum=tcp,enum=http,enum=https"`
 	// The address to wait for.

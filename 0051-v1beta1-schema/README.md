@@ -144,6 +144,8 @@ below is for the real nitty-gritty.
 
 Zarf will determine the schema of the package definition using the existing optional field `apiVersion`. Until v1alpha is removed, if `apiVersion` is not set, then Zarf will assume it is a v1alpha1 package. `apiVersion` will be a required field in v1beta1 and all future schemas. 
 
+Type names will remove the prefix Zarf where applicable. For example, the type `ZarfMetadata` will become `Metadata`. This has no impact on the package yaml.
+
 Users will be able to upgrade their package definitions using `zarf dev upgrade-schema`, which writes the converted definition to stdout. 
 
 The v1beta1 schema will remove, replace, and rename several fields. View this [zarf.yaml](zarf.yaml) to see a package definition with reasonable values for each key.
@@ -172,7 +174,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendors` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.after.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [wait changes](#wait-changes).
 - `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
-- `.components.[x].images` will move from a list of strings to a list of objects. The ZarfImage object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon. During component imports, the merge strategy will change from a simple append, to a merge based on `name`. `source` and any future fields will favor the base component value if set, and otherwise use the imported component value. 
+- `.components.[x].images` will move from a list of strings to a list of objects. The `Image` object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon. During component imports, the merge strategy will change from a simple append, to a merge based on `name`. `source` and any future fields will favor the base component value if set, and otherwise use the imported component value. 
 
 #### Renamed Fields
 
@@ -499,15 +501,15 @@ proposal will be implemented, this is the place to discuss that.
 
 ### Zarf Helm Chart Changes
 
-The ZarfChart object will be restructured to match the code block below. Exactly one of sub-objects `helmRepository`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
+The `Chart` object will be restructured to match the code block below. Exactly one of sub-objects `helmRepository`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/defenseunicorns/zarf/issues/2245).
 
 During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.git.URL`. This is consistent with the current Zarf behavior.
 
 Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048-schema-update-process](../0048-schema-update-process/README.md#converting-removed-fields). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub object, or drop it when not applicable.
 
 ```go
-// ZarfChart defines a helm chart to be deployed.
-type ZarfChart struct {
+// Chart defines a helm chart to be deployed.
+type Chart struct {
 	// The name of the chart within Zarf; note that this must be unique and does not need to be the same as the name in the chart repo.
 	Name string `json:"name"`
   // The version of the chart. This field is removed for the schema, but kept as a backwards compatibility shim so v1alpha1 packages can be converted to v1beta1.
@@ -529,7 +531,7 @@ type ZarfChart struct {
 	// List of local values file paths or remote URLs to include in the package; these will be merged together when deployed.
 	ValuesFiles []string `json:"valuesFiles,omitempty"`
   // [alpha] List of value sources mapped to their Helm override targets.
-	Values []ZarfChartValue `json:"values,omitempty"`
+	Values []ChartValue `json:"values,omitempty"`
 }
 
 // HelmRepositorySource represents a Helm chart stored in a Helm repository.
@@ -574,52 +576,52 @@ type ComponentConfig struct {
 	// The API version of the component config.
 	APIVersion string `json:"apiVersion" jsonschema:"enum=zarf.dev/v1beta1"`
 	// The kind of component config.
-	Kind ZarfPackageKind `json:"kind" jsonschema:"enum=ZarfComponentConfig,default=ZarfComponentConfig"`
+	Kind PackageKind `json:"kind" jsonschema:"enum=ZarfComponentConfig,default=ZarfComponentConfig"`
 	// Component metadata.
-	Metadata ZarfComponentMetadata `json:"metadata"`
+	Metadata ComponentMetadata `json:"metadata"`
   // Exactly one of Component or Variants must be set.
 	// A single component definition that applies in all contexts.
-	Component *Component `json:"component,omitempty" jsonschema:"oneof_required=component"`
+	Component *ImportableComponent `json:"component,omitempty" jsonschema:"oneof_required=component"`
 	// A list of component variants, each with a distinct .target filter. Use this when the
 	// component has different definitions for different flavors, OSes, or architectures.
 	Variants []Variant `json:"variants,omitempty" jsonschema:"oneof_required=variants"`
 	// Values imports Zarf values files for templating and overriding Helm values.
-	Values ZarfValues `json:"values,omitempty"`
+	Values Values `json:"values,omitempty"`
 	// Zarf-generated publish data for the component config.
 	PublishData ComponentPublishData `json:"publishData,omitempty"`
 }
 
-// Component is a reduced component definition used in component configs.
-type Component struct {
+// ImportableComponent is a reduced component definition used in component configs.
+type ImportableComponent struct {
 	// Import a component from another Zarf component config.
-	Import ZarfComponentImport `json:"import,omitempty"`
+	Import ComponentImport `json:"import,omitempty"`
 	// Kubernetes manifests to be included in a generated Helm chart on package deploy.
-	Manifests []ZarfManifest `json:"manifests,omitempty"`
+	Manifests []Manifest `json:"manifests,omitempty"`
 	// Helm charts to install during package deploy.
-	Charts []ZarfChart `json:"charts,omitempty"`
+	Charts []Chart `json:"charts,omitempty"`
 	// Files or folders to place on disk during package deployment.
-	Files []ZarfFile `json:"files,omitempty"`
+	Files []File `json:"files,omitempty"`
 	// List of OCI images to include in the package.
-	Images []ZarfImage `json:"images,omitempty"`
+	Images []Image `json:"images,omitempty"`
 	// List of Tar files of images to bring into the package.
 	ImageArchives []ImageArchive `json:"imageArchives,omitempty"`
 	// List of git repositories to include in the package.
 	Repositories []string `json:"repositories,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
-	Actions ZarfComponentActions `json:"actions,omitempty"`
+	Actions ComponentActions `json:"actions,omitempty"`
   // Zarf CLI services and infrastructure such as the registry, injector, and agent.
-  Services ZarfComponentServices `json:"services,omitempty"`
+  Services ComponentServices `json:"services,omitempty"`
 }
 
 // Variant is a component definition with a required filter for when it applies.
 type Variant struct {
-	Component
+	ImportableComponent
 	// Filter when this variant is included in package creation or deployment.
-	Target ZarfComponentTarget `json:"target"`
+	Target ComponentTarget `json:"target"`
 }
 
-// ZarfComponentMetadata holds metadata about a component config.
-type ZarfComponentMetadata struct {
+// ComponentMetadata holds metadata about a component config.
+type ComponentMetadata struct {
 	// Name to identify this component config.
 	Name string `json:"name" jsonschema:"pattern=^[a-z0-9][a-z0-9\\-]*$"`
 	// Additional information about this component config.
@@ -646,7 +648,7 @@ type ComponentPublishData struct {
 The schema for Zarf Services:
 
 ```go
-type ZarfComponentServices struct {
+type ComponentServices struct {
   IsRegistry bool       `json:"isRegistry,omitempty"`
   Injector   *Injector  `json:"injector,omitempty"`
   IsAgent    bool       `json:"isAgent,omitempty"`
