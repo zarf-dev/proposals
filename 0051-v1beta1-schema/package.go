@@ -237,8 +237,8 @@ type Manifest struct {
 	KustomizeAllowAnyDirectory bool `json:"kustomizeAllowAnyDirectory,omitempty"`
 	// List of local kustomization paths or remote URLs to include in the package.
 	Kustomizations []string `json:"kustomizations,omitempty"`
-	// Whether to wait for manifest resources to be ready before continuing. Defaults to true.
-	Wait *bool `json:"wait,omitempty"`
+	// Whether to not wait for manifest resources to be ready before continuing.
+	NoWait *bool `json:"noWait,omitempty"`
 	// Template enables go-template processing on these manifests during deploy.
 	Template *bool `json:"template,omitempty"`
 }
@@ -261,8 +261,8 @@ type Chart struct {
 	Namespace string `json:"namespace,omitempty"`
 	// The name of the Helm release to create (defaults to the Zarf name of the chart).
 	ReleaseName string `json:"releaseName,omitempty"`
-	// Whether to wait for chart resources to be ready before continuing. Defaults to true.
-	Wait *bool `json:"wait,omitempty"`
+	// Whether to not wait for chart resources to be ready before continuing.
+	NoWait *bool `json:"noWait,omitempty"`
 	// List of local values file paths or remote URLs to include in the package; these will be merged together when deployed.
 	ValuesFiles []string `json:"valuesFiles,omitempty"`
 	// List of value sources mapped to their Helm override targets.

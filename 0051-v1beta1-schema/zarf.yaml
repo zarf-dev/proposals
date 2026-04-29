@@ -63,13 +63,13 @@ components:
     kustomizeAllowAnyDirectory: false
     kustomizations:
     - a-kustomization.yaml
-    wait: false
+    noWait: true
     template: true # Enable go-template processing
   charts:
   - name: chart
     namespace: chart-ns
     releaseName: chart-release
-    wait: true
+    noWait: false
     valuesFiles:
     - values.yaml
     values:

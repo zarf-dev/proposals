@@ -182,7 +182,6 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`.
 - `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. Since `required` currently defaults to false, components will now default to being required.
-- `noWait` will be renamed to `wait`. `wait` will default to true. This change will happen on both `.components.[x].manifests` and `.components.[x].charts`.
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration).
 - `.components.[x].only` will be renamed to `.components.[x].target`.

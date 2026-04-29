@@ -16,6 +16,10 @@ type ComponentConfig struct {
 	// A list of component variants, each with a distinct .target filter. Use this when the
 	// component has different definitions for different flavors, OSes, or architectures.
 	Variants []Variant `json:"variants,omitempty" jsonschema:"oneof_required=variants"`
+	// Constant template values applied on deploy.
+	Constants []Constant `json:"constants,omitempty"`
+	// Variable template values applied on deploy.
+	Variables []InteractiveVariable `json:"variables,omitempty"`
 	// Values imports Zarf values files for templating and overriding Helm values.
 	Values Values `json:"values,omitempty"`
 	// Zarf-generated publish data for the component config.
