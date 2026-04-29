@@ -183,7 +183,6 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`.
 - `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. Since `required` currently defaults to false, components will now default to being required.
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
-- `.components.[x].actions.[default/onAny].maxTotalSeconds` will be renamed to `.components.[x].actions.[default/onAny].timeout`, which must be in a [Go recognized duration string format](https://pkg.go.dev/time#ParseDuration).
 - `.components.[x].only` will be renamed to `.components.[x].target`.
 - `.components.[x].repos` will be renamed to `.components.[x].repositories`
 
@@ -203,7 +202,7 @@ In the v1alpha1 schema, Zarf looks at init component names to determine when to 
 
 A new "services" key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.services.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent services don't allow setting specific values, as those services already have Helm charts. There will be validation that ensures Services are only used in packages that are `Kind: ZarfInitConfig`. There will not be a separate schema for `ZarfInitConfig` and `ZarfPackageConfig` objects to avoid complexity.
 
-View the full schema in [package.go](package.go#L204-L226). 
+View the full schema in [package.go](package.go#L200-L222). 
 
 ```yaml
 - name: zarf-seed-registry
@@ -500,7 +499,7 @@ proposal will be implemented, this is the place to discuss that.
 
 ### Zarf Helm Chart Changes
 
-The `Chart` object will be restructured as seen in [package.go](package.go#L246-L312). Exactly one of sub-objects `helmRepository`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/zarf-dev/zarf/issues/2245).
+The `Chart` object will be restructured as seen in [package.go](package.go#L242-L308). Exactly one of sub-objects `helmRepository`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/zarf-dev/zarf/issues/2245).
 
 During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.git.URL`. This is consistent with the current Zarf behavior.
 

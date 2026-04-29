@@ -4,10 +4,6 @@
 // Package v1beta1 holds the definition of the v1beta1 Zarf Package.
 package v1beta1
 
-import (
-	"time"
-)
-
 // VariableType represents a type of a Zarf package variable.
 type VariableType string
 
@@ -371,8 +367,8 @@ type ComponentActionSet struct {
 type ComponentActionDefaults struct {
 	// Hide the output of commands during execution (default false).
 	Mute bool `json:"mute,omitempty"`
-	// Default timeout for commands.
-	Timeout *time.Duration `json:"timeout,omitempty"`
+	// Default timeout in seconds for commands (default to 0, no timeout).
+	MaxTotalSeconds int `json:"maxTotalSeconds,omitempty"`
 	// Retry commands a given number of times if they fail (default 0).
 	Retries int `json:"retries,omitempty"`
 	// Working directory for commands (default CWD).
@@ -387,8 +383,8 @@ type ComponentActionDefaults struct {
 type ComponentAction struct {
 	// Hide the output of the command during package deployment (default false).
 	Mute *bool `json:"mute,omitempty"`
-	// Timeout for the command.
-	Timeout *time.Duration `json:"timeout,omitempty"`
+	// Timeout in seconds for the command (default to 0, no timeout for cmd actions and 300, 5 minutes for wait actions).
+	MaxTotalSeconds *int `json:"maxTotalSeconds,omitempty"`
 	// Retry the command if it fails up to a given number of times (default 0).
 	Retries int `json:"retries,omitempty"`
 	// The working directory to run the command in (default is CWD).

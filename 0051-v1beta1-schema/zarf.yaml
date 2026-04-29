@@ -110,7 +110,7 @@ components:
     onCreate:
       defaults:
         mute: true
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -121,7 +121,7 @@ components:
           windows: powershell
       before:
       - mute: false
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -152,7 +152,7 @@ components:
             code: 200
       after:
       - mute: false
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -183,7 +183,7 @@ components:
             code: 200
       onFailure:
       - mute: false
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -215,7 +215,7 @@ components:
     onDeploy:
       defaults:
         mute: true
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -226,7 +226,7 @@ components:
           windows: powershell
       before:
       - mute: false
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -257,7 +257,7 @@ components:
             code: 200
       after:
       - mute: false
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -288,7 +288,7 @@ components:
             code: 200
       onFailure:
       - mute: false
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -320,7 +320,7 @@ components:
     onRemove:
       defaults:
         mute: true
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -331,7 +331,7 @@ components:
           windows: powershell
       before:
       - mute: false
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -362,7 +362,7 @@ components:
             code: 200
       after:
       - mute: false
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
@@ -393,7 +393,7 @@ components:
             code: 200
       onFailure:
       - mute: false
-        timeout: 1m
+        maxTotalSeconds: 60
         retries: 0
         dir: dir
         env:
