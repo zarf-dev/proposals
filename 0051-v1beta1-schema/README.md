@@ -184,6 +184,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. Since `required` currently defaults to false, components will now default to being required.
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].only` will be renamed to `.components.[x].target`.
+- `.components.[x].only.localOS` will be renamed to `.components.[x].target.os`.
 - `.components.[x].repos` will be renamed to `.components.[x].repositories`
 
 ### New Fields

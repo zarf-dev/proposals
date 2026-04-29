@@ -42,7 +42,7 @@ components:
   description: Zarf description
   optional: false # Component is required (default behavior)
   target:
-    localOS: darwin
+    os: darwin
     architecture: amd64
     flavor: a-flavor # this will only be used when there are multiple components
   import:
