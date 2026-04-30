@@ -64,6 +64,7 @@ components:
     kustomizations:
     - a-kustomization.yaml
     noWait: true
+    serverSideApply: "auto"
     template: true # Enable go-template processing
   charts:
   - name: chart
@@ -76,6 +77,7 @@ components:
     - sourcePath: ".app.name"
       targetPath: ".appName"
     schemaValidation: true
+    serverSideApply: "auto"
     helmRepository: # Only one of helmRepository, git, oci, or local is allowed
       url: https://stefanprodan.github.io/podinfo
       name: podinfo # replaces repoName since it's only applicable in this situation
