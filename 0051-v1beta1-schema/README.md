@@ -626,3 +626,7 @@ information to express the idea and why it was not acceptable.
 ### Component Import Schema
 
 Another possibility for the [component config schema](#zarf-component-config-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.target` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allow for built-in schema validation, requiring the `.target` key with `.variants[]` but not with `.component`.
+
+### Remote Component Templating
+
+Remote components cannot be templated during import, this is a removed feature from its predecessor Skeleton packages. This allows Zarf to validate the component before it's published ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and is necessary since package templating now occurs before create. A potential alternative is a templated remote component where `zarf dev template oci://ghcr.io/<my-remote-component>` would download the component from OCI and template it. The user would then be able to import the component from their local directory. This was rejected because it adds complexity for a niche use case. This could be a future enhancement if the demand exists. 
