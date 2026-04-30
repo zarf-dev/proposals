@@ -371,8 +371,8 @@ type ComponentActionSet struct {
 	Defaults ComponentActionDefaults `json:"defaults,omitempty"`
 	// Actions to run at the start of an operation.
 	Before []ComponentAction `json:"before,omitempty"`
-	// Actions to run at the end of an operation.
-	After []ComponentAction `json:"after,omitempty"`
+	// Actions to run at the end of an operation if it succeeds.
+	OnSuccess []ComponentAction `json:"onSuccess,omitempty"`
 	// Actions to run if any operation in this set fails.
 	OnFailure []ComponentAction `json:"onFailure,omitempty"`
 }

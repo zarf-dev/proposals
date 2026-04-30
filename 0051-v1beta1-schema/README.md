@@ -167,7 +167,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 `zarf dev upgrade-schema` will automatically migrate these fields.
 
-- `.components.[x].actions.[onAny].onSuccess` will be removed. Any `onSuccess` actions will be appended to the `actions.[onAny].after` list.
+- `.components.[x].actions.[onAny].after` will be combined with and replaced by `actions.[onAny].onSuccess`. Any `after` actions will be appended to the `actions.[onAny].onSuccess` list.
 - `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`.
 - `.components.[x].only.cluster.architecture` will be inlined to `.components.[x].target.architecture`. This is more accurate as the field checks the `.metadata.architecture` on create, rather than the cluster during deploy. Note that `.only` was renamed to `.target`. Since `.cluster.distro` will be removed, the `.cluster` parent field will be deleted. 

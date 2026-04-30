@@ -152,7 +152,7 @@ components:
             protocol: http
             address: github.com
             code: 200
-      after:
+      onSuccess:
       - mute: false
         maxTotalSeconds: 60
         retries: 0
@@ -257,7 +257,7 @@ components:
             protocol: http
             address: github.com
             code: 200
-      after:
+      onSuccess:
       - mute: false
         maxTotalSeconds: 60
         retries: 0
@@ -362,7 +362,7 @@ components:
             protocol: http
             address: github.com
             code: 200
-      after:
+      onSuccess:
       - mute: false
         maxTotalSeconds: 60
         retries: 0
