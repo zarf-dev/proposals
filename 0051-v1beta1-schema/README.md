@@ -615,6 +615,10 @@ Why should this ZEP _not_ be implemented?
 ### Component Import Reworks
 Removing the ability to import components from packages directly, and instead requiring Zarf Component Config files, will require a sizable portion of the user base to rewrite files. We believe this is a worthwhile tradeoff as this rewrite should leave users with a clearer directory structure, enhanced package validation, and a more intuitive import system.
 
+### Component Config 
+
+There is an implicit ordering in a zarf.yaml file, the first component in a list is installed, then the second and so forth. By asking users to break apart their zarf.yaml files into Zarf Component Config files, they may lose this implicit ordering, and it could be more confusing to determine the order of components. 
+
 ## Alternatives
 
 <!--
@@ -623,10 +627,51 @@ not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
 
-### Component Import Schema
+### Component Config Schema
+
+#### List of Components
 
 Another possibility for the [component config schema](#zarf-component-config-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.target` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allow for built-in schema validation, requiring the `.target` key with `.variants[]` but not with `.component`.
 
+#### Variants extend base component
+
+Another possibility for the [component config schema](#zarf-component-config-schema) is to have a single `.component` field that can be extended by a list of `.variants`. The `.component` field would be required, and could be imported or published as defined. It could also be extended using the `.variants` field. The logic for extending would exactly mirror the [component import logic](https://docs.zarf.dev/ref/components/#component-imports); the variant would import the base component. 
+
+This would be especially useful when there are multiple configurations of a chart, such as the example below. Each flavor prescribes its own values file and images, but otherwise is the same. A similar situation is seen in the [k3s sub-package](https://github.com/zarf-dev/zarf/blob/main/packages/distros/k3s/zarf.yaml) of the main Zarf repository. The only change between the two k3s components are the files that vary by architecture.
+
+```yaml
+apiVersion: zarf.dev/v1beta1
+kind: ZarfComponentConfig
+metadata:
+  name: grafana
+component:
+  charts:
+    - name: grafana-config
+      namespace: grafana
+      local:
+        path: chart
+      valuesFiles:
+        - chart/values.yaml
+variants:
+  - target:
+      flavor: upstream
+    charts:
+      - name: grafana
+        valuesFiles:
+          - values/upstream-values.yaml
+    images:
+      - name: docker.io/grafana/grafana:12.4.2
+
+  - target:
+      flavor: enterprise
+    charts:
+      - name: grafana
+        valuesFiles:
+          - values/enterprise-values.yaml
+    images:
+      - name: registry1.dso.mil/ironbank/opensource/grafana/grafana:12.4.2
+```
+
 ### Remote Component Templating
 
-Remote components cannot be templated during import, this is a removed feature from its predecessor Skeleton packages. This allows Zarf to validate the component before it's published ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and is necessary since package templating now occurs before create. A potential alternative is a templated remote component where `zarf dev template oci://ghcr.io/<my-remote-component>` would download the component from OCI and template it. The user would then be able to import the component from their local directory. This was rejected because it adds complexity for a niche use case. This could be a future enhancement if the demand exists. 
+Remote components cannot be templated during import, this is a removed feature from its predecessor Skeleton packages. This allows Zarf to validate the component before it's published ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and is necessary since package templating now occurs before create. A potential alternative is a templated remote component where `zarf dev template oci://ghcr.io/<my-remote-component>` would download the component from OCI and template it. The user would then be able to import the component from their local directory. This was rejected because it adds complexity for a niche use case. This could be a future enhancement if the demand exists.
