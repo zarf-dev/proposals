@@ -669,7 +669,7 @@ variants:
         valuesFiles:
           - values/enterprise-values.yaml
     images:
-      - name: registry1.dso.mil/ironbank/opensource/grafana/grafana:12.4.2
+      - name: enterprise.corp.org/grafana/grafana:12.4.2
 ```
 
 ### Remote Component Templating
