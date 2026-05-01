@@ -633,9 +633,9 @@ information to express the idea and why it was not acceptable.
 
 Another possibility for the [component config schema](#zarf-component-config-schema) instead of allowing for one of `.component` or `.variants[]` was to simply have a list of components. The list of components would allow for multiple entries, so long as each entry had a `.target` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The list key `.components[]` would likely confuse users on this aspect. Separate keys for `.component` and `.variants[]` also allow for built-in schema validation, requiring the `.target` key with `.variants[]` but not with `.component`.
 
-#### Variants extend base component
+#### Variants Extend Base Component
 
-Another possibility for the [component config schema](#zarf-component-config-schema) is to have a single `.component` field that can be extended by a list of `.variants`. The `.component` field would be required, and could be imported or published as defined. It could also be extended using the `.variants` field. The logic for extending would exactly mirror the [component import logic](https://docs.zarf.dev/ref/components/#component-imports); the variant would import the base component. 
+Another possibility for the [component config schema](#zarf-component-config-schema) is to have a single `.component` field that can be extended by a list of `.variants`. The `.component` field would be required, and could be imported or published as defined. It could also be extended using the `.variants` field. The logic for extending would exactly mirror the [component import logic](https://docs.zarf.dev/ref/components/#component-imports); the variant would import the base component.
 
 This would be especially useful when there are multiple configurations of a chart, such as the example below. Each flavor prescribes its own values file and images, but otherwise is the same. A similar situation is seen in the [k3s sub-package](https://github.com/zarf-dev/zarf/blob/main/packages/distros/k3s/zarf.yaml) of the main Zarf repository. The only change between the two k3s components are the files that vary by architecture.
 
