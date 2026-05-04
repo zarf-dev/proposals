@@ -615,7 +615,7 @@ Why should this ZEP _not_ be implemented?
 ### Component Import Reworks
 Removing the ability to import components from packages directly, and instead requiring Zarf Component Config files, will require a sizable portion of the user base to rewrite files. This rewrite should leave users with a clearer directory structure, enhanced package validation, and a more intuitive import system.
 
-Removing the ability to import files directly from packages will add some friction to standalone packages that are imported. For instance, the [k3s sub-package](https://github.com/zarf-dev/zarf/blob/main/packages/distros/k3s/zarf.yaml) in the init package is deployable as a standalone package and imported by the init package. The proposed system would require creating a component config as well as a separate standalone k3s package to maintain the current structure.  
+Removing the ability to import from ZarfPackageConfig files will add some friction to standalone packages that are also imported. For instance, the [k3s sub-package](https://github.com/zarf-dev/zarf/blob/main/packages/distros/k3s/zarf.yaml) in the init package is deployable as a standalone package and imported by the init package. The proposed system would require creating a component config as well as a separate standalone k3s package to maintain the current structure.  
 
 ### Component Config
 
