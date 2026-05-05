@@ -647,7 +647,7 @@ kind: ZarfComponentConfig
 metadata:
   name: grafana
 component:
-  charts:
+  - charts:
     - name: grafana-config
       namespace: grafana
       local:
