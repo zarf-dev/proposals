@@ -191,10 +191,10 @@ type ComponentTarget struct {
 
 // ComponentImport is a reference to an imported Zarf component config.
 type ComponentImport struct {
-	// The path to the component config file to import.
-	Path string `json:"path,omitempty"`
-	// The URL to a Zarf component config to import via OCI.
-	URL string `json:"url,omitempty" jsonschema:"pattern=^oci://.*$"`
+	// Paths to component config files to import. Each entry is either a local file path
+	// or an oci:// URL When multiple paths are given, every referenced component must share the same name
+	// and at most one of them must be compatible with the package target.
+	Paths []string `json:"paths,omitempty"`
 }
 
 // Service identifies which Zarf CLI service a component provides.

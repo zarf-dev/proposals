@@ -46,8 +46,9 @@ components:
     architecture: amd64
     flavor: a-flavor # this will only be used when there are multiple components
   import:
-    path: ABCD # Only path or URL will be used, not both
-    url: oci://
+    paths: # Local file paths or oci:// URLs. Multiple entries must reference components with the same name and at most one compatible at create time.
+      - ./components/a-component.yaml
+      - oci://ghcr.io/my-org/components/a-component:1.0.0
   service: registry # one of: registry, seed-registry, injector, agent, git-server
   manifests:
   - name: manifest
