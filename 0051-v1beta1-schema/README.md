@@ -174,7 +174,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendor` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.after.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [wait changes](#wait-changes).
 - `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
-- `.components.[x].images` will move from a list of strings to a list of objects. The `Image` object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon. During component imports, the merge strategy will change from a simple append, to a merge based on `name`. `source` and any future fields will favor the base component value if set, and otherwise use the imported component value. 
+- `.components.[x].images` will move from a list of strings to a list of objects. The `Image` object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon. During component imports, the merge strategy will change from a simple append to a merge based on `name`. `source` and any future fields will favor the base component value if set, and otherwise use the imported component value. 
 
 #### Renamed Fields
 
@@ -185,7 +185,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].only` will be renamed to `.components.[x].target`.
 - `.components.[x].only.localOS` will be renamed to `.components.[x].target.os`.
-- `.components.[x].repos` will be renamed to `.components.[x].repositories`
+- `.components.[x].repos` will be renamed to `.components.[x].repositories`.
 
 ### New Fields
 
@@ -215,7 +215,7 @@ View the full schema in [package.go](package.go#L200).
 
 ### ZarfInitConfig will be Removed
 
-The `Kind` "ZarfInitConfig" will be removed. Every package will be of kind "ZarfPackageConfig". `zarf init` will default to deploying a package called `zarf-package-init-<cli-version>-<arch>.tar.zst`. A template will be created that exposes the CLI version, so a `zarf.tpl.yaml` file could set the `.metadata.version` field to `[[ .cli.version ]]`. If a package called `zarf-package-init-<arch>-<cli-version>.tar.zst` is not found in the cache or current directory, Zarf will prompt the user to pull the default zarf-dev init package. `zarf init` will continue to accept custom packages, for example, `zarf init <zarf-package-my-custom-init>`. If no component in the package declares a `.service`, Zarf will error and ask the user to run `zarf package deploy` instead. 
+The `Kind` "ZarfInitConfig" will be removed. Every package will be of kind "ZarfPackageConfig". `zarf init` will default to deploying a package called `zarf-package-init-<arch>-<cli-version>.tar.zst`. A template will be created that exposes the CLI version, so a `zarf.tpl.yaml` file could set the `.metadata.version` field to `[[ .cli.version ]]`. If a package called `zarf-package-init-<arch>-<cli-version>.tar.zst` is not found in the cache or current directory, Zarf will prompt the user to pull the default zarf-dev init package. `zarf init` will continue to accept custom packages, for example, `zarf init <zarf-package-my-custom-init>`. If no component in the package declares a `.service`, Zarf will error and ask the user to run `zarf package deploy` instead. 
 
 ### ZarfComponentConfig
 
@@ -302,7 +302,7 @@ components:
           - values.yaml
 ```
 
-I want to upgrade to the v1beta1 schema, so I run `zarf dev upgrade-schema . > zarf.yaml`. Which produces:
+I want to upgrade to the v1beta1 schema, so I run `zarf dev upgrade-schema . > zarf.yaml`, which produces:
 
 ```yaml
 apiVersion: zarf.dev/v1beta1
@@ -487,7 +487,7 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. The docs website added a page for migration to inform users how to switch https://docs.zarf.dev/best-practices/data-injections-migration/.
+The field `.components.[x].dataInjections` will be removed without a direct replacement in the schema. The docs website added a [migration page](https://docs.zarf.dev/best-practices/data-injections-migration/) to inform users how to switch.
 
 The alpha field `.components.[x].charts.[x].variables` has seen significant adoption and there will be no automatic conversion to its replacement Zarf values. There must be documentation on how users can utilize Zarf values as an alternative to chart variables.
 
@@ -506,7 +506,7 @@ The `Chart` object will be restructured as seen in [package.go](package.go#L242-
 
 During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.git.URL`. This is consistent with the current Zarf behavior.
 
-Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048-schema-update-process](../0048-schema-update-process/README.md#converting-removed-fields). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub object, or drop it when not applicable.
+Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048-schema-update-process](../0048-schema-update-process/README.md#converting-removed-fields). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub-object, or drop it when not applicable.
 
 ### Zarf Component Config Schema
 
@@ -618,11 +618,11 @@ Why should this ZEP _not_ be implemented?
 ### Component Import Reworks
 Removing the ability to import components from packages directly, and instead requiring Zarf Component Config files, will require a sizable portion of the user base to rewrite files. This rewrite should leave users with a clearer directory structure, enhanced package validation, and a more intuitive import system.
 
-Removing the ability to import from ZarfPackageConfig files will add some friction to standalone packages that are also imported. For instance, the [k3s sub-package](https://github.com/zarf-dev/zarf/blob/main/packages/distros/k3s/zarf.yaml) in the init package is deployable as a standalone package and imported by the init package. The proposed system would require creating a component config as well as a separate standalone k3s package that imports the component config to maintain the current structure. This drawback is deemed necessary to avoid packages that are only meant for import and not deployable as a standalone package. This has cause confusion among many users, and forcing creators to explicitly make a sub-package as deployable will avoid this issue.
+Removing the ability to import from ZarfPackageConfig files will add some friction to standalone packages that are also imported. For instance, the [k3s sub-package](https://github.com/zarf-dev/zarf/blob/main/packages/distros/k3s/zarf.yaml) in the init package is deployable as a standalone package and imported by the init package. The proposed system would require creating a component config as well as a separate standalone k3s package that imports the component config to maintain the current structure. This drawback is deemed necessary to avoid packages that are only meant for import and not deployable as a standalone package. This has caused confusion among many users, and forcing creators to explicitly make a sub-package deployable will avoid this issue.
 
 ### Component Config
 
-There is an implicit ordering in a zarf.yaml file, the first component in a list is installed, then the second and so forth. By asking users to break apart their zarf.yaml files into Zarf Component Config files, they may lose this implicit ordering, and it could be more confusing to determine the order of components. 
+There is an implicit ordering in a zarf.yaml file: the first component in a list is installed, then the second, and so forth. By asking users to break apart their zarf.yaml files into Zarf Component Config files, they may lose this implicit ordering, and it could be more confusing to determine the order of components. 
 
 ## Alternatives
 
@@ -648,7 +648,7 @@ Another possibility for the [component config schema](#zarf-component-config-sch
 
 Another possibility for the [component config schema](#zarf-component-config-schema) is to have a single `.component` field that can be extended by a list of `.variants`. The `.component` field would be required, and could be imported or published as defined. It could also be extended using the `.variants` field. The logic for extending would exactly mirror the [component import logic](https://docs.zarf.dev/ref/components/#component-imports); the variant would import the base component.
 
-This would be especially useful when there are multiple configurations of a chart, such as the example below. Each flavor prescribes its own values file and images, but otherwise is the same. A similar situation is seen in the [k3s sub-package](https://github.com/zarf-dev/zarf/blob/main/packages/distros/k3s/zarf.yaml) of the main Zarf repository. The only change between the two k3s components are the files that vary by architecture.
+This would be especially useful when there are multiple configurations of a chart, such as the example below. Each flavor prescribes its own values file and images, but otherwise is the same. A similar situation is seen in the [k3s sub-package](https://github.com/zarf-dev/zarf/blob/main/packages/distros/k3s/zarf.yaml) of the main Zarf repository. The only differences between the two k3s components are the files that vary by architecture.
 
 ```yaml
 apiVersion: zarf.dev/v1beta1
@@ -685,10 +685,10 @@ variants:
 
 ### Remote Component Templating
 
-Remote components cannot be templated during import, this is a removed feature from its predecessor Skeleton packages. This allows Zarf to validate the component before it's published ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and is necessary since package templating now occurs before create. A potential alternative is a templated remote component where `zarf dev template oci://ghcr.io/<my-remote-component>` would download the component from OCI and template it. The user would then be able to import the component from their local directory. This was rejected because it adds complexity for a niche use case. This could be a future enhancement if the demand exists.
+Remote components cannot be templated during import; this is a removed feature from its predecessor Skeleton packages. This allows Zarf to validate the component before it's published ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and is necessary since package templating now occurs before create. A potential alternative is a templated remote component where `zarf dev template oci://ghcr.io/<my-remote-component>` would download the component from OCI and template it. The user would then be able to import the component from their local directory. This was rejected because it adds complexity for a niche use case. This could be a future enhancement if the demand exists.
 
 ### Component Level Action Defaults
 
-Action defaults could be set once at the component level rather than separately under each action set (`onCreate`, `onDeploy`, `onRemove`). This would shrink the wide surface area of the schema. 
+Action defaults could be set once at the component level rather than separately under each action set (`onCreate`, `onDeploy`, `onRemove`). This would reduce the schema's surface area. 
 
 This was rejected. Create and deploy often run on separate hosts and have different jobs: `onCreate` actions typically pull files or load images as docker tars, while `onDeploy` actions typically run `kubectl` or stand up a cluster. Sharing defaults between them across that boundary creates an awkward mental model. The [example v1beta1 zarf.yaml](./zarf.yaml) is large because every action set has its own defaults block, but in practice actions are an escape hatch used sparingly. It is rare for a real component to define both `onCreate` and `onDeploy` actions.
