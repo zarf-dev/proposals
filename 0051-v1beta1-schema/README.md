@@ -206,14 +206,11 @@ A new `service` key under components will make the inherent coupling between the
 View the full schema in [package.go](package.go#L200).
 
 ```yaml
-- name: zarf-seed-registry
-  service: seed-registry
-- name: zarf-injector
-  service: injector
 - name: zarf-registry
   service: registry
 - name: zarf-agent
   service: agent
+  ...
 ```
 
 ### ZarfInitConfig will be Removed
