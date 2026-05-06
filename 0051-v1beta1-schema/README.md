@@ -678,6 +678,10 @@ variants:
       - name: enterprise.corp.org/grafana/grafana:12.4.2
 ```
 
+#### Avoid Variants in ZarfComponentConfig
+
+The component config structure could be simplified by not introducing variants. If a user has multiple versions of a component differentiated by the `target` field then they will have to create a ZarfComponentConfig file for each target. This will result in more files, however, it will keep the mental model simple. Every ZarfComponentConfig would contain exactly one component, and the import tree would be easy to follow. 
+
 ### Remote Component Templating
 
 Remote components cannot be templated during import, this is a removed feature from its predecessor Skeleton packages. This allows Zarf to validate the component before it's published ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and is necessary since package templating now occurs before create. A potential alternative is a templated remote component where `zarf dev template oci://ghcr.io/<my-remote-component>` would download the component from OCI and template it. The user would then be able to import the component from their local directory. This was rejected because it adds complexity for a niche use case. This could be a future enhancement if the demand exists.
