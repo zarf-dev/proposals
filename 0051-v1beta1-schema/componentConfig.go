@@ -11,11 +11,8 @@ type ComponentConfig struct {
 	Kind PackageKind `json:"kind" jsonschema:"enum=ZarfComponentConfig,default=ZarfComponentConfig"`
 	// Component metadata.
 	Metadata ComponentMetadata `json:"metadata"`
-	// A single component definition that applies in all contexts. Exactly one of Component or Variants must be set.
-	Component *ImportableComponent `json:"component,omitempty" jsonschema:"oneof_required=component"`
-	// A list of component variants, each with a distinct .target filter. Use this when the
-	// component has different definitions for different flavors, OSes, or architectures.
-	Variants []Variant `json:"variants,omitempty" jsonschema:"oneof_required=variants"`
+	// The single component this config defines.
+	Component Component `json:"component"`
 	// Constant template values applied on deploy.
 	Constants []Constant `json:"constants,omitempty"`
 	// Variable template values applied on deploy.
@@ -30,6 +27,8 @@ type ComponentConfig struct {
 type ImportableComponent struct {
 	// Import a component from another Zarf component config.
 	Import ComponentImport `json:"import,omitempty"`
+	// Filter when this component is included in package creation or deployment.
+	Target ComponentTarget `json:"target,omitempty"`
 	// Kubernetes manifests to be included in a generated Helm chart on package deploy.
 	Manifests []Manifest `json:"manifests,omitempty"`
 	// Helm charts to install during package deploy.
@@ -46,13 +45,6 @@ type ImportableComponent struct {
 	Actions ComponentActions `json:"actions,omitempty"`
 	// The Zarf CLI service this component provides, such as the registry, injector, or agent.
 	Service Service `json:"service,omitempty" jsonschema:"enum=registry,enum=seed-registry,enum=injector,enum=agent,enum=git-server"`
-}
-
-// Variant is a component definition with a required filter for when it applies.
-type Variant struct {
-	ImportableComponent
-	// Filter when this variant is included in package creation or deployment.
-	Target ComponentTarget `json:"target"`
 }
 
 // ComponentMetadata holds metadata about a component config.
