@@ -686,3 +686,9 @@ variants:
 ### Remote Component Templating
 
 Remote components cannot be templated during import, this is a removed feature from its predecessor Skeleton packages. This allows Zarf to validate the component before it's published ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and is necessary since package templating now occurs before create. A potential alternative is a templated remote component where `zarf dev template oci://ghcr.io/<my-remote-component>` would download the component from OCI and template it. The user would then be able to import the component from their local directory. This was rejected because it adds complexity for a niche use case. This could be a future enhancement if the demand exists.
+
+### Component Level Action Defaults
+
+Action defaults could be set once at the component level rather than separately under each action set (`onCreate`, `onDeploy`, `onRemove`). This would shrink the wide surface area of the schema. 
+
+This was rejected. Create and deploy often run on separate hosts and have different jobs: `onCreate` actions typically pull files or load images as docker tars, while `onDeploy` actions typically run `kubectl` or stand up a cluster. Sharing defaults between them across that boundary creates an awkward mental model. The [example v1beta1 zarf.yaml](./zarf.yaml) is large because every action set has its own defaults block, but in practice actions are an escape hatch used sparingly. It is rare for a real component to define both `onCreate` and `onDeploy` actions.
