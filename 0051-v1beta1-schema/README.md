@@ -189,7 +189,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 ### New Fields
 
-- `.components[x].services` will be introduced to avoid magic names in Init package components. See [Zarf Services](#zarf-services) for more details.
+- `.components[x].service` will be introduced to avoid magic names in Init package components. See [Zarf Services](#zarf-services) for more details.
 
 ### Behavior Changes
 
@@ -201,23 +201,24 @@ There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`
 
 In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators, [#4528](https://github.com/zarf-dev/zarf/issues/4528), and leave little room for configurability.
 
-A new "services" key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. It'll also allow for setting specific properties using Zarf values. For instance, a user will be able to set tolerations for the injector dynamically on deploy by setting `.services.injector.values.tolerations` to `".injector.tolerations"`. The registry and agent services don't allow setting specific values, as those services already have Helm charts.
+A new `service` key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. The field is an enum with the allowed values `registry`, `seed-registry`, `injector`, `agent`, and `git-server`.
 
-View the full schema in [package.go](package.go#L200-L222). 
+View the full schema in [package.go](package.go#L200).
 
 ```yaml
 - name: zarf-seed-registry
-  services:
-    isRegistry: true
-    injector:
-      enabled: true
-      values:
-        tolerations: ".injector.tolerations"
+  service: seed-registry
+- name: zarf-injector
+  service: injector
+- name: zarf-registry
+  service: registry
+- name: zarf-agent
+  service: agent
 ```
 
 ### ZarfInitConfig will be Removed
 
-The `Kind` "ZarfInitConfig" will be removed. Every package will be of kind "ZarfPackageConfig". `zarf init` will default to deploying a package called `zarf-package-init-<cli-version>-<arch>.tar.zst`. A template will be created that exposes the CLI version, so a `zarf.tpl.yaml` file could set the `.metadata.version` field to `[[ .cli.version ]]`. If a package called `zarf-package-init-<arch>-<cli-version>.tar.zst` is not found in the cache or current directory, Zarf will prompt the user to pull the default zarf-dev init package. `zarf init` will continue to accept custom packages, for example, `zarf init <zarf-package-my-custom-init>`. If the package has no Zarf services, then Zarf will error and ask the user to run `zarf package deploy` instead. 
+The `Kind` "ZarfInitConfig" will be removed. Every package will be of kind "ZarfPackageConfig". `zarf init` will default to deploying a package called `zarf-package-init-<cli-version>-<arch>.tar.zst`. A template will be created that exposes the CLI version, so a `zarf.tpl.yaml` file could set the `.metadata.version` field to `[[ .cli.version ]]`. If a package called `zarf-package-init-<arch>-<cli-version>.tar.zst` is not found in the cache or current directory, Zarf will prompt the user to pull the default zarf-dev init package. `zarf init` will continue to accept custom packages, for example, `zarf init <zarf-package-my-custom-init>`. If no component in the package declares a `.service`, Zarf will error and ask the user to run `zarf package deploy` instead. 
 
 ### ZarfComponentConfig
 

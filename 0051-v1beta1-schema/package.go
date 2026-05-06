@@ -161,8 +161,8 @@ type Component struct {
 	Target ComponentTarget `json:"target,omitempty"`
 	// Import a component from another Zarf component config.
 	Import ComponentImport `json:"import,omitempty"`
-	// Zarf CLI services and infrastructure such as the registry, injector, and agent.
-	Services ComponentServices `json:"services,omitempty"`
+	// The Zarf CLI service this component provides, such as the registry, injector, or agent.
+	Service Service `json:"service,omitempty" jsonschema:"enum=registry,enum=seed-registry,enum=injector,enum=agent,enum=git-server"`
 	// Kubernetes manifests to be included in a generated Helm chart on package deploy.
 	Manifests []Manifest `json:"manifests,omitempty"`
 	// Helm charts to install during package deploy.
@@ -197,29 +197,15 @@ type ComponentImport struct {
 	URL string `json:"url,omitempty" jsonschema:"pattern=^oci://.*$"`
 }
 
-// ComponentServices defines Zarf CLI services to enable for an init component.
-type ComponentServices struct {
-	// Whether this component provides a registry.
-	IsRegistry bool `json:"isRegistry,omitempty"`
-	// Injector configuration for the component.
-	Injector *Injector `json:"injector,omitempty"`
-	// Whether this component provides an agent.
-	IsAgent bool `json:"isAgent,omitempty"`
-}
-
-// Injector defines the configuration for the Zarf injector.
-type Injector struct {
-	// Whether the injector is enabled.
-	Enabled bool `json:"enabled"`
-	// Values for the injector.
-	Values *InjectorValues `json:"values,omitempty"`
-}
-
-// InjectorValues defines configurable values for the Zarf injector.
-type InjectorValues struct {
-	// Tolerations for the injector pod.
-	Tolerations string `json:"tolerations,omitempty"`
-}
+// Service identifies which Zarf CLI service a component provides.
+type Service string
+const (
+	ServiceRegistry Service = "registry"
+	ServiceSeedRegistry Service = "seed-registry"
+	ServiceInjector Service = "injector"
+	ServiceAgent Service = "agent"
+	ServiceGitServer Service = "git-server"
+)
 
 // Manifest defines raw manifests Zarf will deploy as a helm chart.
 type Manifest struct {

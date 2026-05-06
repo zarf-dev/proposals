@@ -48,13 +48,7 @@ components:
   import:
     path: ABCD # Only path or URL will be used, not both
     url: oci://
-  services:
-    isRegistry: false
-    injector:
-      enabled: true
-      values:
-        tolerations: ".injector.tolerations"
-    isAgent: false
+  service: registry # one of: registry, seed-registry, injector, agent, git-server
   manifests:
   - name: manifest
     namespace: manifest-ns

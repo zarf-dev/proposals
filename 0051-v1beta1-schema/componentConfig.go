@@ -44,8 +44,8 @@ type ImportableComponent struct {
 	Repositories []string `json:"repositories,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
 	Actions ComponentActions `json:"actions,omitempty"`
-	// Zarf CLI services and infrastructure such as the registry, injector, and agent.
-	Services ComponentServices `json:"services,omitempty"`
+	// The Zarf CLI service this component provides, such as the registry, injector, or agent.
+	Service Service `json:"service,omitempty" jsonschema:"enum=registry,enum=seed-registry,enum=injector,enum=agent,enum=git-server"`
 }
 
 // Variant is a component definition with a required filter for when it applies.
