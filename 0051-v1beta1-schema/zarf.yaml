@@ -128,12 +128,6 @@ components:
           darwin: sh
           linux: sh
           windows: powershell
-        setVariables:
-        - name: VAR
-          sensitive: false
-          autoIndent: true
-          pattern: ".+"
-          type: raw
         setValues:
           - key: .json
         description: action-description
@@ -159,12 +153,6 @@ components:
           darwin: sh
           linux: sh
           windows: powershell
-        setVariables:
-        - name: VAR
-          sensitive: false
-          autoIndent: true
-          pattern: ".+"
-          type: raw
         setValues:
           - key: .json
         description: action-description
@@ -190,12 +178,6 @@ components:
           darwin: sh
           linux: sh
           windows: powershell
-        setVariables:
-        - name: VAR
-          sensitive: false
-          autoIndent: true
-          pattern: ".+"
-          type: raw
         setValues:
           - key: .json
         description: action-description
@@ -233,12 +215,6 @@ components:
           darwin: sh
           linux: sh
           windows: powershell
-        setVariables:
-        - name: VAR
-          sensitive: false
-          autoIndent: true
-          pattern: ".+"
-          type: raw
         setValues:
           - key: .json
         description: action-description
@@ -264,12 +240,6 @@ components:
           darwin: sh
           linux: sh
           windows: powershell
-        setVariables:
-        - name: VAR
-          sensitive: false
-          autoIndent: true
-          pattern: ".+"
-          type: raw
         setValues:
           - key: .json
         description: action-description
@@ -295,12 +265,6 @@ components:
           darwin: sh
           linux: sh
           windows: powershell
-        setVariables:
-        - name: VAR
-          sensitive: false
-          autoIndent: true
-          pattern: ".+"
-          type: raw
         setValues:
           - key: .json
         description: action-description
@@ -338,12 +302,6 @@ components:
           darwin: sh
           linux: sh
           windows: powershell
-        setVariables:
-        - name: VAR
-          sensitive: false
-          autoIndent: true
-          pattern: ".+"
-          type: raw
         setValues:
           - key: .json
         description: action-description
@@ -369,12 +327,6 @@ components:
           darwin: sh
           linux: sh
           windows: powershell
-        setVariables:
-        - name: VAR
-          sensitive: false
-          autoIndent: true
-          pattern: ".+"
-          type: raw
         setValues:
           - key: .json
         description: action-description
@@ -400,12 +352,6 @@ components:
           darwin: sh
           linux: sh
           windows: powershell
-        setVariables:
-        - name: VAR
-          sensitive: false
-          autoIndent: true
-          pattern: ".+"
-          type: raw
         setValues:
           - key: .json
         description: action-description
@@ -419,18 +365,3 @@ components:
             protocol: http
             address: github.com
             code: 200
-constants:
-- name: CONSTANT
-  value: constant-value
-  description: constant-value
-  autoIndent: false
-  pattern: ".+"
-variables:
-- name: VAR
-  sensitive: false
-  autoIndent: true
-  pattern: ".+"
-  type: raw
-  description: var
-  default: whatever
-  prompt: false

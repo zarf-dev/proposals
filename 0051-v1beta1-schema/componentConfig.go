@@ -13,10 +13,6 @@ type ComponentConfig struct {
 	Metadata ComponentMetadata `json:"metadata"`
 	// The single component this config defines.
 	Component Component `json:"component"`
-	// Constant template values applied on deploy.
-	Constants []Constant `json:"constants,omitempty"`
-	// Variable template values applied on deploy.
-	Variables []InteractiveVariable `json:"variables,omitempty"`
 	// Values imports Zarf values files for templating and overriding Helm values.
 	Values Values `json:"values,omitempty"`
 	// Zarf-generated publish data for the component config.

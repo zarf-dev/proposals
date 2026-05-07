@@ -159,6 +159,8 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].group` will be removed. A similar functionality was introduced with the field `components[x].target.flavor`. This shifts component selection to the create side, and is the recommended replacement. 
 - `.components.[x].dataInjections` will be removed. https://docs.zarf.dev/best-practices/data-injections-migration/ details migrating off of this field.
 - `.components.[x].charts.[x].variables` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead.
+- `.variables` and `.constants` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead. While values will always be mutable on deploy, creators will be able to choose which values in their chart are mutable using `sourcePath/targetPath`. Similarly, creators decide which fields in manifests are mutable through values. 
+- `.components.[x].actions.[onAny].setVariable` and `.components.[x].actions.[onAny].setVariables` will be removed. The existing `.components.[x].actions.[onAny].setValues` field is the replacement.
 - `.metadata.yolo` will be removed. Its successor is connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580).
 - `.components.[x].only.cluster.distro` will be removed. This field was never used for anything and there are no plans to use it currently.
 
@@ -167,7 +169,6 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 `zarf dev upgrade-schema` will automatically migrate these fields.
 
 - `.components.[x].actions.[onAny].after` will be combined with and replaced by `actions.[onAny].onSuccess`. Any `after` actions will be prepended to the `actions.[onAny].onSuccess` list.
-- `.components[x].actions.[onAny].setVariable` will be removed. This field is already deprecated and will be migrated to the existing field `.components[x].actions.[onAny].setVariables`.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`.
 - `.components.[x].only.cluster.architecture` will be inlined to `.components.[x].target.architecture`. This is more accurate as the field checks the `.metadata.architecture` on create, rather than the cluster during deploy. Note that `.only` was renamed to `.target`. Since `.cluster.distro` will be removed, the `.cluster` parent field will be deleted. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendor` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.

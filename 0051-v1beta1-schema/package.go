@@ -4,16 +4,6 @@
 // Package v1beta1 holds the definition of the v1beta1 Zarf Package.
 package v1beta1
 
-// VariableType represents a type of a Zarf package variable.
-type VariableType string
-
-const (
-	// RawVariableType is the default type for a Zarf package variable.
-	RawVariableType VariableType = "raw"
-	// FileVariableType loads the variable contents from a file.
-	FileVariableType VariableType = "file"
-)
-
 // PackageKind is an enum of the different kinds of Zarf packages.
 type PackageKind string
 
@@ -38,10 +28,6 @@ type Package struct {
 	Build BuildData `json:"build,omitempty"`
 	// List of components to deploy in this package.
 	Components []Component `json:"components" jsonschema:"minItems=1"`
-	// Constant template values applied on deploy.
-	Constants []Constant `json:"constants,omitempty"`
-	// Variable template values applied on deploy.
-	Variables []InteractiveVariable `json:"variables,omitempty"`
 	// Values imports Zarf values files for templating and overriding Helm values.
 	Values Values `json:"values,omitempty"`
 	// Documentation files included in the package.
@@ -106,45 +92,6 @@ type Values struct {
 	Files []string `json:"files,omitempty"`
 	// Path to a JSON schema file for validating values.
 	Schema string `json:"schema,omitempty"`
-}
-
-// Variable represents a variable that has a value set programmatically.
-type Variable struct {
-	// The name to be used for the variable.
-	Name string `json:"name" jsonschema:"pattern=^[A-Z0-9_]+$"`
-	// Whether to mark this variable as sensitive to not print it in the log.
-	Sensitive bool `json:"sensitive,omitempty"`
-	// Whether to automatically indent the variable's value (if multiline) when templating.
-	AutoIndent bool `json:"autoIndent,omitempty"`
-	// An optional regex pattern that a variable value must match before a package deployment can continue.
-	Pattern string `json:"pattern,omitempty"`
-	// Changes the handling of a variable to load contents differently.
-	Type VariableType `json:"type,omitempty" jsonschema:"enum=raw,enum=file"`
-}
-
-// InteractiveVariable is a variable that can be used to prompt a user for more information.
-type InteractiveVariable struct {
-	Variable `json:",inline"`
-	// A description of the variable to be used when prompting the user a value.
-	Description string `json:"description,omitempty"`
-	// The default value to use for the variable.
-	Default string `json:"default,omitempty"`
-	// Whether to prompt the user for input for this variable.
-	Prompt bool `json:"prompt,omitempty"`
-}
-
-// Constant is a value used to dynamically template resources or run in actions.
-type Constant struct {
-	// The name to be used for the constant.
-	Name string `json:"name" jsonschema:"pattern=^[A-Z0-9_]+$"`
-	// The value to set for the constant during deploy.
-	Value string `json:"value"`
-	// A description of the constant.
-	Description string `json:"description,omitempty"`
-	// Whether to automatically indent the constant's value (if multiline) when templating.
-	AutoIndent bool `json:"autoIndent,omitempty"`
-	// An optional regex pattern that a constant value must match before a package can be created.
-	Pattern string `json:"pattern,omitempty"`
 }
 
 // Component is the primary functional grouping of assets to deploy by Zarf.
@@ -395,8 +342,6 @@ type ComponentAction struct {
 	Cmd string `json:"cmd,omitempty"`
 	// Indicates a preference for a shell for the provided cmd.
 	Shell *Shell `json:"shell,omitempty"`
-	// An array of variables to update with the output of the command.
-	SetVariables []Variable `json:"setVariables,omitempty"`
 	// An array of values to set with the output of the command.
 	SetValues []SetValue `json:"setValues,omitempty"`
 	// Description of the action to be displayed during package execution instead of the command.
