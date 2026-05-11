@@ -176,7 +176,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
 - `.components.[x].images` will move from a list of strings to a list of objects. The `Image` object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon. During component imports, the merge strategy will change from a simple append to a merge based on `name`. `source` and any future fields will favor the base component value if set, and otherwise use the imported component value. 
 - `.components.[x].import.name` will be removed given that components will only be importable from component config files so there is not a name to select. See [ZarfComponentConfig](#zarfcomponentconfig).
-- `.components.[x].import.path` and `.components.[x].import.url` will be consolidated into a single `.components.[x].import.paths` list. Any entry starting with `oci://` is treated as a remote component; all other entries are treated as local file paths. See [ZarfComponentConfig](#zarfcomponentconfig).
+- `.components.[x].import.path` and `.components.[x].import.url` will be changed into `.components.[x].import.local.[x].path` and `.components.[x].import.remote.[x].url`. All entries from both are combined when applying component compatibility rules. See [ZarfComponentConfig](#zarfcomponentconfig). These fields are a list of objects instead of a list of strings to enable future sibling fields. For instance, we may introduce a field `.components.[x].import.remote.[x].verify` to enable verifying the signature of signed remote components.
 
 #### Renamed Fields
 
@@ -227,7 +227,7 @@ Each ZarfComponentConfig declares exactly one component under the `component` fi
 
 The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and promote a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
 
-The `.import.paths` field is a list of references to ZarfComponentConfig files. Each entry is either a local file path or an `oci://` URL; `oci://` entries are pulled at create time as remote components. Directories are not accepted. When more than one entry is given, every referenced component must share the same name, and at most one of them must be compatible with the active package target (flavor, OS, architecture) at create time otherwise Zarf will error.
+`.import.local` is a list of local file path references to ZarfComponentConfig files; directories are not accepted. `.import.remote` is a list of `oci://` URL references to remote component configs pulled at create time. All entries from both fields are combined when applying compatibility rules: when more than one entry is given, every referenced component must share the same name, and at most one of them must be compatible with the active package target (flavor, OS, architecture) at create time otherwise Zarf will error.
 
 The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, inspect, and find-images) will accept component config files. For example, `zarf dev inspect definition my-component-config.yaml`.
 
@@ -245,7 +245,7 @@ The Zarf v1alpha1 schema allows for package templates during create using the ##
 
 The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml`, then fall back to a `zarf.gen.yaml`.
 
-`zarf dev template` will have logic to follow local component imports. For any entry in `.import.paths` that points to a file called `<base>.tpl.yaml`, Zarf will template the `<base>.tpl.yaml` file and rewrite the entry to `<base>.gen.yaml`. Users that prefer to template in separate steps may set their import path entries to `<base>.gen.yaml` directly. Zarf will template imports after the current file is finished templating, so a user will be able to template a value into an entry of `.import.paths` and Zarf will template the resulting file.
+`zarf dev template` will have logic to follow local component imports. For any entry in `.import.local` whose `path` points to a file called `<base>.tpl.yaml`, Zarf will template the `<base>.tpl.yaml` file and rewrite the entry to `<base>.gen.yaml`. Users that prefer to template in separate steps may set their import path entries to `<base>.gen.yaml` directly. Zarf will template imports after the current file is finished templating, so a user will be able to template a value into an entry of `.import.local` and Zarf will template the resulting file.
 
 Package templates will be required to have a value; otherwise the command will fail.
 
@@ -409,12 +409,12 @@ metadata:
 components:
   - name: logging
     import:
-      paths:
-        - logging.yaml
+      local:
+        - path: logging.yaml
   - name: monitoring
     import:
-      paths:
-        - oci://ghcr.io/my-org/components/monitoring:1.0.0
+      remote:
+        - url: oci://ghcr.io/my-org/components/monitoring:1.0.0
 ```
 
 I can then create my package as usual:
