@@ -89,7 +89,7 @@ components:
   files:
   - source: source-file.txt
     destination: target-file.txt
-    shasum: shasum
+    checksum: sha256:abc123
     executable: false
     symlinks:
     - /path/to/symlink

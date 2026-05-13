@@ -276,8 +276,8 @@ type OCISource struct {
 type File struct {
 	// Local folder or file path or remote URL to pull into the package.
 	Source string `json:"source"`
-	// Optional SHA256 checksum of the file.
-	Shasum string `json:"shasum,omitempty"`
+	// Optional checksum of the file in the format <algorithm>:<checksum> (e.g. sha256:abc123). Defaults to sha256 if no algorithm is specified.
+	Checksum string `json:"checksum,omitempty"`
 	// The absolute or relative path where the file or folder should be copied to during package deploy.
 	Destination string `json:"destination"`
 	// Determines if the file should be made executable during package deploy.

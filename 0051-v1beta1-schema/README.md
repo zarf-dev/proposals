@@ -191,6 +191,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].only.localOS` will be renamed to `.components.[x].target.os`.
 - `.components.[x].repos` will be renamed to `.components.[x].repositories`.
 - `.components.[x].files.[x].target` will be renamed to `.components.[x].files.[x].destination`.
+- `.components.[x].files.[x].shasum` will be renamed to `.components.[x].files.[x].checksum`. The field accepts the format `<algorithm>:<checksum>` (e.g. `sha256:abc123`); if no algorithm prefix is provided, sha256 is assumed.
 
 ### New Fields
 
