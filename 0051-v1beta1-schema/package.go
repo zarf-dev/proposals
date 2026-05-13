@@ -53,7 +53,7 @@ type Metadata struct {
 // BuildData is written during package create to track details of the created package.
 type BuildData struct {
 	// The machine name that created this package.
-	Terminal string `json:"terminal,omitempty"`
+	Hostname string `json:"hostname,omitempty"`
 	// The username who created this package.
 	User string `json:"user,omitempty"`
 	// The architecture this package was created on.

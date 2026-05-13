@@ -183,6 +183,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 `zarf dev upgrade-schema` will automatically migrate these fields.
 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`.
+- `.build.terminal` will be renamed to `.build.hostname`.
 - `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. Since `required` currently defaults to false, components will now default to being required.
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].only` will be renamed to `.components.[x].target`.

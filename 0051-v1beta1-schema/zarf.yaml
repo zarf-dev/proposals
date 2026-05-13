@@ -16,7 +16,7 @@ metadata:
     anyway-you-want-it: thats-the-way-you-need-it
   allowNamespaceOverride: true
 build: # Everything here is created by Zarf not by users
-  terminal: my-computer
+  hostname: my-computer
   user: my-user
   architecture: amd64
   timestamp: 2021-09-01T00:00:00Z
