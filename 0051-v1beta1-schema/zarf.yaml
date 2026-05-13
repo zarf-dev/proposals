@@ -59,14 +59,14 @@ components:
     kustomizeAllowAnyDirectory: false
     kustomizations:
     - a-kustomization.yaml
-    noWait: true
+    skipWait: true
     serverSideApply: "auto"
     template: true # Enable go-template processing
   charts:
   - name: chart
     namespace: chart-ns
     releaseName: chart-release
-    noWait: false
+    skipWait: false
     valuesFiles:
     - values.yaml
     values:

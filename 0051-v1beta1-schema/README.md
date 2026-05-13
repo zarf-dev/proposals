@@ -184,6 +184,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 - `.metadata.aggregateChecksum` will move to `.build.aggregateChecksum`.
 - `.build.terminal` will be renamed to `.build.hostname`.
+- `.components.[x].manifests.[x].noWait` and `.components.[x].charts.[x].noWait` will be renamed to `skipWait`.
 - `.components[x].required` will be renamed to `.components[x].optional`. `optional` will default to false. Since `required` currently defaults to false, components will now default to being required.
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].only` will be renamed to `.components.[x].target`.
