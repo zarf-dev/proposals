@@ -279,7 +279,7 @@ type File struct {
 	// Optional SHA256 checksum of the file.
 	Shasum string `json:"shasum,omitempty"`
 	// The absolute or relative path where the file or folder should be copied to during package deploy.
-	Target string `json:"target"`
+	Destination string `json:"destination"`
 	// Determines if the file should be made executable during package deploy.
 	Executable bool `json:"executable,omitempty"`
 	// List of symlinks to create during package deploy.

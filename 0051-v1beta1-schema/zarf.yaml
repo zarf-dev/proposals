@@ -88,7 +88,7 @@ components:
       path: chart
   files:
   - source: source-file.txt
-    target: target-file.txt
+    destination: target-file.txt
     shasum: shasum
     executable: false
     symlinks:

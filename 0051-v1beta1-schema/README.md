@@ -190,6 +190,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].only` will be renamed to `.components.[x].target`.
 - `.components.[x].only.localOS` will be renamed to `.components.[x].target.os`.
 - `.components.[x].repos` will be renamed to `.components.[x].repositories`.
+- `.components.[x].files.[x].target` will be renamed to `.components.[x].files.[x].destination`.
 
 ### New Fields
 
