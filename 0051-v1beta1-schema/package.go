@@ -164,6 +164,14 @@ const (
 	ServiceGitServer Service = "git-server"
 )
 
+// ServerSideApplyMode controls when server-side apply is used during deploy.
+type ServerSideApplyMode string
+const (
+	ServerSideApplyEnabled  ServerSideApplyMode = "true"
+	ServerSideApplyDisabled ServerSideApplyMode = "false"
+	ServerSideApplyAuto     ServerSideApplyMode = "auto"
+)
+
 // Manifest defines raw manifests Zarf will deploy as a helm chart.
 type Manifest struct {
 	// A name to give this collection of manifests; this will become the name of the dynamically-created helm chart.
@@ -184,7 +192,7 @@ type Manifest struct {
 	//   - "auto":  use SSA for fresh installs; for upgrades, match whichever strategy
 	//              was used when the chart was first installed
 	// Defaults to "auto" when omitted.
-	ServerSideApply string `json:"serverSideApply,omitempty" jsonschema:"enum=true,enum=false,enum=auto"`
+	ServerSideApply ServerSideApplyMode `json:"serverSideApply,omitempty"`
 	// Template enables go-template processing on these manifests during deploy.
 	Template *bool `json:"template,omitempty"`
 }
@@ -221,7 +229,7 @@ type Chart struct {
 	//   - "auto":  use SSA for fresh installs; for upgrades, match whichever strategy
 	//              was used when the chart was first installed
 	// Defaults to "auto" when omitted.
-	ServerSideApply string `json:"serverSideApply,omitempty" jsonschema:"enum=true,enum=false,enum=auto"`
+	ServerSideApply ServerSideApplyMode `json:"serverSideApply,omitempty"`
 }
 
 // ChartValue maps a values source path to a Helm chart target path.
