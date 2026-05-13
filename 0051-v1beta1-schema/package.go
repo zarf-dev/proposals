@@ -333,9 +333,9 @@ type ComponentActionDefaults struct {
 	// Hide the output of commands during execution (default false).
 	Mute bool `json:"mute,omitempty"`
 	// Default timeout in seconds for commands (default to 0, no timeout).
-	MaxTotalSeconds int `json:"maxTotalSeconds,omitempty"`
+	MaxTotalSeconds int32 `json:"maxTotalSeconds,omitempty"`
 	// Retry commands a given number of times if they fail (default 0).
-	Retries int `json:"retries,omitempty"`
+	Retries int32 `json:"retries,omitempty"`
 	// Working directory for commands (default CWD).
 	Dir string `json:"dir,omitempty"`
 	// Additional environment variables for commands.
@@ -349,9 +349,9 @@ type ComponentAction struct {
 	// Hide the output of the command during package deployment (default false).
 	Mute *bool `json:"mute,omitempty"`
 	// Timeout in seconds for the command (default to 0, no timeout for cmd actions and 300, 5 minutes for wait actions).
-	MaxTotalSeconds *int `json:"maxTotalSeconds,omitempty"`
+	MaxTotalSeconds *int32 `json:"maxTotalSeconds,omitempty"`
 	// Retry the command if it fails up to a given number of times (default 0).
-	Retries int `json:"retries,omitempty"`
+	Retries int32 `json:"retries,omitempty"`
 	// The working directory to run the command in (default is CWD).
 	Dir *string `json:"dir,omitempty"`
 	// Additional environment variables to set for the command.
@@ -419,7 +419,7 @@ type ComponentActionWaitNetwork struct {
 	// The address to wait for.
 	Address string `json:"address" jsonschema:"example=localhost:8080,example=1.1.1.1"`
 	// The HTTP status code to wait for if using http or https.
-	Code int `json:"code,omitempty" jsonschema:"example=200,example=404"`
+	Code int32 `json:"code,omitempty" jsonschema:"example=200,example=404"`
 }
 
 // Shell represents the desired shell to use for a given command.
