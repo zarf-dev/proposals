@@ -157,6 +157,7 @@ The v1beta1 schema will remove, replace, and rename several fields. View this [z
 If a package has these fields defined then `zarf dev upgrade-schema` will error and print a recommendation for an alternative.
 
 - `.components.[x].group` will be removed. A similar functionality was introduced with the field `components[x].target.flavor`. This shifts component selection to the create side, and is the recommended replacement. 
+- `.components.[x].default` will be removed. It was used to determine the default `.components[x].group`. It also gave the default to the (Y/N) prompt during interactive deploys, this use was secondary and not important enough to keep the field around. 
 - `.components.[x].dataInjections` will be removed. https://docs.zarf.dev/best-practices/data-injections-migration/ details migrating off of this field.
 - `.components.[x].charts.[x].variables` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead.
 - `.variables` and `.constants` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead. While values will always be mutable on deploy, creators will be able to choose which values in their chart are mutable using `sourcePath/targetPath`. Similarly, creators decide which fields in manifests are mutable through values. 

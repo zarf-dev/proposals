@@ -98,8 +98,6 @@ type Component struct {
 	Name string `json:"name" jsonschema:"pattern=^[a-z0-9][a-z0-9\\-]*$"`
 	// Message to include during package deploy describing the purpose of this component.
 	Description string `json:"description,omitempty"`
-	// Determines the default Y/N state for installing this component on package deploy.
-	Default bool `json:"default,omitempty"`
 	// Do not install this component unless explicitly requested. Defaults to false, meaning the component is required.
 	Optional *bool `json:"optional,omitempty"`
 	// Filter when this component is included in package creation or deployment.
