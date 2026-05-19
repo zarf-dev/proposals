@@ -21,7 +21,7 @@ type Package struct {
 	// The kind of Zarf package.
 	Kind PackageKind `json:"kind" jsonschema:"enum=ZarfPackageConfig"`
 	// Package metadata.
-	Metadata Metadata `json:"metadata,omitempty"`
+	Metadata PackageMetadata `json:"metadata,omitempty"`
 	// Zarf-generated package build data.
 	Build BuildData `json:"build,omitempty"`
 	// List of components to deploy in this package.
@@ -33,7 +33,7 @@ type Package struct {
 }
 
 // Metadata holds information about the package.
-type Metadata struct {
+type PackageMetadata struct {
 	// Name to identify this Zarf package.
 	Name string `json:"name" jsonschema:"pattern=^[a-z0-9][a-z0-9\\-]*$"`
 	// Additional information about this Zarf package.
