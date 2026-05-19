@@ -74,7 +74,7 @@ components:
     values:
     - sourcePath: ".app.name"
       targetPath: ".appName"
-    schemaValidation: true
+    skipSchemaValidation: false
     serverSideApply: "auto"
     helmRepository: # Only one of helmRepository, git, oci, or local is allowed
       url: https://stefanprodan.github.io/podinfo

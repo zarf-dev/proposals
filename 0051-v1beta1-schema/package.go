@@ -191,7 +191,7 @@ type Manifest struct {
 	// Kustomize settings for this manifest.
 	Kustomize *KustomizeManifest `json:"kustomize,omitempty"`
 	// Whether to not wait for manifest resources to be ready before continuing.
-	SkipWait *bool `json:"skipWait,omitempty"`
+	SkipWait bool `json:"skipWait,omitempty"`
 	// Controls whether Server-Side Apply (SSA) or client-side apply (CSA) is used during deploy.
 	//   - "true":  always use SSA
 	//   - "false": always use CSA
@@ -222,13 +222,13 @@ type Chart struct {
 	// The name of the Helm release to create (defaults to the Zarf name of the chart).
 	ReleaseName string `json:"releaseName,omitempty"`
 	// Whether to not wait for chart resources to be ready before continuing.
-	SkipWait *bool `json:"skipWait,omitempty"`
+	SkipWait bool `json:"skipWait,omitempty"`
 	// List of local values file paths or remote URLs to include in the package; these will be merged together when deployed.
 	ValuesFiles []string `json:"valuesFiles,omitempty"`
 	// List of value sources mapped to their Helm override targets.
 	Values []ChartValue `json:"values,omitempty"`
-	// Whether to validate the chart's values against its JSON schema. Defaults to true.
-	SchemaValidation *bool `json:"schemaValidation,omitempty"`
+	// Skip validation of the chart's values against its JSON schema. Defaults to false.
+	SkipSchemaValidation bool `json:"skipSchemaValidation,omitempty"`
 	// Controls whether Helm uses Server-Side Apply (SSA) or client-side apply (CSA) when deploying this chart.
 	//   - "true":  always use SSA
 	//   - "false": always use CSA
@@ -373,7 +373,7 @@ type ComponentAction struct {
 	// Wait for a condition to be met before continuing.
 	Wait *ComponentActionWait `json:"wait,omitempty"`
 	// EnableValues enables go-template processing on the cmd field.
-	EnableValues *bool `json:"enableValues,omitempty"`
+	EnableValues bool `json:"enableValues,omitempty"`
 }
 
 // SetValueType declares the expected input back from the cmd, allowing structured data to be parsed.
