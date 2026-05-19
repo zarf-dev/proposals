@@ -63,7 +63,7 @@ components:
       enablePlugins: true
     skipWait: true
     serverSideApply: "auto"
-    template: true # Enable go-template processing
+    enableValues: true # Enable go-template processing
   charts:
   - name: chart
     namespace: chart-ns
@@ -96,7 +96,7 @@ components:
     symlinks:
     - /path/to/symlink
     extractPath: /path/to/extract
-    template: false # Disable go-template processing for this file
+    enableValues: false # Disable go-template processing for this file
   images:
     - name: podinfo:v1
       source: "registry" # optional - registry is the default value
@@ -127,6 +127,7 @@ components:
         env:
         - ENV_VAR=FOO
         cmd: echo hello
+        enableValues: true
         shell:
           darwin: sh
           linux: sh
@@ -152,6 +153,7 @@ components:
         env:
         - ENV_VAR=FOO
         cmd: echo hello
+        enableValues: true
         shell:
           darwin: sh
           linux: sh
@@ -177,6 +179,7 @@ components:
         env:
         - ENV_VAR=FOO
         cmd: echo hello
+        enableValues: true
         shell:
           darwin: sh
           linux: sh
@@ -214,6 +217,7 @@ components:
         env:
         - ENV_VAR=FOO
         cmd: echo hello
+        enableValues: true
         shell:
           darwin: sh
           linux: sh
@@ -239,6 +243,7 @@ components:
         env:
         - ENV_VAR=FOO
         cmd: echo hello
+        enableValues: true
         shell:
           darwin: sh
           linux: sh
@@ -264,6 +269,7 @@ components:
         env:
         - ENV_VAR=FOO
         cmd: echo hello
+        enableValues: true
         shell:
           darwin: sh
           linux: sh
@@ -301,6 +307,7 @@ components:
         env:
         - ENV_VAR=FOO
         cmd: echo hello
+        enableValues: true
         shell:
           darwin: sh
           linux: sh
@@ -326,6 +333,7 @@ components:
         env:
         - ENV_VAR=FOO
         cmd: echo hello
+        enableValues: true
         shell:
           darwin: sh
           linux: sh
@@ -351,6 +359,7 @@ components:
         env:
         - ENV_VAR=FOO
         cmd: echo hello
+        enableValues: true
         shell:
           darwin: sh
           linux: sh

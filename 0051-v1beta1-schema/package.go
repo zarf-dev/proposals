@@ -199,8 +199,8 @@ type Manifest struct {
 	//              was used when the chart was first installed
 	// Defaults to "auto" when omitted.
 	ServerSideApply ServerSideApplyMode `json:"serverSideApply,omitempty"`
-	// Template enables go-template processing on these manifests during deploy.
-	Template *bool `json:"template,omitempty"`
+	// EnableValues enables go-template processing on these manifests during deploy.
+	EnableValues *bool `json:"enableValues,omitempty"`
 }
 
 // Chart defines a helm chart to be deployed.
@@ -292,8 +292,8 @@ type File struct {
 	Symlinks []string `json:"symlinks,omitempty"`
 	// Local folder or file to be extracted from a 'source' archive.
 	ExtractPath string `json:"extractPath,omitempty"`
-	// Template enables go-template processing on this file during deploy.
-	Template *bool `json:"template,omitempty"`
+	// EnableValues enables go-template processing on this file during deploy.
+	EnableValues *bool `json:"enableValues,omitempty"`
 }
 
 // Image defines an OCI image to include in the package.
@@ -372,8 +372,8 @@ type ComponentAction struct {
 	Description string `json:"description,omitempty"`
 	// Wait for a condition to be met before continuing.
 	Wait *ComponentActionWait `json:"wait,omitempty"`
-	// Template enables go-template processing on the cmd field.
-	Template *bool `json:"template,omitempty"`
+	// EnableValues enables go-template processing on the cmd field.
+	EnableValues *bool `json:"enableValues,omitempty"`
 }
 
 // SetValueType declares the expected input back from the cmd, allowing structured data to be parsed.
