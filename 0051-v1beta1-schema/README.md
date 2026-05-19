@@ -201,13 +201,13 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 ### New Fields
 
-- `.components[x].service` will be introduced to avoid magic names in Init package components. See [Zarf Services](#zarf-services) for more details.
+- `.components.[x].service` will be introduced to avoid magic names in Init package components. See [Zarf Services](#zarf-services) for more details.
 
 ### Behavior Changes
 
 #### Wait Changes
 
-There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig, when `.cluster.condition` is empty, Zarf waits until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty, Zarf will wait for the resource to be ready using kstatus readiness checks.
+There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig, when `.cluster.condition` is empty, Zarf waits until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty, Zarf will wait for the resource to be ready using kstatus readiness checks. When migrating from v1alpha1 to v1beta1 if `cluster.condition` is not set, then it will be automatically populated with "exists" for backwards compatibility with existing packages.
 
 #### Zarf Services
 
