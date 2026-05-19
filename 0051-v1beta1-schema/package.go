@@ -46,8 +46,8 @@ type PackageMetadata struct {
 	Architecture string `json:"architecture,omitempty" jsonschema:"example=arm64,example=amd64"`
 	// Annotations are key-value pairs that can be used to store metadata about the package.
 	Annotations map[string]string `json:"annotations,omitempty"`
-	// Whether to allow namespace overrides for this package.
-	AllowNamespaceOverride *bool `json:"allowNamespaceOverride,omitempty"`
+	// Prevent namespace overrides for this package.
+	PreventNamespaceOverride bool `json:"preventNamespaceOverride,omitempty"`
 }
 
 // BuildData is written during package create to track details of the created package.

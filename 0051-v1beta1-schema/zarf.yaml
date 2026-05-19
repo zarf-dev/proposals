@@ -14,7 +14,7 @@ metadata:
     vendor: my-vendor
     image: https://my-image-url-to-use-in-deprecated-zarf-ui
     anyway-you-want-it: thats-the-way-you-need-it
-  allowNamespaceOverride: true
+  preventNamespaceOverride: false
 build: # Everything here is created by Zarf not by users
   hostname: my-computer
   user: my-user

@@ -191,7 +191,8 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].actions.[default/onAny].mute` will be renamed to `.components.[x].actions.[default/onAny].silent`.
 - `.components.[x].manifests.[x].template`, `.components.[x].files.[x].template`, and `.components.[x].actions.[onAny].template` will be renamed to `enableValues`.
-- `.components.[x].charts.[x].schemaValidation` will be renamed to `skipSchemaValidation`. The field now defaults to `false`, so schema validation continue to run by default.
+- `.components.[x].charts.[x].schemaValidation` will be renamed to `skipSchemaValidation`. The field now defaults to `false` instead of `true`, so schema validation continue to run by default.
+- `.metadata.allowNamespaceOverride` will be renamed to `preventNamespaceOverride`. The field now defaults to `false` instead of `true`, so namespace overrides continue to be allowed by default.
 - `.components.[x].only` will be renamed to `.components.[x].target`.
 - `.components.[x].only.localOS` will be renamed to `.components.[x].target.os`.
 - `.components.[x].repos` will be renamed to `.components.[x].repositories`.
