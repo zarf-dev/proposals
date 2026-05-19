@@ -99,7 +99,7 @@ type Component struct {
 	// Message to include during package deploy describing the purpose of this component.
 	Description string `json:"description,omitempty"`
 	// Do not install this component unless explicitly requested. Defaults to false, meaning the component is required.
-	Optional *bool `json:"optional,omitempty"`
+	Optional bool `json:"optional,omitempty"`
 	// Filter when this component is included in package creation or deployment.
 	Target ComponentTarget `json:"target,omitempty"`
 	// Import a component from another Zarf component config.
@@ -200,7 +200,7 @@ type Manifest struct {
 	// Defaults to "auto" when omitted.
 	ServerSideApply ServerSideApplyMode `json:"serverSideApply,omitempty"`
 	// EnableValues enables go-template processing on these manifests during deploy.
-	EnableValues *bool `json:"enableValues,omitempty"`
+	EnableValues bool `json:"enableValues,omitempty"`
 }
 
 // Chart defines a helm chart to be deployed.
@@ -293,7 +293,7 @@ type File struct {
 	// Local folder or file to be extracted from a 'source' archive.
 	ExtractPath string `json:"extractPath,omitempty"`
 	// EnableValues enables go-template processing on this file during deploy.
-	EnableValues *bool `json:"enableValues,omitempty"`
+	EnableValues bool `json:"enableValues,omitempty"`
 }
 
 // Image defines an OCI image to include in the package.
