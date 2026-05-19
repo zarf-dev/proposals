@@ -56,9 +56,11 @@ components:
     namespace: manifest-ns
     files:
     - a-file.yaml
-    kustomizeAllowAnyDirectory: false
-    kustomizations:
-    - a-kustomization.yaml
+    kustomize:
+      files:
+      - a-kustomization.yaml
+      allowAnyDirectory: false
+      enablePlugins: true
     skipWait: true
     serverSideApply: "auto"
     template: true # Enable go-template processing

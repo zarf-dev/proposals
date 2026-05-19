@@ -170,6 +170,16 @@ const (
 	ServerSideApplyAuto     ServerSideApplyMode = "auto"
 )
 
+// KustomizeManifest defines kustomization settings for a manifest.
+type KustomizeManifest struct {
+	// List of local kustomization paths or remote URLs to include in the package.
+	Files []string `json:"files,omitempty"`
+	// Allow traversing directory above the current directory if needed for kustomization.
+	AllowAnyDirectory bool `json:"allowAnyDirectory,omitempty"`
+	// Enable kustomize plugins when building manifests.
+	EnablePlugins bool `json:"enablePlugins,omitempty"`
+}
+
 // Manifest defines raw manifests Zarf will deploy as a helm chart.
 type Manifest struct {
 	// A name to give this collection of manifests; this will become the name of the dynamically-created helm chart.
@@ -178,10 +188,8 @@ type Manifest struct {
 	Namespace string `json:"namespace,omitempty"`
 	// List of local K8s YAML files or remote URLs to deploy (in order).
 	Files []string `json:"files,omitempty"`
-	// Allow traversing directory above the current directory if needed for kustomization.
-	KustomizeAllowAnyDirectory bool `json:"kustomizeAllowAnyDirectory,omitempty"`
-	// List of local kustomization paths or remote URLs to include in the package.
-	Kustomizations []string `json:"kustomizations,omitempty"`
+	// Kustomize settings for this manifest.
+	Kustomize *KustomizeManifest `json:"kustomize,omitempty"`
 	// Whether to not wait for manifest resources to be ready before continuing.
 	SkipWait *bool `json:"skipWait,omitempty"`
 	// Controls whether Server-Side Apply (SSA) or client-side apply (CSA) is used during deploy.
