@@ -154,16 +154,16 @@ The v1beta1 schema will remove, replace, and rename several fields. View this [z
 
 #### Removed Fields
 
-If a package has these fields defined then `zarf dev upgrade-schema` will error and print a recommendation for an alternative.
+If a package has these fields defined, then `zarf dev upgrade-schema` will error and print a recommendation for an alternative.
 
-- `.components.[x].group` will be removed. A similar functionality was introduced with the field `components[x].target.flavor`. This shifts component selection to the create side, and is the recommended replacement. 
+- `.components.[x].group` will be removed. Similar functionality was introduced with the field `components[x].target.flavor`. This shifts component selection to the create side, and is the recommended replacement. 
 - `.components.[x].default` will be removed. It was used to determine the default `.components[x].group`. It also gave the default to the (Y/N) prompt during interactive deploys, this use was secondary and not important enough to keep the field around. 
 - `.components.[x].dataInjections` will be removed. https://docs.zarf.dev/best-practices/data-injections-migration/ details migrating off of this field.
 - `.components.[x].charts.[x].variables` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead.
 - `.variables` and `.constants` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead. While values will always be mutable on deploy, creators will be able to choose which values in their chart are mutable using `sourcePath/targetPath`. Similarly, creators decide which fields in manifests are mutable through values. 
 - `.components.[x].actions.[onAny].setVariable` and `.components.[x].actions.[onAny].setVariables` will be removed. The existing `.components.[x].actions.[onAny].setValues` field is the replacement.
 - `.metadata.yolo` will be removed. Its successor is connected deployments [#4580](https://github.com/zarf-dev/zarf/issues/4580).
-- `.components.[x].only.cluster.distro` will be removed. This field was never used for anything and there are no plans to use it currently.
+- `.components.[x].only.cluster.distro` will be removed. This field was never used for anything and there are currently no plans to use it.
 
 #### Replaced / Restructured Fields
 
@@ -191,7 +191,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 - `.components.[x].actions.[default/onAny].maxRetries` will be renamed to `.components.[x].actions.[default/onAny].retries`.
 - `.components.[x].actions.[default/onAny].mute` will be renamed to `.components.[x].actions.[default/onAny].silent`.
 - `.components.[x].manifests.[x].template`, `.components.[x].files.[x].template`, and `.components.[x].actions.[onAny].template` will be renamed to `enableValues`.
-- `.components.[x].charts.[x].schemaValidation` will be renamed to `skipSchemaValidation`. The field now defaults to `false` instead of `true`, so schema validation continue to run by default.
+- `.components.[x].charts.[x].schemaValidation` will be renamed to `skipSchemaValidation`. The field now defaults to `false` instead of `true`, so schema validation continues to run by default.
 - `.metadata.allowNamespaceOverride` will be renamed to `preventNamespaceOverride`. The field now defaults to `false` instead of `true`, so namespace overrides continue to be allowed by default.
 - `.components.[x].only` will be renamed to `.components.[x].target`.
 - `.components.[x].only.localOS` will be renamed to `.components.[x].target.os`.
@@ -207,7 +207,7 @@ If a package has these fields defined then `zarf dev upgrade-schema` will error 
 
 #### Wait Changes
 
-There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig, when `.cluster.condition` is empty, Zarf waits until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty, Zarf will wait for the resource to be ready using kstatus readiness checks. When migrating from v1alpha1 to v1beta1 if `cluster.condition` is not set, then it will be automatically populated with "exists" for backwards compatibility with existing packages.
+There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`. In the v1alpha1 ZarfPackageConfig, when `.cluster.condition` is empty, Zarf waits until the resource exists. In the v1beta1 schema, when `.cluster.condition` is empty, Zarf will wait for the resource to be ready using kstatus readiness checks. When migrating from v1alpha1 to v1beta1, if `cluster.condition` is not set, then it will be automatically populated with "exists" for backwards compatibility with existing packages.
 
 #### Zarf Services
 
@@ -235,9 +235,9 @@ The v1beta1 APIVersion will introduce a new `Kind` alongside ZarfPackageConfig c
 
 Each ZarfComponentConfig declares exactly one component under the `component` field. If a user wants multiple variations of a component differentiated by flavor, OS, or architecture, they create one ZarfComponentConfig file per variation and set the `.component.target` field on each. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
 
-The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and promote a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
+The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will result in an error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and promote a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
 
-`.import.local` is a list of local file path references to ZarfComponentConfig files; directories are not accepted. `.import.remote` is a list of `oci://` URL references to remote component configs pulled at create time. All entries from both fields are combined when applying compatibility rules: when more than one entry is given, every referenced component must share the same name, and at most one of them must be compatible with the active package target (flavor, OS, architecture) at create time otherwise Zarf will error.
+`.import.local` is a list of local file path references to ZarfComponentConfig files; directories are not accepted. `.import.remote` is a list of `oci://` URL references to remote component configs pulled at create time. All entries from both fields are combined when applying compatibility rules: when more than one entry is given, every referenced component must share the same name, and at most one of them must be compatible with the active package target (flavor, OS, architecture) at create time, otherwise Zarf will error.
 
 The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, inspect, and find-images) will accept component config files. For example, `zarf dev inspect definition my-component-config.yaml`.
 
@@ -255,7 +255,7 @@ The Zarf v1alpha1 schema allows for package templates during create using the ##
 
 The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml`, then fall back to a `zarf.gen.yaml`.
 
-`zarf dev template` will have logic to follow local component imports. For any entry in `.import.local` whose `path` points to a file called `<base>.tpl.yaml`, Zarf will template the `<base>.tpl.yaml` file and rewrite the entry to `<base>.gen.yaml`. Users that prefer to template in separate steps may set their import path entries to `<base>.gen.yaml` directly. Zarf will template imports after the current file is finished templating, so a user will be able to template a value into an entry of `.import.local` and Zarf will template the resulting file.
+`zarf dev template` will have logic to follow local component imports. For any entry in `.import.local` whose `path` points to a file called `<base>.tpl.yaml`, Zarf will template the `<base>.tpl.yaml` file and rewrite the entry to `<base>.gen.yaml`. Users who prefer to template in separate steps may set their import path entries to `<base>.gen.yaml` directly. Zarf will template imports after the current file is finished templating, so a user will be able to template a value into an entry of `.import.local` and Zarf will template the resulting file.
 
 Package templates will be required to have a value; otherwise the command will fail.
 
