@@ -109,7 +109,7 @@ components:
   actions:
     onCreate:
       defaults:
-        mute: true
+        silent: true
         maxTotalSeconds: 60
         retries: 0
         dir: dir
@@ -196,7 +196,7 @@ components:
             code: 200
     onDeploy:
       defaults:
-        mute: true
+        silent: true
         maxTotalSeconds: 60
         retries: 0
         dir: dir
@@ -283,7 +283,7 @@ components:
             code: 200
     onRemove:
       defaults:
-        mute: true
+        silent: true
         maxTotalSeconds: 60
         retries: 0
         dir: dir

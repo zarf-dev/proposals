@@ -337,7 +337,7 @@ type ComponentActionSet struct {
 // ComponentActionDefaults sets the default configs for child actions.
 type ComponentActionDefaults struct {
 	// Hide the output of commands during execution (default false).
-	Mute bool `json:"mute,omitempty"`
+	Silent bool `json:"silent,omitempty"`
 	// Default timeout in seconds for commands (default to 0, no timeout).
 	MaxTotalSeconds int32 `json:"maxTotalSeconds,omitempty"`
 	// Retry commands a given number of times if they fail (default 0).
@@ -353,7 +353,7 @@ type ComponentActionDefaults struct {
 // ComponentAction represents a single action to run during a Zarf package operation.
 type ComponentAction struct {
 	// Hide the output of the command during package deployment (default false).
-	Mute *bool `json:"mute,omitempty"`
+	Silent *bool `json:"silent,omitempty"`
 	// Timeout in seconds for the command (default to 0, no timeout for cmd actions and 300, 5 minutes for wait actions).
 	MaxTotalSeconds *int32 `json:"maxTotalSeconds,omitempty"`
 	// Retry the command if it fails up to a given number of times (default 0).
