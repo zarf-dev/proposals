@@ -357,7 +357,7 @@ type ComponentAction struct {
 	// Timeout in seconds for the command (default to 0, no timeout for cmd actions and 300, 5 minutes for wait actions).
 	MaxTotalSeconds *int32 `json:"maxTotalSeconds,omitempty"`
 	// Retry the command if it fails up to a given number of times (default 0).
-	Retries int32 `json:"retries,omitempty"`
+	Retries *int32 `json:"retries,omitempty"`
 	// The working directory to run the command in (default is CWD).
 	Dir *string `json:"dir,omitempty"`
 	// Additional environment variables to set for the command.
