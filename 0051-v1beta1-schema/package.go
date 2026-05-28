@@ -70,6 +70,10 @@ type BuildData struct {
 	Differential bool `json:"differential,omitempty"`
 	// The flavor of Zarf used to build this package.
 	Flavor string `json:"flavor,omitempty"`
+	// Whether this package was signed.
+	Signed *bool `json:"signed,omitempty"`
+	// ProvenanceFiles lists files present in the package that are not included in checksums.txt. These are files added after checksum generation (e.g., signature files).
+	ProvenanceFiles []string `json:"provenanceFiles,omitempty"`
 	// Requirements for specific Zarf versions needed to deploy this package.
 	VersionRequirements []VersionRequirement `json:"versionRequirements,omitempty"`
 	// Checksum of a checksums.txt file that contains checksums all the layers within the package.

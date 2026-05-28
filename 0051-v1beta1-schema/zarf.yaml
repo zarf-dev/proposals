@@ -26,11 +26,14 @@ build: # Everything here is created by Zarf not by users
   registryOverrides:
     gcr.io: my-gcr.com
   differential: true
+  signed: true
   flavor: cool-flavor
   versionRequirements:
   - version: v0.68.0
     reason: This package contains image archives which will only be recognized on v0.68.0+  
   aggregateChecksum: shasum # this is moved from .metadata
+  provenanceFiles:
+    - checksums.txt
 values:
   files:
     - values.yaml
