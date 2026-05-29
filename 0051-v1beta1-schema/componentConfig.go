@@ -12,15 +12,15 @@ type ComponentConfig struct {
 	// Component metadata.
 	Metadata ComponentMetadata `json:"metadata"`
 	// The single component this config defines.
-	Component Component `json:"component"`
+	Component ComponentSpec `json:"component"`
 	// Values imports Zarf values files for templating and overriding Helm values.
 	Values Values `json:"values,omitempty"`
 	// Zarf-generated publish data for the component config.
 	PublishData ComponentPublishData `json:"publishData,omitempty"`
 }
 
-// ImportableComponent is a reduced component definition used in component configs.
-type ImportableComponent struct {
+// ComponentSpec is a reduced component definition used in component configs.
+type ComponentSpec struct {
 	// Import a component from another Zarf component config.
 	Import ComponentImport `json:"import,omitempty"`
 	// Filter when this component is included in package creation or deployment.
