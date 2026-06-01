@@ -156,7 +156,7 @@ All future package definition schemas will require a root level `apiVersion` fie
 
 During Zarf's lifetime, it will introduce, deprecate, and drop support for ZarfPackageConfig API versions. Once a version is deprecated, users will still be able to perform all package operations such as create, publish, and deploy, but will receive warnings that they should upgrade. Zarf will drop support for an API version one year after it is deprecated. Once an API version is no longer supported, Zarf will error if a user tries to perform common package operations with that API version such as `zarf package create`, `zarf package publish`, or `zarf package deploy`. Even after Zarf drops official support for an API version, Zarf will still work with the commands `zarf package inspect`, `zarf package remove`, and `zarf package pull` for an additional year. These commands will help users understand their unsupported existing packages, which may have already been deployed to a cluster, so that they can migrate them. The SDK will follow the same timeline, i.e. one year for `packager.Create`, two years for `packager.Pull`. 
 
-The zarf.yaml in a built package will include the package definition for every supported API version. When printing the package definition to the user, for example with the command `zarf package inspect definition`, the printed definition will be the latest API version by default. A new flag `--api-version` will be introduced to `zarf package inspect definition` and `zarf dev inspect definition` to allow configuring the output. 
+The zarf.yaml in a built package will include the package definition for every supported API version. When printing the package definition to the user, for example with the command `zarf package inspect definition`, the output will be the API version of the package by default. A new flag `--api-version` will be introduced to `zarf package inspect definition` and `zarf dev inspect definition` to allow configuring the output. 
 
 A new command `zarf dev upgrade-schema` will be introduced to allow users to convert from one API version to another. The command will default to converting to the latest API version. It will output the converted package definition for the latest schema version. It will accept a path to a directory containing a zarf.yaml file and an optional flag, `--to`, to declare the API version. For instance, a user could run `zarf dev upgrade-schema . --to v1beta1` and they will receive the converted package definition to stdout. The command will not allow changing from a newer version to an older version, so running `zarf dev upgrade-schema . --to=v1alpha1` on a `v1beta1` schema will error. This command will only accept a local package definition, and will not accept created packages, published packages, or deployed packages. 
 
@@ -186,7 +186,7 @@ As a package creator, I want to create and publish packages using the newer API 
 
 #### Story 3
 
-As a package creator, I want to update my package definition to the v1beta1 schema, so I run `zarf dev upgrade-schema --to v1beta1` with a zarf.yaml in my current directory and it outputs the converted package definition to stdout.
+As a package creator, I want to update my package definition to the v1beta1 schema, so I run `zarf dev upgrade-schema . --to v1beta1 > zarf.yaml` against the directory containing my zarf.yaml. The command writes the converted definition to stdout, replacing my existing zarf.yaml.
 
 #### Story 4
 
@@ -471,6 +471,10 @@ What other approaches did you consider, and why did you rule them out? These do
 not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
+
+### Use only one API version
+
+Instead of introducing a new schema, we could over time remove and introduce fields on the existing package schema. This was rejected as we believe a new schema will provide a more intuitive experience for developers and maintainers. For instance, attempting to implement the proposed Helm changes would result in a large, confusing schema. Likewise, it would be difficult to change defaults, such as moving from required to optional, since we wouldn't have a new API version to signal that there is a breaking change. Additionally, removing deprecated fields such as `dataInjections` would require a major version change. Keeping the API version and CLI version decoupled allows flexibility to make the changes we need.
 
 ### Public Facing Internal Type
 
