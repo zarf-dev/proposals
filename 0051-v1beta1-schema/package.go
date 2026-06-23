@@ -297,6 +297,12 @@ type ImageArchive struct {
 	Images []string `json:"images"`
 }
 
+// Repository defines a git repository to include in the package.
+type Repository struct {
+	// The URL of the git repository.
+	URL string `json:"url"`
+}
+
 // ComponentActions are ActionSets that map to different Zarf package operations.
 type ComponentActions struct {
 	// Actions to run during package creation.
