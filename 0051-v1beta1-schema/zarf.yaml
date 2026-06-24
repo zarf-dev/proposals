@@ -108,7 +108,7 @@ components:
     images:
       - podinfo:local
   repositories:
-  - https://github.com/zarf-dev/zarf
+  - url: https://github.com/zarf-dev/zarf
   actions:
     onCreate:
       defaults:
