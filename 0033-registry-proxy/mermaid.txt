@@ -1,0 +1,47 @@
+flowchart TD
+    subgraph NodeBox [Node]
+        direction TB
+        Kubelet[Kubelet<br/>]
+        CRI[Containerd / CRI<br/>Makes HTTP requests]
+        Decision{networking mode}
+        HostPortProxy[hostPort Mode<br/>iptables NAT forwarding]
+        HostNetworkProxy[hostNetwork Mode<br/>Direct port binding on node]
+        ProxyProcess[Proxy Daemonset ]
+    end
+    
+    subgraph ClusterServices [Cluster Services]
+        direction TB
+        SVC[zarf-docker-registry<br/>ClusterIP Service :5000]
+        REG[Zarf Registry Pod]
+    end
+    
+    %% Main flow
+    Kubelet --> CRI
+    CRI -->|request image at 127.0.0.1:5000/path| Decision
+    
+    %% Decision paths
+    Decision -->|IPv4/Dual Stack| HostPortProxy
+    Decision -->|IPv6 Single Stack| HostNetworkProxy
+    
+    %% Both modes converge to the proxy process
+    HostPortProxy --> ProxyProcess
+    HostNetworkProxy --> ProxyProcess
+    
+    %% Proxy makes the actual call to services
+    ProxyProcess -->|Request over mTLS| SVC
+    
+    %% Service connections
+    SVC --> REG
+    
+    
+    classDef hostPort fill:#fff3e0,stroke:#ff9800,stroke-width:2px
+    classDef hostNetwork fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    classDef decision fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
+    classDef service fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px
+    classDef node fill:#fafafa,stroke:#757575,stroke-width:2px
+    
+    class HostPortProxy hostPort
+    class HostNetworkProxy hostNetwork
+    class Decision decision
+    class SVC,REG service
+    class Kubelet,CRI,ProxyProcess node

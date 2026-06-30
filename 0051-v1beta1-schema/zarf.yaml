@@ -1,0 +1,382 @@
+kind: ZarfPackageConfig
+apiVersion: zarf.dev/v1beta1
+metadata:
+  name: everything-zarf-package
+  description: A zarf package with a non empty value for every key - this demonstrates the changes proposed by ZEP-0051
+  version: v1.0.0
+  uncompressed: false
+  architecture: amd64
+  annotations: # Most of these annotations are v1alpha1 fields that were removed in favor of a choose your own adventure map
+    authors: cool-kidz
+    documentation: https://my-package-documentation.com
+    source: https://my-git-server/my-package
+    url: https://my-package-website.com
+    vendor: my-vendor
+    image: https://my-image-url-to-use-in-deprecated-zarf-ui
+    anyway-you-want-it: thats-the-way-you-need-it
+  preventNamespaceOverride: false
+build: # Everything here is created by Zarf not by users
+  hostname: my-computer
+  user: my-user
+  architecture: amd64
+  timestamp: 2021-09-01T00:00:00Z
+  version: v1.0.0
+  migrations:
+    - scripts-to-actions
+  registryOverrides:
+    gcr.io: my-gcr.com
+  differential: true
+  signed: true
+  flavor: cool-flavor
+  versionRequirements:
+  - version: v0.68.0
+    reason: This package contains image archives which will only be recognized on v0.68.0+  
+  aggregateChecksum: shasum # this is moved from .metadata
+  provenanceFiles:
+    - checksums.txt
+values:
+  files:
+    - values.yaml
+  schema: values-schema.json
+documentation:
+  my-file: "file.md"  
+components:
+- name: a-component
+  description: Zarf description
+  optional: false # Component is required (default behavior)
+  target:
+    os: darwin
+    architecture: amd64
+    flavor: a-flavor # this will only be used when there are multiple components
+  import:
+    local:
+      - path: ./components/a-component.yaml
+    remote:
+      - url: oci://ghcr.io/my-org/components/a-component:1.0.0
+  service: registry # one of: registry, seed-registry, injector, agent, git-server
+  manifests:
+  - name: manifest
+    namespace: manifest-ns
+    files:
+    - a-file.yaml
+    kustomize:
+      files:
+      - a-kustomization.yaml
+      allowAnyDirectory: false
+      enablePlugins: true
+    skipWait: true
+    serverSideApply: "auto"
+    enableValues: true # Enable go-template processing
+  charts:
+  - name: chart
+    namespace: chart-ns
+    releaseName: chart-release
+    skipWait: false
+    valuesFiles:
+    - values.yaml
+    values:
+    - sourcePath: ".app.name"
+      targetPath: ".appName"
+    skipSchemaValidation: false
+    serverSideApply: "auto"
+    helmRepository: # Only one of helmRepository, git, oci, or local is allowed
+      url: https://stefanprodan.github.io/podinfo
+      name: podinfo # replaces repoName since it's only applicable in this situation
+      version: 6.4.0
+    git:
+      url: https://github.com/stefanprodan/podinfo.git@6.4.0
+      path: charts/podinfo
+    oci:
+      url: oci://ghcr.io/stefanprodan/charts/podinfo
+      version: 6.4.0
+    local:
+      path: chart
+  files:
+  - source: source-file.txt
+    destination: target-file.txt
+    checksum: sha256:abc123
+    executable: false
+    symlinks:
+    - /path/to/symlink
+    extractPath: /path/to/extract
+    enableValues: false # Disable go-template processing for this file
+  images:
+    - name: podinfo:v1
+      source: "registry" # optional - registry is the default value
+  imageArchives:
+  - path: podinfo.tar
+    images:
+      - podinfo:local
+  repositories:
+  - url: https://github.com/zarf-dev/zarf
+  actions:
+    onCreate:
+      defaults:
+        silent: true
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+      before:
+      - silent: false
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        cmd: echo hello
+        enableValues: true
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+        setValues:
+          - key: .json
+        description: action-description
+        wait:
+          cluster: # Only one of cluster / network can be used
+            kind: pod
+            name: my-pod
+            namespace: pod-ns
+            condition: ready
+          network:
+            protocol: http
+            address: github.com
+            code: 200
+      onSuccess:
+      - silent: false
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        cmd: echo hello
+        enableValues: true
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+        setValues:
+          - key: .json
+        description: action-description
+        wait:
+          cluster: # Only one of cluster / network can be used
+            kind: pod
+            name: my-pod
+            namespace: pod-ns
+            condition: ready
+          network:
+            protocol: http
+            address: github.com
+            code: 200
+      onFailure:
+      - silent: false
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        cmd: echo hello
+        enableValues: true
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+        setValues:
+          - key: .json
+        description: action-description
+        wait:
+          cluster: # Only one of cluster / network can be used
+            kind: pod
+            name: my-pod
+            namespace: pod-ns
+            condition: ready
+          network:
+            protocol: http
+            address: github.com
+            code: 200
+    onDeploy:
+      defaults:
+        silent: true
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+      before:
+      - silent: false
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        cmd: echo hello
+        enableValues: true
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+        setValues:
+          - key: .json
+        description: action-description
+        wait:
+          cluster: # Only one of cluster / network can be used
+            kind: pod
+            name: my-pod
+            namespace: pod-ns
+            condition: ready
+          network:
+            protocol: http
+            address: github.com
+            code: 200
+      onSuccess:
+      - silent: false
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        cmd: echo hello
+        enableValues: true
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+        setValues:
+          - key: .json
+        description: action-description
+        wait:
+          cluster: # Only one of cluster / network can be used
+            kind: pod
+            name: my-pod
+            namespace: pod-ns
+            condition: ready
+          network:
+            protocol: http
+            address: github.com
+            code: 200
+      onFailure:
+      - silent: false
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        cmd: echo hello
+        enableValues: true
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+        setValues:
+          - key: .json
+        description: action-description
+        wait:
+          cluster: # Only one of cluster / network can be used
+            kind: pod
+            name: my-pod
+            namespace: pod-ns
+            condition: ready
+          network:
+            protocol: http
+            address: github.com
+            code: 200
+    onRemove:
+      defaults:
+        silent: true
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+      before:
+      - silent: false
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        cmd: echo hello
+        enableValues: true
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+        setValues:
+          - key: .json
+        description: action-description
+        wait:
+          cluster: # Only one of cluster / network can be used
+            kind: pod
+            name: my-pod
+            namespace: pod-ns
+            condition: ready
+          network:
+            protocol: http
+            address: github.com
+            code: 200
+      onSuccess:
+      - silent: false
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        cmd: echo hello
+        enableValues: true
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+        setValues:
+          - key: .json
+        description: action-description
+        wait:
+          cluster: # Only one of cluster / network can be used
+            kind: pod
+            name: my-pod
+            namespace: pod-ns
+            condition: ready
+          network:
+            protocol: http
+            address: github.com
+            code: 200
+      onFailure:
+      - silent: false
+        maxTotalSeconds: 60
+        retries: 0
+        dir: dir
+        env:
+        - ENV_VAR=FOO
+        cmd: echo hello
+        enableValues: true
+        shell:
+          darwin: sh
+          linux: sh
+          windows: powershell
+        setValues:
+          - key: .json
+        description: action-description
+        wait:
+          cluster: # Only one of cluster / network can be used
+            kind: pod
+            name: my-pod
+            namespace: pod-ns
+            condition: ready
+          network:
+            protocol: http
+            address: github.com
+            code: 200

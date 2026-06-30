@@ -1,25 +1,27 @@
 schema-version: 1.0.0
 
-title: Deprecate Big Bang Extension
-zep-number: 2
+title: v1beta1 schema
+zep-number: 0051
 authors:
-  - "@AustinAbro321"
-
-status: implemented
-creation-date: "2024-09-06"
+  - "@austinabro321"
+status: implementable
+creation-date: 2025-10-21
 reviewers:
-  - @zarf-dev
+  - "@zarf-dev"
 approvers:
-  - @zarf-dev
+  - "@zarf-dev"
+
+see-also:
+  - "/0048-schema-upgrade-process"
 
 # The target maturity stage in the current dev cycle for this ZEP.
-stage: stable
+stage: ""
 
 # The most recent milestone for which work toward delivery of this ZEP has been
 # done. This can be the current (upcoming) milestone, if it is being actively
 # worked on.
-latest-milestone: NA
+latest-milestone: ""
 
 # The milestone at which this feature was, or is targeted to be, at each stage.
 milestone:
-  stable: "v0.41.0"
+  stable: "TBD""

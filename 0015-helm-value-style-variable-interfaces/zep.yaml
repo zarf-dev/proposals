@@ -4,12 +4,15 @@ title: Helm Value Style Variable Interfaces
 zep-number: 0015
 authors:
   - "@racer159"
-status: implementable
+status: superceeded
 creation-date: 2025-02-03
 reviewers:
   - "@zarf-dev"
 approvers:
   - "@zarf-dev"
+
+see-also:
+  - "/0021-zarf-values"
 
 # The target maturity stage in the current dev cycle for this ZEP.
 stage: alpha
