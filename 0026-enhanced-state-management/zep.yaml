@@ -21,5 +21,5 @@ latest-milestone: NA
 
 # The milestone at which this feature was, or is targeted to be, at each stage.
 milestone:
-  alpha: "v0.39"
+  alpha: "v0.82"
   stable: "v1.0"
