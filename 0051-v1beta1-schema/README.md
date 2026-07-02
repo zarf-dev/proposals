@@ -171,7 +171,7 @@ If a package has these fields defined, then `zarf dev upgrade-schema` will error
 
 - `.components.[x].actions.[onAny].after` will be combined with and replaced by `actions.[onAny].onSuccess`. Any `after` actions will be prepended to the `actions.[onAny].onSuccess` list.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`.
-- `.components.[x].only` will be split into `.components.[x].selector` (create-time filtering) and `.components.[x].target`.
+- `.components.[x].only` will be split into `.components.[x].selector` (create-time filtering) and `.components.[x].target` (deploy-time filtering).
 - `.components.[x].only.cluster.architecture` will be inlined to `.components.[x].selector.architecture`. This is more accurate as the field checks the `.metadata.architecture` on create, rather than the cluster during deploy. Note that `.only` was split into `.target` (deploy-time OS filtering) and `.selector` (create-time architecture and flavor filtering). Since `.cluster.distro` will be removed, the `.cluster` parent field will be deleted. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendor` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.onSuccess.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [wait changes](#wait-changes).
