@@ -650,7 +650,7 @@ information to express the idea and why it was not acceptable.
 
 #### Variants in ZarfComponentConfig
 
-A previous version of this proposal allowed a ZarfComponentConfig to declare either a `.component` field or a `.variants[]` field. The `.component` field was a single object representing a component importable by any package. The `.variants` field was a list of components where each entry had to specify a `.selector` block (e.g. flavors, or architectures) to differentiate itself from the other entries. Zarf would error if two entries under `.variants` shared the same target/selector. The `zarf component publish` command would have grown a `--all-variants` flag to publish every variant in one file at once.
+A previous version of this proposal allowed a ZarfComponentConfig to declare either a `.component` field or a `.variants[]` field. The `.component` field was a single object representing a component importable by any package. The `.variants` field was a list of components where each entry had to specify a `.selector` block (e.g. flavors, or architectures) to differentiate itself from the other entries. Zarf would error if two entries under `.variants` shared the same selector. The `zarf component publish` command would have grown a `--all-variants` flag to publish every variant in one file at once.
 
 This was rejected in favor of "exactly one component per file" to keep the mental model simple. With variants, a single file could expand into many components depending on flavor/OS/arch, and authors had to reason about which entry applied where. Forcing a 1:1 file-to-component mapping makes the import tree easy to follow at the cost of a few extra files for components with multiple targets.
 
