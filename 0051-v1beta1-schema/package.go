@@ -107,10 +107,14 @@ type Component struct {
 	ComponentSpec
 }
 
-// ComponentTarget filters a component to only apply for a given local OS, architecture, or flavor.
+// ComponentTarget filters a component to only apply for a given local OS at deploy time.
 type ComponentTarget struct {
 	// Only deploy component to specified OS.
 	OS string `json:"os,omitempty" jsonschema:"enum=linux,enum=darwin,enum=windows"`
+}
+
+// ComponentSelector filters a component for inclusion at package create time.
+type ComponentSelector struct {
 	// Only include component for the given package architecture.
 	Architecture string `json:"architecture,omitempty" jsonschema:"enum=amd64,enum=arm64"`
 	// Only include this component when a matching '--flavor' is specified on 'zarf package create'.

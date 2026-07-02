@@ -46,6 +46,7 @@ components:
   optional: false # Component is required (default behavior)
   target:
     os: darwin
+  selector:
     architecture: amd64
     flavor: a-flavor # this will only be used when there are multiple components
   import:

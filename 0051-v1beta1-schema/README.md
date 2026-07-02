@@ -156,7 +156,7 @@ The v1beta1 schema will remove, replace, and rename several fields. View this [z
 
 If a package has these fields defined, then `zarf dev upgrade-schema` will error and print a recommendation for an alternative.
 
-- `.components.[x].group` will be removed. Similar functionality was introduced with the field `components[x].target.flavor`. This shifts component selection to the create side, and is the recommended replacement. 
+- `.components.[x].group` will be removed. Similar functionality was introduced with the field `components[x].selector.flavor`. This shifts component selection to the create side, and is the recommended replacement. 
 - `.components.[x].default` will be removed. It was used to determine the default `.components[x].group`. It also gave the default to the (Y/N) prompt during interactive deploys, this use was secondary and not important enough to keep the field around. 
 - `.components.[x].dataInjections` will be removed. https://docs.zarf.dev/best-practices/data-injections-migration/ details migrating off of this field.
 - `.components.[x].charts.[x].variables` will be removed. Users are encouraged to use [Zarf values](../0021-zarf-values/) instead.
@@ -171,7 +171,8 @@ If a package has these fields defined, then `zarf dev upgrade-schema` will error
 
 - `.components.[x].actions.[onAny].after` will be combined with and replaced by `actions.[onAny].onSuccess`. Any `after` actions will be prepended to the `actions.[onAny].onSuccess` list.
 - `.components.[x].scripts` will be removed. This field is already deprecated and will be migrated to the existing field `.components.[x].actions`.
-- `.components.[x].only.cluster.architecture` will be inlined to `.components.[x].target.architecture`. This is more accurate as the field checks the `.metadata.architecture` on create, rather than the cluster during deploy. Note that `.only` was renamed to `.target`. Since `.cluster.distro` will be removed, the `.cluster` parent field will be deleted. 
+- `.components.[x].only` will be split into `.components.[x].selector` (create-time filtering) and `.components.[x].target`.
+- `.components.[x].only.cluster.architecture` will be inlined to `.components.[x].selector.architecture`. This is more accurate as the field checks the `.metadata.architecture` on create, rather than the cluster during deploy. Note that `.only` was split into `.target` (deploy-time OS filtering) and `.selector` (create-time architecture and flavor filtering). Since `.cluster.distro` will be removed, the `.cluster` parent field will be deleted. 
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendor` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.onSuccess.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [wait changes](#wait-changes).
 - `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
@@ -194,7 +195,6 @@ If a package has these fields defined, then `zarf dev upgrade-schema` will error
 - `.components.[x].manifests.[x].template`, `.components.[x].files.[x].template`, and `.components.[x].actions.[onAny].template` will be renamed to `enableValues`.
 - `.components.[x].charts.[x].schemaValidation` will be renamed to `skipSchemaValidation`. The field now defaults to `false` instead of `true`, so schema validation continues to run by default.
 - `.metadata.allowNamespaceOverride` will be renamed to `preventNamespaceOverride`. The field now defaults to `false` instead of `true`, so namespace overrides continue to be allowed by default.
-- `.components.[x].only` will be renamed to `.components.[x].target`.
 - `.components.[x].only.localOS` will be renamed to `.components.[x].target.os`.
 - `.components.[x].files.[x].target` will be renamed to `.components.[x].files.[x].destination`.
 - `.components.[x].files.[x].shasum` will be renamed to `.components.[x].files.[x].checksum`. The field accepts the format `<algorithm>:<checksum>` (e.g. `sha256:abc123`); if no algorithm prefix is provided, sha256 is assumed.
@@ -233,11 +233,11 @@ The `Kind` "ZarfInitConfig" will be removed. Every package will be of kind "Zarf
 
 The v1beta1 APIVersion will introduce a new `Kind` alongside ZarfPackageConfig called ZarfComponentConfig. ZarfComponentConfig files will allow declaring a component to be imported from other packages. It will have its own schema, and this schema will be verified on create and publish. ZarfComponentConfigs will be importable only by v1beta1 packages. Components from other ZarfPackageConfigs will not be importable in v1beta1 packages.
 
-Each ZarfComponentConfig declares exactly one component under the `component` field. If a user wants multiple variations of a component differentiated by flavor, OS, or architecture, they create one ZarfComponentConfig file per variation and set the `.component.target` field on each. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
+Each ZarfComponentConfig declares exactly one component under the `component` field. If a user wants multiple variations of a component differentiated by flavor, OS, or architecture, they create one ZarfComponentConfig file per variation and set the `.component.target` (for OS) or `.component.selector` (for architecture and flavor) fields on each. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
 
 The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will result in an error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and promote a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
 
-`.import.local` is a list of local file path references to ZarfComponentConfig files; directories are not accepted. `.import.remote` is a list of `oci://` URL references to remote component configs pulled at create time. All entries from both fields are combined when applying compatibility rules: when more than one entry is given, every referenced component must share the same name, and at most one of them must be compatible with the active package target (flavor, OS, architecture) at create time, otherwise Zarf will error.
+`.import.local` is a list of local file path references to ZarfComponentConfig files; directories are not accepted. `.import.remote` is a list of `oci://` URL references to remote component configs pulled at create time. All entries from both fields are combined when applying compatibility rules: when more than one entry is given, every referenced component must share the same name, and at most one of them must be compatible with the active package target (OS) and selector (flavor, architecture) at create time, otherwise Zarf will error.
 
 The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, inspect, and find-images) will accept component config files. For example, `zarf dev inspect definition my-component-config.yaml`.
 
@@ -245,7 +245,7 @@ The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, 
 
 Skeleton packages will be replaced by remote components. Instead of publishing an entire package, users will be able to publish a ZarfComponentConfig. This component will behave similarly to Skeleton packages in that local resources will be published alongside it, while remote resources will be pulled at create time.
 
-Remote components will be published using the new command `zarf component publish <component-file> <oci-repo>`. This command will have the flag `--flavor` to publish a component whose `.component.target.flavor` matches the supplied value.
+Remote components will be published using the new command `zarf component publish <component-file> <oci-repo>`. This command will have the flag `--flavor` to publish a component whose `.component.selector.flavor` matches the supplied value.
 
 Unlike Skeleton packages, which are published with unresolved templates, remote components must be fully templated before publishing. By templating before publish, we avoid issues with validating a non-templated package ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and stay aligned with the overall [Package Templates](#package-templates) strategy.
 
@@ -650,17 +650,17 @@ information to express the idea and why it was not acceptable.
 
 #### Variants in ZarfComponentConfig
 
-A previous version of this proposal allowed a ZarfComponentConfig to declare either a `.component` field or a `.variants[]` field. The `.component` field was a single object representing a component importable by any package. The `.variants` field was a list of components where each entry had to specify a `.target` block (e.g. flavors, OSes, or architectures) to differentiate itself from the other entries. Zarf would error if two entries under `.variants` shared the same target. The `zarf component publish` command would have grown a `--all-variants` flag to publish every variant in one file at once.
+A previous version of this proposal allowed a ZarfComponentConfig to declare either a `.component` field or a `.variants[]` field. The `.component` field was a single object representing a component importable by any package. The `.variants` field was a list of components where each entry had to specify a `.target` or `.selector` block (e.g. OS, flavors, or architectures) to differentiate itself from the other entries. Zarf would error if two entries under `.variants` shared the same target/selector. The `zarf component publish` command would have grown a `--all-variants` flag to publish every variant in one file at once.
 
 This was rejected in favor of "exactly one component per file" to keep the mental model simple. With variants, a single file could expand into many components depending on flavor/OS/arch, and authors had to reason about which entry applied where. Forcing a 1:1 file-to-component mapping makes the import tree easy to follow at the cost of a few extra files for components with multiple targets.
 
 #### List of Components
 
-Another possibility for the [component config schema](#zarf-component-config-schema) was to have a list of components under a `.components[]` field, where each entry must specify a `.target` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The plural `.components[]` key would likely confuse users on this aspect.
+Another possibility for the [component config schema](#zarf-component-config-schema) was to have a list of components under a `.components[]` field, where each entry must specify a `.target` or `.selector` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The plural `.components[]` key would likely confuse users on this aspect.
 
 #### Variants Extend Base Component
 
-Another possibility for the [component config schema](#zarf-component-config-schema) is to have a single `.component` field that can be extended by a list of `.variants`. The `.component` field would be required, and could be imported or published as defined. It could also be extended using the `.variants` field. The logic for extending would exactly mirror the [component import logic](https://docs.zarf.dev/ref/components/#component-imports); the variant would import the base component.
+Another possibility for the [component config schema](#zarf-component-config-schema) is to have a single `.component` field that can be extended by a list of `.variants`. The `.component` field would be required, and could be imported or published as defined. It could also be extended using the `.variants` field. The logic for extending would exactly mirror the [component import logic](https://docs.zarf.dev/ref/components/#component-imports); the variant would import the base component. Each variant would specify a `.selector` (for flavor/architecture) or `.target` (for OS) to differentiate itself.
 
 This would be especially useful when there are multiple configurations of a chart, such as the example below. Each flavor prescribes its own values file and images, but otherwise is the same. A similar situation is seen in the [k3s sub-package](https://github.com/zarf-dev/zarf/blob/main/packages/distros/k3s/zarf.yaml) of the main Zarf repository. The only differences between the two k3s components are the files that vary by architecture.
 
@@ -678,7 +678,7 @@ component:
       valuesFiles:
         - chart/values.yaml
 variants:
-  - target:
+  - selector:
       flavor: upstream
     charts:
       - name: grafana
@@ -687,7 +687,7 @@ variants:
     images:
       - name: docker.io/grafana/grafana:12.4.2
 
-  - target:
+  - selector:
       flavor: enterprise
     charts:
       - name: grafana
