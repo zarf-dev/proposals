@@ -656,7 +656,7 @@ This was rejected in favor of "exactly one component per file" to keep the menta
 
 #### List of Components
 
-Another possibility for the [component config schema](#zarf-component-config-schema) was to have a list of components under a `.components[]` field, where each entry must specify a `.target` or `.selector` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The plural `.components[]` key would likely confuse users on this aspect.
+Another possibility for the [component config schema](#zarf-component-config-schema) was to have a list of components under a `.components[]` field, where each entry must specify a `.selector` block. This was rejected since a major change in this system is that `ZarfComponentConfig` files represent a single component. The plural `.components[]` key would likely confuse users on this aspect.
 
 #### Variants Extend Base Component
 
