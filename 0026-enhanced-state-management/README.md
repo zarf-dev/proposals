@@ -121,7 +121,7 @@ To meet these goals, this proposal adds an event history to Zarf's `DeployedPack
 
 #### Add `Events`
 
-`DeployedPackage` gains an `Events` list and `DeployedComponent` gains a single `LastEvent`, replacing the existing `ComponentStatus` field:
+`DeployedPackage` gains an `Events` list and `DeployedComponent` gains a single `LastEvent`. The existing `ComponentStatus` field is deprecated in favor of `LastEvent`, but is not dropped immediately - see [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy) for the deprecation window:
 
 ```go
 // EventType is the kind of lifecycle operation a PackageEvent or ComponentEvent records.
@@ -197,7 +197,7 @@ A component's outcomes generally mirror the package's own `Events` timeline one-
 func (d *DeployedPackage) LatestEvent() (PackageEvent, bool)
 ```
 
-`DeployedComponent.LastEvent` replaces `ComponentStatus` directly - `Type`+`Outcome` say whether that component is deploying, removing, or at a terminal state.
+`DeployedComponent.LastEvent` becomes the source of truth in place of `ComponentStatus` - `Type`+`Outcome` say whether that component is deploying, removing, or at a terminal state. `ComponentStatus` is deprecated but continues to be populated alongside `LastEvent` for the deprecation window described in [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy).
 
 #### `PackageEvent` retention
 
@@ -270,6 +270,7 @@ Zarf also needs to reconcile differences between package upgrades to avoid orpha
 
 - `zarf package deploy` gains a `--prune` flag, off by default. At the start of a deployment, Zarf compares the existing deployed state against the to-be-deployed state. Any charts or components that would be orphaned by the new package are removed, along with any images referenced only by those components. (Zarf itself does not perform registry garbage collection.) It's opt-in, so anyone who hits a correctness issue with it can omit the flag and get today's behavior.
 - `zarf package remove` gains the same `--prune` flag, applying the equivalent image-removal behavior for components that are being uninstalled.
+- Before pruning anything, Zarf prints the charts, components, and images it's about to remove during the same flow as Zarf's existing `--confirm` prompt.
 
 #### Chart, Component, and Image Reconciliation
 
@@ -286,6 +287,8 @@ If an entire component is missing from the new package (its name isn't in `pkgLa
 ##### Image reconciliation
 
 For each component that changed or was removed, `--prune` diffs the previously deployed component's `Images` against the new component's `Images` (both plain `[]string` image references on `v1alpha1.ZarfComponent`). An image present in the old set but not the new one is a pruning candidate only if no other deployed package still needs it: `--prune` calls `Cluster.GetDeployedZarfPackages` to list every `DeployedPackage` secret in the cluster and checks whether the candidate image appears in any other package's component images. If nothing else references it, both tags Zarf pushes for that image are removed from the internal registry - the plain tag and the CRC-32-suffixed tag the Zarf agent uses for transparent redirection (see `images/push.go`). If another package still references it, both tags are left alone.
+
+This is the same reference-counted removal `zarf tools registry prune` already does against the whole registry, just scoped down to the images that belonged to the package being deployed or removed instead of scanning every image in the registry.  Because this is package-scoped this operation is also more separable within a registry that is shared with Zarf since users can namespace the repository Zarf uses (`127.0.0.1:31999/zarf`) and place other repositories for other purposes next to Zarf and not have those be affected (like they would with the full catalog explosion the existing prune does).
 
 #### Graceful Cancellation Handling
 
@@ -323,7 +326,7 @@ The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM
 
 ### Graduation Criteria
 
-`Events` on `DeployedPackage` is purely additive, and on `DeployedComponent`, `LastEvent` replaces the existing `Status` (`ComponentStatus`) field. A single Zarf version generally manages a given cluster, and integrations built around it are typically tailored to that version, so these schema changes can be absorbed as part of upgrading those integrations rather than needing a coordinated migration. Once Zarf deploys again in that environment, existing package status structs are upgraded (or downgraded) automatically as part of that deploy.
+`Events` on `DeployedPackage` is purely additive, and on `DeployedComponent`, `LastEvent` is added alongside the existing `Status` (`ComponentStatus`) field rather than replacing it outright - `ComponentStatus` is deprecated and scheduled for removal after 4 release cycles, but stays populated until then (see [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy)). A single Zarf version generally manages a given cluster, and integrations built around it are typically tailored to that version, so these schema changes can be absorbed as part of upgrading those integrations rather than needing a coordinated migration. Once Zarf deploys again in that environment, existing package status structs are upgraded (or downgraded) automatically as part of that deploy.
 
 `--prune` is the part of this proposal that can destroy data (see [Risks and Mitigations](#risks-and-mitigations)), so it should stay opt-in to limit that risk and to match `kubectl` and `helm` conventions that already work this way.
 
@@ -333,18 +336,23 @@ The change in Zarf behavior is optional and the state changes additive so upgrad
 
 This is a breaking change for SDK/library users: moving `SetVariables`, `Values`, `NamespaceOverride`, and `ValuesOverridesMap` out of `DeployOptions` and into the nested `DeployConfig`, and moving `Values`/`NamespaceOverride` out of `RemoveOptions` and into the nested `RemoveConfig` (see [`DeployConfig`, `RemoveConfig`, and `ConfigDigest`](#deployconfig-removeconfig-and-configdigest)), will not compile against existing caller code. The fix is mechanical, though - callers move those fields from a top-level `DeployOptions`/`RemoveOptions` struct literal into a `DeployConfig`/`RemoveConfig` struct literal, either inline or assigned to `DeployOptions.DeployConfig`/`RemoveOptions.RemoveConfig`. Downgrading is the same mapping in reverse. This kind of internal restructuring is similar to other breaking changes Zarf has shipped before, and should be documented in release notes the same way those were.
 
-This also removes `DeployedComponent.Status` (`ComponentStatus`) in favor of `LastEvent`. That field already ships today, set during deploy (`ComponentStatusDeploying`/`Succeeded`/`Failed`), so this is a breaking change for any external SDK consumer reading it directly - even though nothing in the Zarf codebase itself reads it back beyond the code that sets it. Existing `DeployedPackage` secrets already in a cluster, deployed by a Zarf version that predates this proposal, will have their old `status` JSON keys ignored on unmarshal (Go's `encoding/json` drops unrecognized fields). The package starts with an empty `Events` list, and each component starts with a zero-value `LastEvent`. `LatestEvent` reports `Unknown` in that state until the package's next deploy or remove appends/sets an event.
+Rather than dropping `DeployedComponent.Status` (`ComponentStatus`) outright in favor of `LastEvent`, this proposal deprecates it and keeps setting it for 4 release cycles. Zarf doesn't have a general deprecation-timeline policy, but an immediate break is risky here: a tool reading Zarf state and the Zarf CLI writing it aren't guaranteed to be on the same version, so either side could be caught without the new field.
+
+During those 4 releases, `ComponentStatus` is marked deprecated but Zarf keeps setting it alongside `LastEvent`, so existing consumers reading it directly keep working. It has no equivalent for the new `Cancelled` outcome, so a cancelled component just keeps whatever `ComponentStatus` value it already had. After the window, `ComponentStatus` is removed - called out in release notes like any other breaking change - and at that point this becomes the breaking change for anyone still reading it directly.
+
+Existing `DeployedPackage` secrets predating this proposal start with an empty `Events` list and a zero-value `LastEvent` per component, while their old `status` values stay intact and readable via `ComponentStatus`. `LatestEvent` reports `Unknown` until the package's next deploy or remove.
 
 ### Version Skew Strategy
 
 This proposal doesn't impact how Zarf's Agent and CLI interact, so no changes are needed there.
 
-It does introduce skew between CLI versions reading the same `DeployedPackage`/`DeployedComponent` secret. A newer CLI reading a secret written by an older, pre-`Events` CLI sees an empty package `Events` list and zero-value component `LastEvent`s, and reports `Unknown` via `LatestEvent` until the package's next deploy or remove. An older CLI reading a secret written by a newer CLI doesn't see the `Events`/`LastEvent` fields at all (unrecognized JSON keys are ignored on unmarshal). No coordinated rollout is required.
+It does introduce skew between CLI versions reading the same `DeployedPackage`/`DeployedComponent` secret. A newer CLI reading a secret written by an older, pre-`Events` CLI sees an empty package `Events` list and zero-value component `LastEvent`s, and reports `Unknown` via `LatestEvent` until the package's next deploy or remove. An older CLI reading a secret written by a newer CLI doesn't see the `Events`/`LastEvent` fields at all (unrecognized JSON keys are ignored on unmarshal), but does still see `ComponentStatus`, which the newer CLI keeps writing during the deprecation window (see [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy)). No coordinated rollout is required.
 
 ## Implementation History
 
 2026-07-01: Initial version of this document.
 2026-07-01: Replaced the flat `PackageStatus`/`ComponentStatus` fields with an `Events` list; see [Alternatives](#alternatives).
+2026-07-06: `ComponentStatus` is now deprecated and kept for 4 release cycles instead of being dropped immediately.
 
 ## Drawbacks
 
