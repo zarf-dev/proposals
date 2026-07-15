@@ -87,8 +87,10 @@ components:
     git:
       url: https://github.com/stefanprodan/podinfo.git # clone location only; an @ref suffix is not allowed
       path: charts/podinfo
-      ref: # required for git charts; set tag, branch, or commit (branch and commit may be paired)
-        tag: 6.4.0 # tag excludes branch/commit; branch may pair with commit to pin the branch at a commit
+      ref: # showing all possible refs for an example, in practice exactly one of the below fields must be set
+        branch: main
+        tag: 6.4.0
+        commit: 1036a44646b51d81de5b78b87b32fb3b0e5aa119
     oci:
       url: oci://ghcr.io/stefanprodan/charts/podinfo
       version: 6.4.0
