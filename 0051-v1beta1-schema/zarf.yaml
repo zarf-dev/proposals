@@ -116,7 +116,7 @@ components:
       - podinfo:local
   repositories:
   - url: https://github.com/zarf-dev/zarf.git
-    ref: # optional, omit to mirror the entire repository history. Showing all possible refs for an example, in practice exactly one of the below fields must be set
+    ref: # optional, omit to mirror all branches and tags. Showing all possible refs for an example, in practice exactly one of the below fields must be set
       branch: main
       tag: 6.4.0
       commit: 1036a44646b51d81de5b78b87b32fb3b0e5aa119

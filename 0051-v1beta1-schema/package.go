@@ -325,9 +325,10 @@ type ImageArchive struct {
 
 // Repository defines a git repository to include in the package.
 type Repository struct {
-	// The URL of the git repository. Must not contain an @ref suffix.
+	// The URL of the git repository.
+	// A specific branch, tag, or commit should be specified by the ref field instead of the url
 	URL string `json:"url"`
-	// The Git reference to mirror. Optional; when unset, the entire repository history is mirrored.
+	// The Git reference to mirror. Optional; when unset, all branches and tags are mirrored
 	Ref *GitRef `json:"ref,omitempty"`
 }
 
