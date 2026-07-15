@@ -115,7 +115,7 @@ components:
     images:
       - podinfo:local
   repositories:
-  - url: https://github.com/zarf-dev/zarf # clone location only; an @ref suffix is not allowed
+  - url: https://github.com/zarf-dev/zarf.git
     ref: # optional; omit to mirror the entire repository history
       tag: v0.68.0 # tag excludes branch/commit; branch may pair with commit to pin the branch at a commit
   actions:
