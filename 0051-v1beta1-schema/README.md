@@ -523,7 +523,7 @@ The `Chart` object will be restructured as seen in [package.go](package.go#L242-
 
 The `git` sub-object has a `url` and a `ref` sub-object. A chart must resolve to a single revision, so `ref` is required. Conversion logic is defined in [Git URL and Ref Parsing](#git-url-and-ref-parsing).
 
-The `oci` sub-object also has a `url` and a required `ref` sub-object. For OCI, `ref` holds exactly one of `tag` or `digest`, where `digest` is of the form `sha256:<sha>`. During conversion, the v1alpha1 `.version` field is moved to `.oci.ref.tag`. The `url` will not be allowed to contain a tag or digest, since this is the case with v1alpha1 as well there is no extra conversion logic necessary. 
+The `oci` sub-object also has a `url` and a required `ref` sub-object. For OCI, `ref` holds exactly one of `tag` or `digest`, where `digest` is of the form `sha256:<sha>`. During conversion, the v1alpha1 `.version` field is moved to `.oci.ref.tag`. The `url` may not contain a tag or digest. Because this was already the case in v1alpha1, no extra conversion logic is necessary.
 
 Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048-schema-update-process](../0048-schema-update-process/README.md#converting-removed-fields). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub-object, or drop it when not applicable.
 
@@ -531,7 +531,7 @@ Zarf uses the top-level `version` field to determine where in the package layout
 
 The `git` chart source and `repositories` share the same rules for their `url` and `ref` fields.
 
-The `url` is a clone location only and always denotes the whole repository. The automatic `ref` detection that v1alpha1 preformed on git URLs will no longer occur. On create, v1beta1 packages will use the existing ref detection logic (`transform.GitURLSplitRef`) and fail with an error that points the user to the `ref` sub-object. The `ref` sub objects contains three fields, `branch`, `tag` and `commit`, exactly one must be populated.
+The `url` is a clone location only and always denotes the whole repository. The automatic `ref` detection that v1alpha1 performed on git URLs will no longer occur. On create, v1beta1 packages will use the existing ref detection logic (`transform.GitURLSplitRef`) and fail with an error that points the user to the `ref` sub-object. The `ref` sub-object contains three fields, `branch`, `tag`, and `commit`, exactly one of which must be populated.
 
 Whether `ref` is required depends on the consumer. A Helm chart must resolve to a single revision, so `ref` is required for the `git` chart source. A mirrored repository may clone the entire history, so `ref` is optional for `repositories`.
 
@@ -541,7 +541,7 @@ The reference is classified as:
 - `ref.branch` if it is fully qualified as `refs/heads/<branch>`,
 - `ref.tag` otherwise (a bare ref or `refs/tags/<tag>`).
 
-For Helm charts specifically, is there is no detected ref then the `chart.version` field will be used, which v1alpha1 treats as a tag.
+For Helm charts specifically, if no ref is detected then the `chart.version` field is used, which v1alpha1 treats as a tag.
 
 ### Zarf Component Config Schema
 
