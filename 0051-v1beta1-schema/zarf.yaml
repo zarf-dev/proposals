@@ -93,7 +93,9 @@ components:
         commit: 1036a44646b51d81de5b78b87b32fb3b0e5aa119
     oci:
       url: oci://ghcr.io/stefanprodan/charts/podinfo
-      version: 6.4.0
+      ref: # required for oci charts; exactly one of tag or digest
+        tag: 6.4.0
+        digest: sha256:9f8f5e3b2a1c4d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6
     local:
       path: chart
   files:

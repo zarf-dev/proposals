@@ -273,12 +273,20 @@ type LocalSource struct {
 	Path string `json:"path"`
 }
 
+// OCIRef selects a single OCI reference. Exactly one of tag or digest must be set.
+type OCIRef struct {
+	// The OCI tag.
+	Tag string `json:"tag,omitempty"`
+	// The OCI digest, in the form sha256:<sha>.
+	Digest string `json:"digest,omitempty"`
+}
+
 // OCISource represents a Helm chart stored in an OCI registry.
 type OCISource struct {
 	// The URL of the OCI registry where the Helm chart is stored.
 	URL string `json:"url"`
-	// The version of the chart in the OCI registry.
-	Version string `json:"version"`
+	// The OCI reference to pull. Required; exactly one of ref.tag or ref.digest must be set.
+	Ref OCIRef `json:"ref"`
 }
 
 // File defines a file to deploy.

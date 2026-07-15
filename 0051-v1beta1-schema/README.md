@@ -336,7 +336,8 @@ components:
         namespace: podinfo-from-oci
         oci:
           url: oci://ghcr.io/stefanprodan/charts/podinfo
-          version: 6.4.0
+          ref:
+            tag: 6.4.0  # Moved from the top-level `version` field
         valuesFiles:
           - values.yaml
 
@@ -521,6 +522,8 @@ proposal will be implemented, this is the place to discuss that.
 The `Chart` object will be restructured as seen in [package.go](package.go#L242-L308). Exactly one of sub-objects `helmRepository`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/zarf-dev/zarf/issues/2245).
 
 The `git` sub-object has a `url` and a `ref` sub-object. A chart must resolve to a single revision, so `ref` is required. Conversion logic is defined in [Git URL and Ref Parsing](#git-url-and-ref-parsing).
+
+The `oci` sub-object also has a `url` and a required `ref` sub-object. For OCI, `ref` holds exactly one of `tag` or `digest`, where `digest` is of the form `sha256:<sha>`. During conversion, the v1alpha1 `.version` field is moved to `.oci.ref.tag`. The `url` will not be allowed to contain a tag or digest, since this is the case with v1alpha1 as well there is no extra conversion logic necessary. 
 
 Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048-schema-update-process](../0048-schema-update-process/README.md#converting-removed-fields). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub-object, or drop it when not applicable.
 
