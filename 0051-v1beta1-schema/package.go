@@ -245,12 +245,26 @@ type HelmRepositorySource struct {
 	Version string `json:"version"`
 }
 
+// GitRef selects a single Git reference. Tag is mutually exclusive with branch and commit.
+// Branch and commit may each be set alone, or set together to pin an exact commit while using
+// the branch as the fetch target, in which case the commit must be reachable from the branch.
+type GitRef struct {
+	// The Git tag. Mutually exclusive with branch and commit.
+	Tag string `json:"tag,omitempty"`
+	// The Git branch. May be set alone or paired with commit to pin an exact commit on the branch.
+	Branch string `json:"branch,omitempty"`
+	// The Git commit SHA. May be set alone or paired with branch; when paired, the commit must be reachable from the branch.
+	Commit string `json:"commit,omitempty"`
+}
+
 // GitSource represents a Helm chart stored in a Git repository.
 type GitSource struct {
-	// The URL of the Git repository where the Helm chart is stored.
+	// The URL of the Git repository where the Helm chart is stored. Must not contain an @ref suffix.
 	URL string `json:"url"`
 	// The subdirectory containing the chart within a Git repo.
 	Path string `json:"path,omitempty"`
+	// The Git reference to check out. Required; must select a reference via ref.tag, ref.branch, or ref.commit (branch and commit may be paired).
+	Ref GitRef `json:"ref"`
 }
 
 // LocalSource represents a Helm chart stored locally.
@@ -303,8 +317,10 @@ type ImageArchive struct {
 
 // Repository defines a git repository to include in the package.
 type Repository struct {
-	// The URL of the git repository.
+	// The URL of the git repository. Must not contain an @ref suffix.
 	URL string `json:"url"`
+	// The Git reference to mirror. Optional; when unset, the entire repository history is mirrored.
+	Ref *GitRef `json:"ref,omitempty"`
 }
 
 // ComponentActions are ActionSets that map to different Zarf package operations.
