@@ -276,7 +276,7 @@ Zarf will need to handle two use cases for conversions. The first is library con
 The api packages will be structured as below:
 
 ```bash
-# TBD to decide if we need the internal type for conversions. All the fields will be on the newer type, but it may depend on if we need to support multiple types at once since that is the only time the internal type is useful. Since the internal type is never exposed this will not be a breaking change.
+# internal/api/types holds the superset working type; see below.
 ├── internal
 │   └──api
 │     └── types
@@ -298,9 +298,9 @@ The api packages will be structured as below:
 │     ├── convert.go
 ```
 
-The internal/types package will contain a superset of Zarf fields to enable conversions between API versions. Rather than having functions which convert v1alpha1 to v1beta1, functions will instead convert v1alpha1 to the generic Zarf package type then convert the generic Zarf package type to v1beta1. This means Zarf only needs N conversion functions (N API versions) rather than N² conversions between every pair of versions. 
+The `internal/api/types` package contains a superset of Zarf fields spanning all supported API versions. It plays two roles. First, it is the working representation that `packager` operates on internally: a loaded package is converted into the superset once, and the versioned types (`v1alpha1`, `v1beta1`) appear only at the edges — parsing, `inspect definition`, `create` output, `upgrade-schema`, and the public `convert` package. Callers obtain a versioned view through per-version read accessors — `AsV1alpha1()` and `AsV1beta1()` — grouped in a `PackageAccessor` interface that both built (`PackageLayout`) and cluster-sourced (`DeployedPackage`) packages implement, so a versioned type is only ever materialized when a caller explicitly asks for one. Because the superset is never named in a public signature, introducing a new API version requires no change to the signatures of functions that operate on it internally. Second, it is the pivot for conversions: rather than converting v1alpha1 directly to v1beta1, Zarf converts v1alpha1 to the superset then the superset to v1beta1, so Zarf needs only N conversion functions (one per API version) rather than N² conversions between every pair of versions.
 
-The internal/types package will not be exposed by the SDK. Instead the convert package will expose functions such as `func V1Alpha1PkgToV1Beta1(in v1alpha1.ZarfPackage) v1beta1.ZarfPackage`. These functions will call the internal API packages, `internalv1alpha1.ConvertToGeneric(in v1alpha1.ZarfPackage) types.ZarfPackage` and `internalv1beta1.ConvertFromGeneric(in types.ZarfPackage) v1beta1.ZarfPackage`. This will provide a clean interface for SDK users while avoiding exposing the internal types. This strategy will also keep the src/api/<version> packages focused solely on data rather than including validation or conversion logic. These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
+The internal/types package will not be exposed by the SDK. Instead the convert package will expose functions such as `func V1Alpha1PkgToV1Beta1(in v1alpha1.ZarfPackage) v1beta1.ZarfPackage`. These functions will call the internal API packages, `internalv1alpha1.ConvertToGeneric(in v1alpha1.ZarfPackage) types.ZarfPackage` and `internalv1beta1.ConvertFromGeneric(in types.ZarfPackage) v1beta1.ZarfPackage`. This will provide a clean interface for SDK users while avoiding exposing the internal types. Zarf's own `src/packager` and `src/cmd` packages may import `internal/api/types` directly; the constraint is only that the superset never appears in a public SDK signature. This strategy will also keep the src/api/<version> packages focused solely on data rather than including validation or conversion logic. These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
 
 Zarf will not expose a public method such as v1alpha1.Validate() as this is a subset of the package validation required, and contains only specific logic not covered by the schema. This validation logic, currently in src/pkg/lint/validate.go, will be moved to internal/v1alpha1. This structure will be implemented before v1beta1 is released, and added to with each new API version. Package validation will continue to occur in `load.PackageDefinition`, keeping the SDK flow the same. 
 
@@ -309,26 +309,11 @@ If a field is renamed with a 1:1 replacement, then Zarf will automatically conve
 
 ##### Converting Removed Fields
 
-When Zarf internally converts an older schema version to a newer schema version (for example, while deploying a v1alpha1 package), it must always convert to the latest schema version without data loss. To achieve this, fields that were removed from earlier schema versions are preserved as private fields in later schema versions. These private fields are kept out of the new JSON schema. These private fields will have getters and setters so that they can be accessed. Once the API version that the fields originate from is unsupported, then these fields will be deleted. 
-
-A concrete example of how this will be implemented is seen with `dataInjections` from v1alpha1 to v1beta1. Below is a code snippet for the v1beta1 schema object. `dataInjections` is set as a private field on the v1beta1 Zarf component so that it can be set during conversions between v1alpha1 and v1beta1. While it is an object on the struct, because it's a private field, `dataInjections` will not be included in the v1beta1 schema, and since Zarf validates against the schema on create, users will be unable to create v1beta1 packages with `dataInjections` set.
-
-```go
-type ZarfComponent struct {
-	Name string `json:"name"`
-  ...
-	// data injections are kept as a backwards compatibility shim and should only be set when converting from v1alpha1
-	dataInjections []v1alpha1.ZarfDataInjection
-  ...
-}
-// DataInjections should only be set when converting from a v1alpha1 package. After v1alpha1 packages are not supported, this will be removed. 
-func (c ZarfComponent) SetDataInjections(di []v1alpha1.ZarfDataInjection)
-func (c ZarfComponent) GetDataInjections() []v1alpha1.ZarfDataInjection
-```
+When Zarf internally converts an older schema version to the internal superset type (for example, while deploying a v1alpha1 package), it must convert without data loss. Fields that are removed stay on the superset, but are absent from new API versions. A newer type such as `v1beta1` carries no backwards-compatibility fields. When an older package is loaded, its removed fields ride along on the superset for the lifetime of the in-memory package and are written back out whenever the package is rendered to that older version. Once the API version the fields originate from is no longer supported, that section of the superset is deleted.
 
 #### zarf dev upgrade-schema
 
-`zarf dev upgrade-schema` will call the library conversion functions; however, it will have additional checks. If a user's package contains a removed field that does not have a 1:1 replacement, then the command will error. The error message will recommend an alternative approach to replacing the field. 
+When running `zarf dev upgrade-schema`  if a user's package contains a removed field that does not have a 1:1 replacement, then the command will error. The error message will recommend an alternative approach to replacing the field. 
 
 The usage docs for `zarf dev upgrade-schema` will look like below:
 
@@ -525,13 +510,3 @@ Automation here is initially rejected because this is likely something that will
 One option for storing removed fields on newer schemas is to use `.metadata.annotations` or a new field such as `Deprecated map[string]string`. Kubernetes takes the annotations approach. The downside of this approach is that annotations can easily get confusing and hard to read. When a list of objects such as `dataInjections` is removed, then Zarf needs to maintain a long string representation of YAML.
 
 The reason Kubernetes takes this approach is because their data must make lossless round trips. Their objects might be written as v1beta1, stored as v1alpha1, then upgraded back to v1beta1, and they cannot lose any data. There is no place to store the information on their v1alpha1 object besides annotations. Zarf is going to write all active API versions to the zarf.yaml file so there is no chance of data loss. 
-
-### Custom YAML marshalers for Removed Fields
-
-Originally, [Removed Fields](#converting-removed-fields) proposed custom marshalers to track the private fields for backwards compatibility such as `dataInjections`. However, going through each case we see that custom YAML marshalers are not needed:
-- A v1alpha1 package is created after function signatures are changed to accept v1beta1 objects.
-  - This package is read as v1alpha1, then converted to v1beta1 for `packager.create()`, then written to the `zarf.yaml` in the package tar as v1alpha1. The package never needs to be written to disk as v1beta1.
-- A v1alpha1 package is created before v1beta1 is introduced. The package is deployed after function signatures are changed to accept v1beta1 objects.
-  - The package is read as v1alpha1, then converted to v1beta1 during deploy, then persisted to the cluster as v1alpha1. It is never represented on disk as v1beta1.
-- A v1beta1 package is created.
-  - The package is written as both v1alpha1 and v1beta1, but removed fields such as `dataInjections` cannot be set. 
