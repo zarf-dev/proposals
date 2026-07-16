@@ -329,6 +329,51 @@ Flags:
   --to string      Specify the API version to upgrade the package definition to. Defaults to the newest schema version.
 ```
 
+### The PackageAccessor interface
+
+Zarf has three package sources, an on-disk built package (`PackageLayout`), a cluster-deployed package (`DeployedPackage`), and loaded but not yet build package (`DefinedPackage`). All will implement a new interface that returns per-version package definitions.
+
+```go
+// PackageAccessor is the read contract implemented by every package source.
+type PackageAccessor interface {
+	AsV1alpha1() (v1alpha1.ZarfPackage)
+	AsV1beta1() (v1beta1.Package)
+}
+```
+
+The concrete types implementing PackageAccessor should be backed by the superset type so both `AsV1beta1()` and `AsV1alpha1()` are lossless.
+
+Functions that operate on either a built package or a cluster source such as `packager.Remove` and the `zarf package inspect` functions accept a `PackageAccessor` rather than a concrete type. Functions specific to a single source still take that concrete type.
+
+Once support is dropped for an API version, the interface will remove it's associated reader. 
+
+### Package Layout
+
+`PackageLayout` is the handle SDK users receive from `LoadPackage`. It currently exposes a public, mutable `Pkg v1alpha1.ZarfPackage` field. This will be changed to a private internal package. Instead reads will happen through the PackageAccessor interface and mutations will go through methods instead of direct field access.
+
+```go
+type PackageLayout struct {
+	dirPath string
+	pkg     types.Package // was: Pkg v1alpha1.ZarfPackage
+	// ...
+}
+```
+
+Functions such as `packager.Deploy` will call `packageLayout.AsV1beta1()` and use the this concrete type for all the logic that is shared between v1alpha1 and v1beta1. When deprecated, version-specific logic is reached, then `packageLayout.AsV1Alpha1()` will be called to get the data necessary to preform. For instance, this 
+
+#### Mutations
+
+The accessors return copies, so persistent mutation goes through methods that edit the superset in place. These are a set of targeted setters. An initial list is below, these may be additional setters after evaluating SDK consumers.
+
+```go
+func (p *PackageLayout) SetName(name string)
+func (p *PackageLayout) SetAnnotations(annotations map[string]string)
+func (p *PackageLayout) OverrideNamespace(namespace string) error
+func (p *PackageLayout) FilterComponents(filter filters.ComponentFilterStrategy) error
+```
+
+There is no generic `SetDefinition(v1beta1.Package)` function so that we avoid dropping deprecated data.
+
 ### JSON Schema
 
 Zarf publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built-in schema validation for zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also included in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
