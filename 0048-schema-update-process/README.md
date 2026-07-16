@@ -164,8 +164,7 @@ API versions of the package schema will not necessarily coincide with releases o
 
 Once an API version is released, fields will not be removed from it, and there will be no new required fields.
 
-Functions in Zarf will always accept the latest API version. This will result in several breaking changes in the SDK; about 30 public functions accept an object from the v1alpha1 package as of late 2025. Many SDK users should see only small changes to their workflows since common flows involve loading a package through functions such as `load.PackageDefinition()` or `packager.LoadPackage()` rather than defining specific API versions. See [SDK Breaking changes](#sdk-breaking-changes) for more details.
-<!-- ^func (\([^)]+\) )?[A-Z][a-zA-Z0-9_]*\([^)]*\bv1alpha1\. with exclude **/internal/**  to figure out the amount of v1alpha1 uses in public functions -->
+To keep the SDK stable as new API versions are introduced, `packager` will accept an implementer of the new [`PackageAccessor`](#the-packageaccessor-interface) interface that exposes each supported version on demand. Most public functions will therefore stay unchanged across API versions.
 
 ### User Stories (Optional)
 
@@ -204,18 +203,10 @@ How will security be reviewed, and by whom?
 How will UX be reviewed, and by whom?
 -->
 
-### SDK breaking changes
-There will be breaking changes to SDK functions every time a new API version is introduced. This could be frustrating for users who have complex integrations with the SDK. However, common user flows should generally be unchanged. For example, this flow will work regardless of the API version: 
+### Package Layout loses mutability
+`layout.PackageLayout.Pkg` is currently a public, mutable field, and some SDK consumers edit it directly after loading a package — for example to rename it, rewrite annotations, or override the namespace. Replacing it with an opaque handle removes that general-purpose write access, which is a breaking change for those consumers.
 
-```go
-	pkgLayout, err := packager.LoadPackage(ctx, packageSource, loadOpt)
-	if err != nil {
-		return fmt.Errorf("unable to load package: %w", err)
-	}
-	_, err = packager.PublishPackage(ctx, pkgLayout, dstRef, packager.PublishPackageOptions{})
-```
-
-Additionally, there are several functions that accept a v1alpha1.ZarfPackage which are only applicable to built Zarf packages. These functions could instead accept a package layout limiting the amount of breaking changes in Zarf. Still, since most SDK users will call these functions with a package loaded from YAML, tar, or from the cluster rather than defining a ZarfPackage object, this shouldn't be a major issue for SDK users. 
+This is a reasonable change because many arbitrary edits to a built package would incorrect it. The legitimate post-load mutations are a small, set and each may be exposed as a targeted setter (`SetName`, `SetAnnotations`, `OverrideNamespace`, `FilterComponents`); more can be added as consumer needs surface. See [The package handle](#the-package-handle) for the accessor and setter surface.
 
 ## Design Details
 
