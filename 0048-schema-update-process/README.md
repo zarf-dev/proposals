@@ -374,6 +374,34 @@ func (p *PackageLayout) FilterComponents(filter filters.ComponentFilterStrategy)
 
 There is no generic `SetDefinition(v1beta1.Package)` function so that we avoid dropping deprecated data.
 
+### Filters
+
+A filter is a component selection decision. It needs only a small projection of each component. The `filters` package owns that projection, so filters never see internal types and never break when a new schema ships:
+
+```go
+// ComponentView is the stable projection a filter sees
+type ComponentView struct {
+	Name        string
+	Optional    bool
+	Default     bool
+	Group       string
+	OnlyLocalOS string
+}
+
+type PackageView struct {
+	Components []ComponentView
+}
+
+type ComponentFilterStrategy interface {
+	// Apply returns the indices of the components to keep, in order.
+	Apply(PackageView) ([]int, error)
+}
+```
+
+`PackageLayout` will expose a function `FilterComponents(filter filters.ComponentFilterStrategy) error` to allow filtering on a package after it is loaded.
+
+There will be other cases in the codebase where we decouple packages from an explicit API version, but they are omitted from this proposal for brevity. 
+
 ### JSON Schema
 
 Zarf publishes a JSON schema, see the [current version](https://raw.githubusercontent.com/zarf-dev/zarf/refs/heads/main/zarf.schema.json). Users often use editor integrations to have built-in schema validation for zarf.yaml files. This strategy is [referenced in the docs](https://docs.zarf.dev/ref/dev/#vscode). The Zarf schema is also included in the [schemastore](https://github.com/SchemaStore/schemastore/blob/ae724e07880d0b7f8458f17655003b3673d3b773/src/schemas/json/zarf.json) repository.
