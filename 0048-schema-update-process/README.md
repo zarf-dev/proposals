@@ -290,25 +290,27 @@ Flags:
 
 ### The PackageAccessor interface
 
-Zarf has three package sources, an on-disk built package (`PackageLayout`), a cluster-deployed package (`DeployedPackage`), and loaded but not yet build package (`DefinedPackage`). All will implement a new interface that returns per-version package definitions.
+Zarf has three package sources: an on-disk built package (`PackageLayout`), a cluster-deployed package (`DeployedPackage`), and a loaded but not yet built package (`DefinedPackage`). `PackageLayout` and `DeployedPackage` implement a new interface that returns per-version package definitions.
 
 ```go
-// PackageAccessor is the read contract implemented by every package source.
+// PackageAccessor is the read contract implemented by built and cluster package sources.
 type PackageAccessor interface {
-	AsV1alpha1() (v1alpha1.ZarfPackage)
-	AsV1beta1() (v1beta1.Package)
+	AsV1alpha1() (v1alpha1.ZarfPackage, error)
+	AsV1beta1() (v1beta1.Package, error)
 }
 ```
 
-The concrete types implementing PackageAccessor should be backed by the superset type so both `AsV1beta1()` and `AsV1alpha1()` are lossless.
+The accessors return an `error` because a cluster source (`DeployedPackage`) parses stored JSON that may be malformed or written at a version this Zarf does not understand.
 
-Functions that operate on either a built package or a cluster source such as `packager.Remove` and the `zarf package inspect` functions accept a `PackageAccessor` rather than a concrete type. Functions specific to a single source still take that concrete type.
+The concrete types implementing `PackageAccessor` are backed by the superset type. For their original type `AsV1beta1()` and `AsV1alpha1()` are lossless.
 
-Once support is dropped for an API version, the interface will remove it's associated reader. 
+Functions that operate on either a built package or a cluster source, such as `packager.Remove` and the `zarf package inspect` functions, accept a `PackageAccessor` rather than a concrete type. Functions specific to a single source still take that concrete type.
+
+Once support is dropped for an API version, the interface will remove its associated reader. 
 
 ### Package Layout
 
-`PackageLayout` is the handle SDK users receive from `LoadPackage`. It currently exposes a public, mutable `Pkg v1alpha1.ZarfPackage` field. This will be changed to a private internal package. Instead reads will happen through the PackageAccessor interface and mutations will go through methods instead of direct field access.
+`PackageLayout` is the handle SDK users receive from `LoadPackage`. It currently exposes a public, mutable `Pkg v1alpha1.ZarfPackage` field. This will be changed to an unexported field of the internal superset type. Reads will happen through the `PackageAccessor` accessors and mutations will go through methods instead of direct field access.
 
 ```go
 type PackageLayout struct {
@@ -318,7 +320,7 @@ type PackageLayout struct {
 }
 ```
 
-Functions such as `packager.Deploy` will call `packageLayout.AsV1beta1()` and use the this concrete type for all the logic that is shared between v1alpha1 and v1beta1. When deprecated, version-specific logic is reached, then `packageLayout.AsV1Alpha1()` will be called to get the data necessary to preform. For instance, this 
+Functions such as `packager.Deploy` will call the latest reader (for example `packageLayout.AsV1beta1`) for logic shared among all version. When deprecated, version-specific logic is reached such as running data injections for a v1alpha1 package, then `packageLayout.Asv1alpha1()` will be called so this logic can be run. 
 
 #### Mutations
 
