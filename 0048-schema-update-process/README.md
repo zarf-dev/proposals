@@ -496,8 +496,9 @@ Major milestones might include:
 - when the ZEP was retired or superseded
 -->
 
-- 2025-10-18: Proposal submitted
-- 2025-12-08: Updated proposal to focus more on the process Zarf maintainers should follow to ensure that new API versions can be introduced
+- 2025-10-18: Proposal submitted.
+- 2025-12-08: Updated proposal to focus more on the process Zarf maintainers should follow to ensure that new API versions can be introduced.
+- 2026-07-17: Design changed to have a PackageAccessor interface rather than using the latest version as the internal working type.
 
 ## Drawbacks
 
@@ -518,6 +519,13 @@ information to express the idea and why it was not acceptable.
 
 Instead of introducing a new schema, we could over time remove and introduce fields on the existing package schema. This was rejected as we believe a new schema will provide a more intuitive experience for developers and maintainers. For instance, attempting to implement the proposed Helm changes would result in a large, confusing schema. Likewise, it would be difficult to change defaults, such as moving from required to optional, since we wouldn't have a new API version to signal that there is a breaking change. Additionally, removing deprecated fields such as `dataInjections` would require a major version change. Keeping the API version and CLI version decoupled allows flexibility to make the changes we need.
 
+### Latest version as the internal working type
+
+An earlier version of this proposal made the latest API version (`v1beta1`) the internal working type that flows through `packager`, and changed every public function to accept the latest version. Deprecated fields removed in newer versions were carried on the newer type as private shim fields with getters and setters, rather than on the [internal type](#type-api-changes). This was rejected for two reasons:
+
+- Conversion was lossless from an older version to the latest but not the reverse, since the latest version needed to carry every field to not break backwards compatibility when running packager functions. That asymmetry is confusing, and carrying every deprecated field on `v1beta1` is cumbersome to maintain.
+- Changing every public function to the latest version is a costly breaking change for SDK consumers and hard to land piecemeal, since it amounts to a signature flip across the entire SDK.
+
 ### Public Facing Internal Type
 
 Rather than updating functions to accept a newer version of the schema, Zarf could have a publicly facing internal type that has every field from every version and use that throughout the SDK. The upside of this approach is that we would avoid breaking changes throughout the lifetime of the SDK. The downside is that it would make it easy for anyone using the SDK to set deprecated fields. It would also make it confusing and unclear which fields attach to which versions. 
@@ -525,28 +533,6 @@ Rather than updating functions to accept a newer version of the schema, Zarf cou
 ### Internal Type wrapped by Public Versioned Functions
 
 Another way an internal type could be used would be to introduce public functions such as `packager.RemoveV1alpha1()` and `packager.RemoveV1beta1()`. These functions would then call a private `packager.remove()` function that accepts the internal type. This way SDK users don't have to deal with the internal type, and Zarf could avoid the strategy in [Removed Fields](#converting-removed-fields) where newer `ZarfPackage` structs track removed fields. This was rejected because while this strategy would work with some functions, many functions, especially in `packager`, accept a `packageLayout` object. Having multiple versions of these functions makes the SDK experience less user-friendly since users would need extra calls between loading their packages and calling `packager` functions. Additionally, `packageLayout` has a public mutable field of type `v1alpha1.ZarfPackage`. Removing this field limits the opportunity of SDK users to edit their packages before packager calls.
-
-### Package Source Interface
-
-Zarf could define an interface called `PackageSource`: 
-```go
-type PackageSource interface{
-  // This function will be updated to the latest version whenever a new version is released
-  GetPackageAtLatestAPIVersion() (v1beta1.ZarfPackage)
-  GetV1Beta1Package() (v1beta1.ZarfPackage)
-  GetV1Alpha1Package() (v1alpha1.ZarfPackage)
-}
-```
-PackageLayout and DeployedPackage would both implement this interface. Functions such as `packager.Remove()` which accept either a built package or a cluster source would accept this interface. This would avoid specific package types in some function definitions. It could also allow for patterns like below where we could reach back to previous API versions to get to removed fields rather than storing [Removed Fields](#converting-removed-fields) on the objects. 
-
-```go
-if source.GetPackageAtLatestAPIVersion().Build.OriginalApiVersion == "v1alpha1" {
-  dataInjections := source.GetV1alpha1Package().Components[x].DataInjections
-  // ... run Data injection logic with this
-}
-```
-
-This was rejected because packages in Zarf's lifecycle are mutable and not taken directly from the package YAML / Kubernetes secret. The filters package, for instance, frequently changes the package. Zarf wouldn't be able to filter a package without needing to keep logic around to filter every API version, which would add a maintenance burden. SDK users wouldn't be able to edit their packages before running functions like `packager.Remove()` or `packager.Deploy()` as it would be difficult to propagate changes to every API version. 
 
 ### Interface Representation of Schema
 
