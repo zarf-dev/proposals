@@ -177,7 +177,7 @@ If a package has these fields defined, then `zarf dev upgrade-schema` will error
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.onSuccess.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [wait changes](#wait-changes).
 - `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
 - `.components.[x].images` will move from a list of strings to a list of objects. The `Image` object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon. During component imports, the merge strategy will change from a simple append to a merge based on `name`. `source` and any future fields will favor the base component value if set, and otherwise use the imported component value. 
-- `.components.[x].repos` will be renamed to `.components.[x].repositories` and will move from a list of strings to a list of objects. The `Repository` object will have a single required field, `url`. This is structured as an object to leave future additions available without a breaking change.
+- `.components.[x].repos` will be renamed to `.components.[x].repositories` and will move from a list of strings to a list of objects. Each `Repository` object has a `url` and an optional `ref` sub-object. See [Git URL and Ref Parsing](#git-url-and-ref-parsing).
 - `.components.[x].import.name` will be removed given that components will only be importable from component config files so there is not a name to select. See [ZarfComponentConfig](#zarfcomponentconfig).
 - `.components.[x].import.path` and `.components.[x].import.url` will be changed into `.components.[x].import.local.[x].path` and `.components.[x].import.remote.[x].url`. All entries from both are combined when applying component compatibility rules. See [ZarfComponentConfig](#zarfcomponentconfig). These fields are a list of objects instead of a list of strings to enable future sibling fields. For instance, we may introduce a field `.components.[x].import.remote.[x].verify` to enable verifying the signature of signed remote components.
 - `.components.[x].manifests.[x].kustomizations`, `.components.[x].manifests.[x].kustomizeAllowAnyDirectory`, and `.components.[x].manifests.[x].enableKustomizePlugins` will be moved into a `.components.[x].manifests.[x].kustomize` sub-object. The fields become `kustomize.files`, `kustomize.allowAnyDirectory`, and `kustomize.enablePlugins` respectively.
@@ -336,15 +336,18 @@ components:
         namespace: podinfo-from-oci
         oci:
           url: oci://ghcr.io/stefanprodan/charts/podinfo
-          version: 6.4.0
+          ref:
+            tag: 6.4.0  # Moved from the top-level `version` field
         valuesFiles:
           - values.yaml
 
       - name: podinfo-git
         namespace: podinfo-from-git
         git:
-          url: https://github.com/stefanprodan/podinfo.git@6.4.0
+          url: https://github.com/stefanprodan/podinfo.git
           path: charts/podinfo  # Changed from `gitPath`
+          ref:
+            tag: 6.4.0  # Moved from the top-level `version` field
         # version field removed - uses version from chart.yaml at git tag
         valuesFiles:
           - values.yaml
@@ -518,9 +521,27 @@ proposal will be implemented, this is the place to discuss that.
 
 The `Chart` object will be restructured as seen in [package.go](package.go#L242-L308). Exactly one of sub-objects `helmRepository`, `git`, `oci`, or `local` is required for each entry in `components.[x].charts`. The fields `localPath`, `gitPath`, `URL`, and `repoName` will be removed from the top level of `components.[x].charts`. See [#2245](https://github.com/zarf-dev/zarf/issues/2245).
 
-During conversion, Zarf will detect the method of consuming the chart and create the proper sub-objects. If a git repo is used, then `@` + the `.version` value will be appended to `.git.URL`. This is consistent with the current Zarf behavior.
+The `git` sub-object has a `url` and a `ref` sub-object. A chart must resolve to a single revision, so `ref` is required. Conversion logic is defined in [Git URL and Ref Parsing](#git-url-and-ref-parsing).
+
+The `oci` sub-object also has a `url` and a required `ref` sub-object. For OCI, `ref` holds exactly one of `tag` or `digest`, where `digest` is of the form `sha256:<sha>`. During conversion, the v1alpha1 `.version` field is moved to `.oci.ref.tag`. The `url` may not contain a tag or digest. Because this was already the case in v1alpha1, no extra conversion logic is necessary.
 
 Zarf uses the top-level `version` field to determine where in the package layout file structure it will place charts. This makes the field necessary for deploy, and therefore it must be carried over using the strategy defined in the removed fields section of [0048-schema-update-process](../0048-schema-update-process/README.md#converting-removed-fields). Newer versions of Zarf will ensure that Zarf works whether or not `version` is set. Packages created with the v1beta1 schema will leave `version` empty, and therefore will not work with earlier versions of Zarf. When support is dropped for v1alpha1 packages, the `version` field will be dropped entirely. Note that this process is applied to internal conversion so that there is no change in behavior when v1alpha1 packages use function signatures that contain v1beta1 objects. `zarf dev upgrade-schema` will simply move the top-level `version` field to the right sub-object, or drop it when not applicable.
+
+### Git URL and Ref Parsing
+
+The `git` chart source and `repositories` share the same rules for their `url` and `ref` fields.
+
+The `url` is a clone location only and always denotes the whole repository. The automatic `ref` detection that v1alpha1 performed on git URLs will no longer occur. On create, v1beta1 packages will use the existing ref detection logic (`transform.GitURLSplitRef`) and fail with an error that points the user to the `ref` sub-object. The `ref` sub-object contains three fields, `branch`, `tag`, and `commit`, exactly one of which must be populated.
+
+Whether `ref` is required depends on the consumer. A Helm chart must resolve to a single revision, so `ref` is required for the `git` chart source. A mirrored repository may clone the entire history, so `ref` is optional for `repositories`.
+
+`zarf dev upgrade-schema` converts the v1alpha1 reference into `ref` by mirroring the current `transform.ParseRef` behavior.
+The reference is classified as:
+- `ref.commit` if it is a commit SHA (a full-length hash),
+- `ref.branch` if it is fully qualified as `refs/heads/<branch>`,
+- `ref.tag` otherwise (a bare ref or `refs/tags/<tag>`).
+
+For Helm charts specifically, if no ref is detected then the `chart.version` field is used, which v1alpha1 treats as a tag.
 
 ### Zarf Component Config Schema
 

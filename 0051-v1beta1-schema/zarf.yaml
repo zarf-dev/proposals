@@ -85,11 +85,17 @@ components:
       name: podinfo # replaces repoName since it's only applicable in this situation
       version: 6.4.0
     git:
-      url: https://github.com/stefanprodan/podinfo.git@6.4.0
+      url: https://github.com/stefanprodan/podinfo.git # clone location only; an @ref suffix is not allowed
       path: charts/podinfo
+      ref: # showing all possible refs for an example, in practice exactly one of the below fields must be set
+        branch: main
+        tag: 6.4.0
+        commit: 1036a44646b51d81de5b78b87b32fb3b0e5aa119
     oci:
       url: oci://ghcr.io/stefanprodan/charts/podinfo
-      version: 6.4.0
+      ref: # showing all possible refs, in practice exactly one of tag or digest is required
+        tag: 6.4.0
+        digest: sha256:9f8f5e3b2a1c4d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6
     local:
       path: chart
   files:
@@ -109,7 +115,11 @@ components:
     images:
       - podinfo:local
   repositories:
-  - url: https://github.com/zarf-dev/zarf
+  - url: https://github.com/zarf-dev/zarf.git
+    ref: # optional, omit to mirror all branches and tags. Showing all possible refs for an example, in practice exactly one of the below fields must be set
+      branch: main
+      tag: 6.4.0
+      commit: 1036a44646b51d81de5b78b87b32fb3b0e5aa119
   actions:
     onCreate:
       defaults:

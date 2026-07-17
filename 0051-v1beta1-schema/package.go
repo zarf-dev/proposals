@@ -245,12 +245,26 @@ type HelmRepositorySource struct {
 	Version string `json:"version"`
 }
 
+// GitRef selects a single Git reference. Tag is mutually exclusive with branch and commit.
+// Branch and commit may each be set alone, or set together to pin an exact commit while using
+// the branch as the fetch target, in which case the commit must be reachable from the branch.
+type GitRef struct {
+	// The Git tag. Mutually exclusive with branch and commit.
+	Tag string `json:"tag,omitempty"`
+	// The Git branch. May be set alone or paired with commit to pin an exact commit on the branch.
+	Branch string `json:"branch,omitempty"`
+	// The Git commit SHA. May be set alone or paired with branch; when paired, the commit must be reachable from the branch.
+	Commit string `json:"commit,omitempty"`
+}
+
 // GitSource represents a Helm chart stored in a Git repository.
 type GitSource struct {
-	// The URL of the Git repository where the Helm chart is stored.
+	// The URL of the Git repository where the Helm chart is stored. Must not contain an @ref suffix.
 	URL string `json:"url"`
 	// The subdirectory containing the chart within a Git repo.
 	Path string `json:"path,omitempty"`
+	// The Git reference to check out. Required; must select a reference via ref.tag, ref.branch, or ref.commit (branch and commit may be paired).
+	Ref GitRef `json:"ref"`
 }
 
 // LocalSource represents a Helm chart stored locally.
@@ -259,12 +273,20 @@ type LocalSource struct {
 	Path string `json:"path"`
 }
 
+// OCIRef selects a single OCI reference. Exactly one of tag or digest must be set.
+type OCIRef struct {
+	// The OCI tag.
+	Tag string `json:"tag,omitempty"`
+	// The OCI digest, in the form sha256:<sha>.
+	Digest string `json:"digest,omitempty"`
+}
+
 // OCISource represents a Helm chart stored in an OCI registry.
 type OCISource struct {
 	// The URL of the OCI registry where the Helm chart is stored.
 	URL string `json:"url"`
-	// The version of the chart in the OCI registry.
-	Version string `json:"version"`
+	// The OCI reference to pull. Required; exactly one of ref.tag or ref.digest must be set.
+	Ref OCIRef `json:"ref"`
 }
 
 // File defines a file to deploy.
@@ -304,7 +326,10 @@ type ImageArchive struct {
 // Repository defines a git repository to include in the package.
 type Repository struct {
 	// The URL of the git repository.
+	// A specific branch, tag, or commit should be specified by the ref field instead of the url
 	URL string `json:"url"`
+	// The Git reference to mirror. Optional; when unset, all branches and tags are mirrored
+	Ref *GitRef `json:"ref,omitempty"`
 }
 
 // ComponentActions are ActionSets that map to different Zarf package operations.
