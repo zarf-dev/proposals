@@ -1,0 +1,22 @@
+schema-version: 1.0.0
+
+title: Direct Exec Mode for Component Actions
+zep-number: 0058
+authors:
+  - "@leppek"
+status: provisional
+creation-date: 2026-06-29
+reviewers:
+  - TBD
+approvers:
+  - TBD
+
+see-also: []
+replaces: []
+
+stage: alpha
+latest-milestone: "TBD"
+milestone:
+  alpha: "TBD"
+  beta: "TBD"
+  stable: "TBD"
