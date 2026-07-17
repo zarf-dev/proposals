@@ -206,7 +206,7 @@ How will UX be reviewed, and by whom?
 ### Package Layout loses mutability
 `layout.PackageLayout.Pkg` is currently a public, mutable field, and some SDK consumers edit it directly after loading a package — for example to rename it, rewrite annotations, or override the namespace. Replacing it with an opaque handle removes that general-purpose write access, which is a breaking change for those consumers.
 
-It is reasonable to have safeguards here because most arbitrary edits to a package would corrupt it. For instance, changing a chart name would cause a failure on deploy since the chart name is used to find the tar path within the packager layout. The legitimate post-load mutations are a small set and each may be exposed as a targeted setter (`SetName`, `SetAnnotations`, `OverrideNamespace`, `FilterComponents`); more can be added as consumer needs surface. See [Package Layout](#package-layout) for the accessor and setter surface.
+This risk is tolerable as it makes sense to have safeguards on package mutations given that most arbitrary edits to a package would corrupt it. For instance, changing a chart name would cause a failure on deploy since the chart name is used to find the chart tarball within the package layout. The known post-load mutations are a small set and each may be exposed as a targeted setter (`SetName`, `SetAnnotations`, `OverrideNamespace`, `FilterComponents`); more can be added as consumer needs surface. See [Package Layout](#package-layout) for more detail.
 
 ## Design Details
 
