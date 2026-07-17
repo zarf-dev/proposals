@@ -301,7 +301,7 @@ type PackageAccessor interface {
 }
 ```
 
-The accessors return an `error` because a cluster source (`DeployedPackage`) parses stored JSON that may be malformed or written at a version this Zarf does not understand.
+The accessors return an `error` because a cluster source (`DeployedPackage`) parses stored JSON that may be malformed.
 
 Functions that operate on either a built package or a cluster source, such as `packager.Remove` and the `zarf package inspect` functions, accept a `PackageAccessor` rather than a concrete type. Functions specific to a single source still take that concrete type.
 
