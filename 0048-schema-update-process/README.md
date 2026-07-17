@@ -228,7 +228,7 @@ The zarf.yaml file within a built package will be separated by the standard YAML
 
 ### Conversions
 
-Zarf will need to handle two use cases for conversions. The first is library convert functions. These functions will move a specific version to the internal, superset type. This is always lossless. The second is `zarf dev upgrade-schema`, which will provide a simple way for users to convert their zarf.yaml files from one schema version to the next.
+Zarf will need to handle two use cases for conversions. The first is library convert functions. These functions will move a specific version to the internal, superset type; this is always lossless. The second is `zarf dev upgrade-schema`, which will provide a simple way for users to convert their zarf.yaml files from one schema version to the next.
 
 #### Type API changes
 
@@ -257,7 +257,7 @@ The api packages will be structured as below:
 │     ├── convert.go
 ```
 
-The `internal/api/types` package contains a superset of Zarf fields spanning all supported API versions. It plays two roles. First, it is the working representation that `PackageLayout` uses internally. Callers will obtain a versioned view through per-version read accessors, `AsV1alpha1()` and `AsV1beta1()`, which will translate the internal type to the specific version. Because the superset is never named in a public signature, introducing a new API version requires no function signature changes when `PackageAccessor` is accepted. 
+The `types.Package` struct contains a superset of Zarf fields spanning all supported API versions. It plays two roles. First, it is the working representation that `PackageLayout` uses internally. Callers will obtain a versioned view through per-version read accessors, `AsV1alpha1()` and `AsV1beta1()`, which will translate the internal type to the specific version. Because the superset is never named in a public signature, introducing a new API version requires no function signature changes when `PackageAccessor` is accepted. 
 Second, it is the pivot for conversions: rather than converting v1alpha1 directly to v1beta1, Zarf converts v1alpha1 to the superset then the superset to v1beta1, so Zarf needs only N conversion functions (one per API version) rather than N² conversions between every pair of versions.
 
 The internal package will not be exposed by the SDK. Instead the convert package will expose functions such as `func V1Alpha1PkgToV1Beta1(in v1alpha1.ZarfPackage) v1beta1.Package`. These functions will call the internal API packages, `internalv1alpha1.ConvertToGeneric(in v1alpha1.ZarfPackage) types.Package` and `internalv1beta1.ConvertFromGeneric(in types.Package) v1beta1.Package`. This will provide a clean interface for SDK users while avoiding exposing the internal types. Zarf's own `src/packager` and `src/cmd` packages may import `internal/api/types` directly; the constraint is only that the superset never appears in a public SDK signature. This strategy will also keep the src/api/<version> packages focused solely on data rather than including validation or conversion logic. These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
