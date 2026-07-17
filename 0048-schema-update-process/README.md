@@ -291,7 +291,7 @@ Flags:
 
 ### The PackageAccessor interface
 
-Zarf has three package sources: an on-disk built package (`PackageLayout`), a cluster-deployed package (`DeployedPackage`), and a loaded but not yet built package (`DefinedPackage`). `PackageLayout` and `DeployedPackage` implement a new interface that returns per-version package definitions.
+Zarf has three package sources: an on-disk built package (`PackageLayout`), a cluster-deployed package (`DeployedPackage`), and a loaded but not yet built package (`DefinedPackage`). These sources wil implement a new interface that returns per-version package definitions.
 
 ```go
 // PackageAccessor is the read contract implemented by built and cluster package sources.
