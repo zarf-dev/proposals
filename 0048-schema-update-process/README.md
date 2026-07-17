@@ -206,7 +206,7 @@ How will UX be reviewed, and by whom?
 ### Package Layout loses mutability
 `layout.PackageLayout.Pkg` is currently a public, mutable field, and some SDK consumers edit it directly after loading a package — for example to rename it, rewrite annotations, or override the namespace. Replacing it with an opaque handle removes that general-purpose write access, which is a breaking change for those consumers.
 
-It is reasonable to have safeguards here because most arbitrary edits to a package would corrupt it. For instance, changing a chart name, would cause a failure on deploy since the chart name is used to find the tar path within the packager layout. The legitimate post-load mutations are a small set and each may be exposed as a targeted setter (`SetName`, `SetAnnotations`, `OverrideNamespace`, `FilterComponents`); more can be added as consumer needs surface. See [The package handle](#the-package-handle) for the accessor and setter surface.
+It is reasonable to have safeguards here because most arbitrary edits to a package would corrupt it. For instance, changing a chart name would cause a failure on deploy since the chart name is used to find the tar path within the packager layout. The legitimate post-load mutations are a small set and each may be exposed as a targeted setter (`SetName`, `SetAnnotations`, `OverrideNamespace`, `FilterComponents`); more can be added as consumer needs surface. See [The package handle](#the-package-handle) for the accessor and setter surface.
 
 ## Design Details
 
@@ -303,8 +303,6 @@ type PackageAccessor interface {
 
 The accessors return an `error` because a cluster source (`DeployedPackage`) parses stored JSON that may be malformed or written at a version this Zarf does not understand.
 
-The concrete types implementing `PackageAccessor` are backed by the superset type. A package is only lossless when converted to it's original type, `AsV1beta1()` and `AsV1alpha1()` are lossless.
-
 Functions that operate on either a built package or a cluster source, such as `packager.Remove` and the `zarf package inspect` functions, accept a `PackageAccessor` rather than a concrete type. Functions specific to a single source still take that concrete type.
 
 Once support is dropped for an API version, the interface will remove its associated reader. 
@@ -321,11 +319,11 @@ type PackageLayout struct {
 }
 ```
 
-Functions such as `packager.Deploy` will call the latest reader (for example `packageLayout.AsV1beta1`) for logic shared among all version. When deprecated, version-specific logic is reached such as running data injections for a v1alpha1 package, then `packageLayout.Asv1alpha1()` will be called so this logic can be run. 
+Functions such as `packager.Deploy` will call the latest reader (for example `packageLayout.AsV1beta1`) for logic shared among all versions. When version-specific logic is reached, such as running data injections for a v1alpha1 package, then `packageLayout.AsV1alpha1()` will be called so this logic can run. 
 
 #### Mutations
 
-The accessors return copies, so persistent mutation goes through methods that edit the superset in place. These are a set of targeted setters. An initial list is below, these may be additional setters after evaluating SDK consumers.
+The accessors return copies, so persistent mutation goes through methods that edit the superset in place. These are a set of targeted setters. An initial list is below. There may be additional setters after evaluating SDK consumers.
 
 ```go
 func (p *PackageLayout) SetName(name string)
@@ -349,7 +347,7 @@ type DeployedPackage struct {
 }
 ```
 
-In the future, when Zarf stores this secret, it will store the version the package was created with as well as all earlier API versions, mimicking the strategy used in built packages. This will enable older versions of Zarf that don't have the latest API version to be able to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a cluster-sourced deployed package, they will receive a printed YAML of the API version they built the package with. To track multiple versions, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct. The original Data object will stay on the object for backwards compatibility, until the v1alpha1 package is no longer supported. DeployedPackage will implement the `PackageAccessor` interface. 
+In the future, when Zarf stores this secret, it will store the version the package was created with as well as all earlier API versions, mimicking the strategy used in built packages. This will enable older versions of Zarf that don't have the latest API version to read newer packages. Additionally, when a user runs `zarf package inspect definition` on a cluster-sourced deployed package, they will receive a printed YAML of the API version they built the package with. To track multiple versions, a new field named `PackageData` of type `map[string]json.RawMessage` will be introduced on the struct. The original Data object will stay on the object for backwards compatibility, until the v1alpha1 package is no longer supported. DeployedPackage will implement the `PackageAccessor` interface. 
 
 ```go
 type DeployedPackage struct {
