@@ -319,11 +319,11 @@ type PackageLayout struct {
 }
 ```
 
-Functions such as `packager.Deploy` will call the latest reader (for example `packageLayout.AsV1beta1`) for logic shared among all versions. When version-specific logic is reached, such as running data injections for a v1alpha1 package, then `packageLayout.AsV1alpha1()` will be called so this logic can run. 
+Functions such as `packager.Deploy` will call the latest reader (for example `packageLayout.AsV1beta1`) for logic shared among all versions. When version-specific logic is reached, such as running data injections for a v1alpha1 package, then `packageLayout.AsV1alpha1()` will be used to get the data specific to the deprecated functionality. 
 
 #### Mutations
 
-The accessors return copies, so persistent mutation goes through methods that edit the superset in place. These are a set of targeted setters. An initial list is below. There may be additional setters after evaluating SDK consumers.
+The accessors return copies, so persistent mutation goes through methods that edit the superset in place. These are a set of targeted setters. An initial list is below. There may be additional setters if requested by SDK consumers.
 
 ```go
 func (p *PackageLayout) SetName(name string)
