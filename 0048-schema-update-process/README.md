@@ -307,6 +307,8 @@ Functions that operate on either a built package or a cluster source, such as `p
 
 Once support is dropped for an API version, the interface will remove its associated reader. 
 
+SDK users will be able to create a package accessor with using a function `GetPackageAccessor(<latest-api-version>.Package) PackageAccessor` which will turn the latest API version into a package accessor. 
+
 ### Package Layout
 
 `PackageLayout` is the handle SDK users receive from `LoadPackage`. It currently exposes a public, mutable `Pkg v1alpha1.ZarfPackage` field. This will be changed to an unexported field of the internal superset type. Reads will happen through the `PackageAccessor` accessors and mutations will go through methods instead of direct field access.
