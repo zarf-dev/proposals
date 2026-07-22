@@ -225,6 +225,19 @@ View the full schema in [package.go](package.go#L200).
   ...
 ```
 
+Services are usually accompanied by fields in Zarf state. State fields such as `.Registry.Port` are usually set during `init` by command line flags (`--registry-port`). This makes these fields impossible to set during `zarf package deploy`. Additionally, potential future fields such as `.State.Injector.Tolerations` are impractical to set through a CLI flag. A new field `.components.[X].StateValues` will accompany the new `.components.[X].service` field. A component will only be allowed to map to a sub-object in state if it matches their service. For instance, in order to declare the target path `.Registry.Port` the component must declare the `.Registry` service. Top level fields such as StorageClass will be allowed regardless.
+
+```go
+StateValues []StateValue `json:"stateValues,omitempty"`
+
+type StateValue struct {
+    SourcePath string // ".registry.port"  -> read from .Values
+    TargetPath string // ".Registry.Port" written to the service's state sub-struct
+}
+```
+
+CLI flags will take precedence over StateValues. Credential fields will be allowed so long as it is either a first time service install or they match what is in the cluster, mirroring the existing logic. 
+
 ### ZarfInitConfig will be Removed
 
 The `Kind` "ZarfInitConfig" will be removed. Every package will be of kind "ZarfPackageConfig". `zarf init` will default to deploying a package called `zarf-package-init-<arch>-<cli-version>.tar.zst`. A template will be created that exposes the CLI version, so a `zarf.tpl.yaml` file could set the `.metadata.version` field to `[[ .cli.version ]]`. If a package called `zarf-package-init-<arch>-<cli-version>.tar.zst` is not found in the cache or current directory, Zarf will prompt the user to pull the default zarf-dev init package. `zarf init` will continue to accept custom packages, for example, `zarf init <zarf-package-my-custom-init>`. If no component in the package declares a `.service`, Zarf will error and ask the user to run `zarf package deploy` instead. 
