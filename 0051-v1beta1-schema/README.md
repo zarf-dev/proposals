@@ -236,7 +236,7 @@ type StateValue struct {
 }
 ```
 
-CLI flags will take precedence over StateValues. Credential fields will be allowed so long as it is either a first time service install or they match what is in the cluster, mirroring the existing logic. 
+CLI flags will take precedence over StateValues. Credential fields will be allowed so long as it is either a first time service install or they match what is in the cluster, mirroring the existing logic. See the [values cluster state](https://docs.zarf.dev/ref/package-values/#cluster-state-state) documentation for a list of state fields that can be targeted.
 
 ### ZarfInitConfig will be Removed
 
