@@ -43,6 +43,16 @@ type ComponentSpec struct {
 	Actions ComponentActions `json:"actions,omitempty"`
 	// The Zarf CLI service this component provides, such as the registry, injector, or agent.
 	Service Service `json:"service,omitempty" jsonschema:"enum=registry,enum=seed-registry,enum=injector,enum=agent,enum=git-server"`
+	// List of value sources mapped to their Zarf state targets. A component may only target state fields under its own service, though top-level state fields are always allowed.
+	StateValues []StateValue `json:"stateValues,omitempty"`
+}
+
+// StateValue maps a values source path to a Zarf state target path.
+type StateValue struct {
+	// The source path for the value, read from Zarf values.
+	SourcePath string `json:"sourcePath"`
+	// The target path within Zarf state.
+	TargetPath string `json:"targetPath"`
 }
 
 // ComponentMetadata holds metadata about a component config.

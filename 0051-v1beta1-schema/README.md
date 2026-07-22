@@ -201,7 +201,8 @@ If a package has these fields defined, then `zarf dev upgrade-schema` will error
 
 ### New Fields
 
-- `.components.[x].service` will be introduced to avoid magic names in Init package components. See [Zarf Services](#zarf-services) for more details.
+- `.components.[x].service` will be introduced to avoid magic names in init package components. See [Zarf Services](#zarf-services) for more details.
+- `.components.[x].serviceValues` will be introduced to couple init flags to the init package. See [Zarf Services](#zarf-services) for more details.
 
 ### Behavior Changes
 
