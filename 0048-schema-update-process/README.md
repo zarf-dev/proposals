@@ -316,7 +316,7 @@ Flags:
 
 ### The PackageAccessor interface
 
-A new interface called `PackageAccessor` will be introduced. On disk built packages (`PackageLayout`) will be implement this interface, as well as loaded or in memory packages. 
+A new interface called `PackageAccessor` will be introduced. On disk built packages (`PackageLayout`) will implement this interface, as well as loaded or in memory packages. 
 
 ```go
 // PackageAccessor is the read contract for a parsed package definition.
