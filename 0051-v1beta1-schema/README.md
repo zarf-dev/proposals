@@ -226,7 +226,7 @@ View the full schema in [package.go](package.go#L200).
   ...
 ```
 
-Services are usually accompanied by fields in Zarf state. State fields such as `.Registry.Port` are typically set during `init` by command-line flags (`--registry-port`). This makes these fields impossible to set during `zarf package deploy`. Additionally, potential future fields such as `.State.Injector.Tolerations` are impractical to set through a CLI flag. A new field `.components.[X].stateValues` will accompany the new `.components.[X].service` field. A component will only be allowed to map to a sub-object in state if it matches its service. For instance, in order to declare the target path `.Registry.Port`, the component must declare the `.Registry` service. Top-level fields such as StorageClass will be allowed regardless.
+Services are usually accompanied by fields in Zarf state. State fields such as `.Registry.Port` are typically set during `init` by command-line flags (`--registry-port`). This makes these fields impossible to set during `zarf package deploy`. Additionally, potential future fields such as `.State.Injector.Tolerations` are impractical to set through a CLI flag. A new field `.components.[X].stateValues` will accompany the new `.components.[X].service` field. State values allow setting sub-objects on state when the component's service matches the sub object. For instance, in order to declare the target path `.Registry.Port`, the component must declare the `.Registry` service. StateValues will not enable setting top level state fields such as storage class.
 
 ```go
 StateValues []StateValue `json:"stateValues,omitempty"`
