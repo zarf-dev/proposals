@@ -201,7 +201,8 @@ If a package has these fields defined, then `zarf dev upgrade-schema` will error
 
 ### New Fields
 
-- `.components.[x].service` will be introduced to avoid magic names in Init package components. See [Zarf Services](#zarf-services) for more details.
+- `.components.[x].service` will be introduced to avoid magic names in init package components. See [Zarf Services](#zarf-services) for more details.
+- `.components.[x].serviceValues` will be introduced to couple init flags to the init package. See [Zarf Services](#zarf-services) for more details.
 
 ### Behavior Changes
 
@@ -224,6 +225,19 @@ View the full schema in [package.go](package.go#L200).
   service: agent
   ...
 ```
+
+Services are usually accompanied by fields in Zarf state. State fields such as `.Registry.Port` are typically set during `init` by command-line flags (`--registry-port`). This makes these fields impossible to set during `zarf package deploy`. Additionally, potential future fields such as `.State.Injector.Tolerations` are impractical to set through a CLI flag. A new field `.components.[X].stateValues` will accompany the new `.components.[X].service` field. A component will only be allowed to map to a sub-object in state if it matches its service. For instance, in order to declare the target path `.Registry.Port`, the component must declare the `.Registry` service. Top-level fields such as StorageClass will be allowed regardless.
+
+```go
+StateValues []StateValue `json:"stateValues,omitempty"`
+
+type StateValue struct {
+    SourcePath string // ".registry.port" -> read from .Values
+    TargetPath string // ".Registry.Port" written to the service's state sub-object
+}
+```
+
+CLI flags will exist alongside StateValues to retain discoverability; however, new fields may or may not have their own CLI flags, depending on how niche their use is. CLI flags will take precedence over StateValues. Credential fields will be allowed so long as this is a first time service install, or the fields match what is in the cluster, mirroring the existing logic. The list of targets can be found in the [values cluster state](https://docs.zarf.dev/ref/package-values/#cluster-state-state) documentation.
 
 ### ZarfInitConfig will be Removed
 
