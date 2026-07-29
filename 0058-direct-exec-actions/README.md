@@ -35,7 +35,7 @@ Zarf is increasingly used in automated, unattended deployment pipelines (Kuberne
 
 #### Story 1: Hardened Initializer Container
 
-As a platform operator deploying Zarf in an air-gapped environment via a Kubernetes Job, I want to run the initializer from a `scratch`-based container image containing only the Zarf binary and the init package. Today this fails because the `git-server` component's actions require `/bin/sh`. With `noShell: true`, the init package's internal actions can execute directly, eliminating the need for a shell binary in the container.
+As a platform operator deploying Zarf in an air-gapped environment via a Kubernetes Job, I want to initialize a cluster with zarf from a `scratch`-based container image containing only the Zarf binary and the init package. Today this fails because the `git-server` component's actions require `/bin/sh`. With `noShell: true`, the init package's internal actions can execute directly, eliminating the need for a shell binary in the container.
 
 #### Story 2: Security-Compliant Package Authoring
 
