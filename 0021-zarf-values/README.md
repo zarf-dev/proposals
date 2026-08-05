@@ -105,7 +105,7 @@ The motivation for this centers around the long-lived desire to have Zarf Variab
 
 The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts with a new optional `values` field under `charts`. This `values` field accepts a list of objects, each with a required `sourcePath` and `targetPath`.
 
-Every `sourcePath`, `targetPath`, and `setValues.path` uses the same Zarf Values path syntax. Paths start with `.`, use `.` for the root, and support exact map keys, quoted keys, and non-negative list indexes, such as `.resources.limits`, `.labels["app.kubernetes.io/name"]`, and `.addresses[0]`. They do not include filters, wildcards, or other expressions. Reads do not mutate Values; writes create missing maps and extend lists with `null` values, but fail when an existing value has an incompatible type.
+Every `sourcePath`, `targetPath`, `enabledPath`, and `setValues.path` uses the same Zarf Values path syntax. Paths start with `.`, use `.` for the root, and support exact map keys, quoted keys, and non-negative list indexes, such as `.resources.limits`, `.labels["app.kubernetes.io/name"]`, and `.addresses[0]`. They do not include filters, wildcards, or other expressions. Reads do not mutate Values; writes create missing maps and extend lists with `null` values, but fail when an existing value has an incompatible type.
 
 The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today. Zarf `files` and `manifests` would optionally allow Go templating to be able to take advantage of values as well.
 
@@ -297,7 +297,7 @@ other-component:
 
 ---
 
-**Given** I have a component where a database chart creates a credential Secret and a later application chart needs them
+**Given** I have a component where a database chart creates a credential Secret, a later application chart needs it, and `.database.inCluster` is `true` in package Values
 ```yaml
 components:
   - name: application
@@ -312,6 +312,7 @@ components:
           - kind: Secret
             name: database-credentials
             namespace: application
+            enabledPath: .database.inCluster
             jsonPath: .data.password
             targetPath: .runtime.databasePassword
         values:
@@ -320,6 +321,8 @@ components:
 ```
 **When** I deploy the component
 **Then** Zarf will read and decode the Secret into the application chart's Values before rendering it (without requiring an action or a separate component)
+
+Setting `.database.useInCluster` to `false` skips the lookup so externally provided package Values can be used instead.
 
 ### Risks and Mitigations
 
@@ -331,7 +334,7 @@ This feature also could open up Zarf packages to being less declarative - especi
 
 Because we will be using more `interface{}` types, we should also look into the security implications of this feature and ensure that this is well tested and that we utilize some of Helm's existing protections against `nil` maps and other potential security issues with this feature.
 
-`valuesFrom` makes rendering depend on live cluster state and may expose sensitive data. A missing resource or path should fail before rendering the consumer only after the deployment timeout, while malformed paths should fail during package creation and insufficient RBAC should fail immediately during deployment. Zarf should never print resolved values in logs or errors.
+`valuesFrom` makes rendering depend on live cluster state and may expose sensitive data. A missing resource or path for an enabled entry should fail before rendering the consumer only after the deployment timeout, while malformed paths should fail during package creation and insufficient RBAC should fail immediately during deployment. Zarf should never print resolved values in logs or errors.
 
 This proposal also adds to the concept of Zarf `onDeploy` actions and creates another way to execute arbitrary bash commands on the host (depending on how the package creator implemented Zarf Values and their Go templates).  If this feature is to replace Zarf variables however, using Values in actions is still needed, and examples exist in the wild where Helm templates alone are not sufficient to provide the desired functionality for a package.  One example being the GitLab Runner UDS Package that creates a runner token through the GitHub API - this requires pulling a registration token from an existing secret (which is possible today with Helm templates), but then this token is used to register the runner with the GitLab API.  This requires making an HTTP request which Helm cannot help with requiring onDeploy actions to wire this in. References: [GitLab Runner Config Chart Values](https://github.com/defenseunicorns/uds-package-gitlab-runner/blob/d2b573bdbed12ac2aafd52082f1b9ea84b213439/chart/values.yaml#L9), [GitLab Runner Token `onDeploy` action](https://github.com/defenseunicorns/uds-package-gitlab-runner/blob/d2b573bdbed12ac2aafd52082f1b9ea84b213439/common/zarf.yaml#L34).  This will need to be mitigated with documentation and it may be desireable to implement a form of `shellcheck` to `zarf dev lint` to look for areas where this might be an issue.  Users would be able to control the shape of input values via the `values.schema` field and Zarf should halt a deployment if a bad value is provided.  Users could also pass user input through the `env` field in actions for some additional protection.
 
@@ -368,7 +371,9 @@ components:
             targetPath: .resources # this wins
 ```
 
-Also, `charts` and `manifests` would accept an optional `valuesFrom` list. Each entry contains `kind`, an optional `name` and `namespace`, a Kubernetes `jsonPath`, and a Zarf Values `targetPath`. `kind` would use the same discovery behavior as cluster wait actions and could be fully qualified when needed. A named source performs a `GET`; omitting `name` performs a `LIST` and makes `.items` available to `jsonPath`. `jsonPath` is evaluated by `client-go` and is written without kubectl's outer braces.
+Also, `charts` and `manifests` would accept an optional `valuesFrom` list. Each entry contains required `kind`, `jsonPath`, and `targetPath` fields, with optional `name`, `namespace`, and `enabledPath` fields. `kind` would use the same discovery behavior as cluster wait actions and could be fully qualified when needed. A named source performs a `GET`; omitting `name` performs a `LIST` and makes `.items` available to `jsonPath`. `jsonPath` is evaluated by `client-go` and is written without kubectl's outer braces.
+
+`enabledPath` is evaluated against current package Values before any cluster lookup. The entry is enabled when the field is omitted or resolves to `true`; `false` skips discovery, requests, retries, and the target write. A missing path or non-boolean value fails immediately.
 
 For example, the [Node IP used by UDS K3d](https://github.com/defenseunicorns/uds-k3d/blob/544c4a78bf1a6a956860e45bfdcdb9ff26370941/zarf.yaml#L208) could be loaded without an action:
 
@@ -385,7 +390,9 @@ charts:
 
 The values-enabled chart file can then use `.Values.cluster.nodeIPs` to construct the MetalLB range. The same pattern can read `.items[0].status.nodeInfo.kubeletVersion` for the [Istio CNI case](https://github.com/defenseunicorns/uds-core/blob/0f8910ea78d1c09abad299b972ff14766207c18a/src/istio/common/zarf.yaml#L104).
 
-Zarf would resolve `valuesFrom` immediately before rendering each chart or manifest and merge the results into a copy of the package Values used by that entry. Chart value mappings and values-enabled files would use that copy, as would manifests with `template: true`; the resolved values would not mutate package-global Values.
+Zarf would resolve enabled `valuesFrom` entries immediately before rendering each chart or manifest. It starts with a copy of current package Values and applies entries in declaration order, with later entries winning. This per-entry view is used by chart value mappings and values-enabled files without mutating package-global Values.
+
+Helm precedence remains chart defaults, `valuesFiles` in declaration order, then generated chart values. Within that final layer, enabled `valuesFrom` entries override package defaults, deploy overrides, and prior `setValues`. To use a package Value instead, `enabledPath` must be `false`, which also skips the lookup.
 
 Zarf processes charts in list order and then manifests in list order, so an entry can consume an object created by an earlier entry without splitting the component. It cannot consume an object that it creates itself because the values are needed before rendering. Kind discovery, object or list lookup, and an empty `jsonPath` result would be retried until the package deployment timeout to account for Kubernetes eventual consistency and background reconciliation. Authorization errors would fail immediately. If the timeout is reached, Zarf would fail before installing the consuming entry.
 
@@ -407,7 +414,7 @@ As mentioned above, for additional safety when implementing the elements of this
 
 ##### Unit tests
 
-Values interfaces and libraries should be updated to ensure that interfaces are properly passed to charts and templated in actions. Unit tests should cover Values path reads and writes, list extension, create-time path validation, `valuesFrom` object and list lookups, retry and timeout behavior, Secret decoding, ordering, error handling, and namespace overrides.
+Values interfaces and libraries should be updated to ensure that interfaces are properly passed to charts and templated in actions. Unit tests should cover Values path reads and writes, list extension, create-time path validation, `valuesFrom` precedence, `enabledPath`, object and list lookups, retry and timeout behavior, Secret decoding, ordering, error handling, and namespace overrides.
 
 ##### e2e tests
 
