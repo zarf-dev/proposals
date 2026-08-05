@@ -65,7 +65,6 @@ any additional information provided beyond the standard ZEP template.
 - [Proposal](#proposal)
   - [User Stories (Optional)](#user-stories-optional)
     - [Story 1](#story-1)
-    - [Story 2](#story-2)
   - [Risks and Mitigations](#risks-and-mitigations)
 - [Design Details](#design-details)
   - [Test Plan](#test-plan)
@@ -83,7 +82,7 @@ any additional information provided beyond the standard ZEP template.
 
 ## Summary
 
-This ZEP proposes to introduce a new way to provide configuration to Zarf Packages that is more in line with the Helm values paradigm.  This proposal would provide a new settable interface that uses `map[string]interface{}` instead of the current variable interface of `map[string]string`.  These values would also be able to be mapped directly to Helm chart values, and would interact with other Zarf features where Zarf Variables are used today through Go templating (i.e. `actions`, `manifests` and `files`).
+This ZEP proposes to introduce a new way to provide configuration to Zarf Packages that is more in line with the Helm values paradigm.  This proposal would provide a new settable interface that uses `map[string]interface{}` instead of the current variable interface of `map[string]string`.  These values would also be able to be mapped directly to Helm chart values, and would interact with other Zarf features where Zarf Variables are used today through Go templating (i.e. `actions`, `manifests` and `files`). Charts and manifests would additionally be able to populate their template values declaratively from live Kubernetes resources with a new `valuesFrom` field.
 
 This ZEP supercedes [ZEP-0015](0015-helm-value-style-variable-interfaces/README.md).
 
@@ -104,9 +103,13 @@ The motivation for this centers around the long-lived desire to have Zarf Variab
 
 ## Proposal
 
-The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts with a new optional `values` field under `charts`. This `values` field accepts a list of objects, each with a required `sourcePath` and `targetPath`. These fields use dot-notation (always starting with .) to map package-level values from the `sourcePath` to the chart value key specified by `targetPath`. A single `.` is a valid path for both fields and represents the root of the values.
+The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts with a new optional `values` field under `charts`. This `values` field accepts a list of objects, each with a required `sourcePath` and `targetPath`.
+
+Every `sourcePath`, `targetPath`, and `setValues.path` uses the same Zarf Values path syntax. Paths start with `.`, use `.` for the root, and support exact map keys, quoted keys, and non-negative list indexes, such as `.resources.limits`, `.labels["app.kubernetes.io/name"]`, and `.addresses[0]`. They do not include filters, wildcards, or other expressions. Reads do not mutate Values; writes create missing maps and extend lists with `null` values, but fail when an existing value has an incompatible type.
 
 The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today. Zarf `files` and `manifests` would optionally allow Go templating to be able to take advantage of values as well.
+
+Zarf `charts` and `manifests` would also accept a `valuesFrom` list that maps data from live Kubernetes resources into the Values used to render that chart or manifest. This provides a structured alternative to reading the resource in an action and passing command output through `setValues`.
 
 To set these values new `package.[deploy|remove].values` configuration options would be added to the Viper config and a new `-f`/`--values` flag would be added to the CLI to allow values files to be specified on `zarf package deploy`, `zarf package remove` and `zarf dev deploy`.  For now, the `--set` flag would remain as it is for Zarf Variables though eventually we may want to deprecate it and align to the [Helm `--set` syntax](https://helm.sh/docs/intro/using_helm/#the-format-and-limitations-of---set) with the values specified setting Zarf Values instead of Zarf Variables.  Zarf `actions` would also add a new `setValues` field that would allow setting values from an action similar to `setVariables`.
 
@@ -204,7 +207,7 @@ components:
         before:
           - cmd: "echo '{ \"memory\": \"256Mi\", \"cpu\": \"200m\" }'"
             setValues:
-              - path: my-component.resources.limits
+              - path: .my-component.resources.limits
                 type: json
                 
 ```
@@ -292,15 +295,43 @@ other-component:
 **When** I deploy that package without setting any values
 **Then** Zarf will template the file and manifest with the resources given
 
+---
+
+**Given** I have a component where a database chart creates a credential Secret and a later application chart needs them
+```yaml
+components:
+  - name: application
+    charts:
+      - name: database
+        namespace: application
+        localPath: chart/database
+      - name: application
+        namespace: application
+        localPath: chart/application
+        valuesFrom:
+          - kind: Secret
+            name: database-credentials
+            namespace: application
+            jsonPath: .data.password
+            targetPath: .runtime.databasePassword
+        values:
+          - sourcePath: .runtime.databasePassword
+            targetPath: .database.password
+```
+**When** I deploy the component
+**Then** Zarf will read and decode the Secret into the application chart's Values before rendering it (without requiring an action or a separate component)
+
 ### Risks and Mitigations
 
 This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for now.  Because of this, the feature will need to be clearly disambiguated from Variables/Constants/Templates in documentation and, while this feature should not introduce many breaking changes being implemented alongside the existing featureset, the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping to assist with disambiguation.  If the feature gains traction and is accepted by the community, a deprecation plan for the original Zarf Variables/Constants/Templates should be created.  Likely this plan would not break `charts.variables` in existing packages and would simply prevent furutre packages from using this feature.
 
-The schema should validate during package create that `.components[x].charts[x].values[x].sourcePath/targetPath` begin with a `.` to avoid user error. 
+The schema should compile every Zarf Values path and `valuesFrom.jsonPath` during package creation so malformed paths fail early.
 
 This feature also could open up Zarf packages to being less declarative - especially if a package author opens up security-critical Helm values in their charts.  This caveat should be clearly documented as a concern which should also recommend a policy engine be used to enforce security-critical values within the cluster itself.
 
 Because we will be using more `interface{}` types, we should also look into the security implications of this feature and ensure that this is well tested and that we utilize some of Helm's existing protections against `nil` maps and other potential security issues with this feature.
+
+`valuesFrom` makes rendering depend on live cluster state and may expose sensitive data. A missing resource or path should fail before rendering the consumer only after the deployment timeout, while malformed paths should fail during package creation and insufficient RBAC should fail immediately during deployment. Zarf should never print resolved values in logs or errors.
 
 This proposal also adds to the concept of Zarf `onDeploy` actions and creates another way to execute arbitrary bash commands on the host (depending on how the package creator implemented Zarf Values and their Go templates).  If this feature is to replace Zarf variables however, using Values in actions is still needed, and examples exist in the wild where Helm templates alone are not sufficient to provide the desired functionality for a package.  One example being the GitLab Runner UDS Package that creates a runner token through the GitHub API - this requires pulling a registration token from an existing secret (which is possible today with Helm templates), but then this token is used to register the runner with the GitLab API.  This requires making an HTTP request which Helm cannot help with requiring onDeploy actions to wire this in. References: [GitLab Runner Config Chart Values](https://github.com/defenseunicorns/uds-package-gitlab-runner/blob/d2b573bdbed12ac2aafd52082f1b9ea84b213439/chart/values.yaml#L9), [GitLab Runner Token `onDeploy` action](https://github.com/defenseunicorns/uds-package-gitlab-runner/blob/d2b573bdbed12ac2aafd52082f1b9ea84b213439/common/zarf.yaml#L34).  This will need to be mitigated with documentation and it may be desireable to implement a form of `shellcheck` to `zarf dev lint` to look for areas where this might be an issue.  Users would be able to control the shape of input values via the `values.schema` field and Zarf should halt a deployment if a bad value is provided.  Users could also pass user input through the `env` field in actions for some additional protection.
 
@@ -337,6 +368,33 @@ components:
             targetPath: .resources # this wins
 ```
 
+Also, `charts` and `manifests` would accept an optional `valuesFrom` list. Each entry contains `kind`, an optional `name` and `namespace`, a Kubernetes `jsonPath`, and a Zarf Values `targetPath`. `kind` would use the same discovery behavior as cluster wait actions and could be fully qualified when needed. A named source performs a `GET`; omitting `name` performs a `LIST` and makes `.items` available to `jsonPath`. `jsonPath` is evaluated by `client-go` and is written without kubectl's outer braces.
+
+For example, the [Node IP used by UDS K3d](https://github.com/defenseunicorns/uds-k3d/blob/544c4a78bf1a6a956860e45bfdcdb9ff26370941/zarf.yaml#L208) could be loaded without an action:
+
+```yaml
+charts:
+  - name: metallb
+    namespace: kube-system
+    localPath: chart/metallb
+    valuesFrom:
+      - kind: Node
+        jsonPath: '.items[0].status.addresses[?(@.type=="InternalIP")].address'
+        targetPath: .cluster.nodeIPs[0]
+```
+
+The values-enabled chart file can then use `.Values.cluster.nodeIPs` to construct the MetalLB range. The same pattern can read `.items[0].status.nodeInfo.kubeletVersion` for the [Istio CNI case](https://github.com/defenseunicorns/uds-core/blob/0f8910ea78d1c09abad299b972ff14766207c18a/src/istio/common/zarf.yaml#L104).
+
+Zarf would resolve `valuesFrom` immediately before rendering each chart or manifest and merge the results into a copy of the package Values used by that entry. Chart value mappings and values-enabled files would use that copy, as would manifests with `template: true`; the resolved values would not mutate package-global Values.
+
+Zarf processes charts in list order and then manifests in list order, so an entry can consume an object created by an earlier entry without splitting the component. It cannot consume an object that it creates itself because the values are needed before rendering. Kind discovery, object or list lookup, and an empty `jsonPath` result would be retried until the package deployment timeout to account for Kubernetes eventual consistency and background reconciliation. Authorization errors would fail immediately. If the timeout is reached, Zarf would fail before installing the consuming entry.
+
+Core `v1` Secret `.data` values would be base64-decoded once before they are placed into Values, so a `jsonPath` such as `.data.password` produces the decoded password. `valuesFrom` would not add a separate transformation syntax. Additional decoding and parsing can use existing Go-template functions such as `b64dec`, `fromJson`, and `fromYaml`, followed by normal template path access and string functions. If a case such as gzip-compressed Helm release data cannot be handled by the existing function set, a generally useful template helper can be considered separately rather than adding a transformation pipeline specific to `valuesFrom`.
+
+An omitted namespace would use the consuming chart or manifest's namespace. An explicit namespace would participate in namespace overrides using the same behavior as [cluster wait actions](https://github.com/zarf-dev/zarf/blob/69f1fd0fed026ff4e1f2d47f0434e37dbf8767f9/src/pkg/packager/packager.go#L120-L146).
+
+Cluster reads would use the deploying identity's normal `get` or `list` permissions, and resolved values, especially Secret data, should not be included in logs or errors.
+
 ### Test Plan
 
 [X] I/we understand the owners of the involved components may require updates to
@@ -349,11 +407,11 @@ As mentioned above, for additional safety when implementing the elements of this
 
 ##### Unit tests
 
-Values interfaces and libraries should be updated to ensure that interfaces are properly passed to charts and templated in actions.
+Values interfaces and libraries should be updated to ensure that interfaces are properly passed to charts and templated in actions. Unit tests should cover Values path reads and writes, list extension, create-time path validation, `valuesFrom` object and list lookups, retry and timeout behavior, Secret decoding, ordering, error handling, and namespace overrides.
 
 ##### e2e tests
 
-Additional E2E tests should be added to ensure that `zarf-config` values files and `-f`/`--values` are passed through appropriately to Helm on chart install / upgrade.
+Additional E2E tests should be added to ensure that `zarf-config` values files and `-f`/`--values` are passed through appropriately to Helm on chart install / upgrade. An E2E test should also verify that a chart or manifest can wait for and consume an asynchronously created object from an earlier entry in the same component through `valuesFrom`.
 
 ### Graduation Criteria
 
@@ -370,6 +428,7 @@ This proposal doesn't impact how Zarf's Agent and CLI interact so no changes wou
 ## Implementation History
 
 2025-03-31: Initial version of this document.
+2026-08-05: Added the `charts` and `manifests` `valuesFrom` design.
 
 ## Drawbacks
 
@@ -378,6 +437,8 @@ This feature will require a lot of design work to ensure that it has a solid use
 ## Alternatives
 
 We could patch the existing Variables/Constants/Templates paradigm to align more with Helm paradigms but this would not address the other issues that exist with Variables/Constants/Templates.  Features like `autoIndent` and `setVariables` have always been limiting to users and creating a new way to set values will allow us to design something that is more user friendly (especially since many Zarf users are also Helm users).
+
+Zarf already embeds `mikefarah/yq`, but full yq expressions operate on YAML nodes and expose more than deterministic traversal. A small Values path grammar avoids conversion and keeps reads and writes predictable; Kubernetes queries use `client-go` through the explicitly named `jsonPath` field.
 
 ## Infrastructure Needed (Optional)
 
