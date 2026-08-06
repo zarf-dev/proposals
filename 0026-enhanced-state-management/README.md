@@ -79,7 +79,7 @@ To meet these goals, this proposal adds an event history to Zarf's `DeployedPack
 - `DeployedComponent` gains a `LastEvent` field recording only the most recent deploy/remove attempt against that specific component, since components mostly mirror the package's own timeline and rarely need a history of their own.
 - Package status is read via `LatestEvent()`, component status by reading `LastEvent` directly - neither is a separately stored field, so neither can drift from what actually happened. See [Reading status from `Events`](#reading-status-from-events).
 - On a graceful stop, Zarf appends a `Cancelled` event for whatever was in progress at the package level, and sets `Cancelled` on the in-progress component's `LastEvent`, rather than leaving either stuck at `InProgress`. See [Graceful Cancellation Handling](#graceful-cancellation-handling).
-- `zarf package deploy` and `zarf package remove` gain an opt-in `--prune` flag, matching Helm / `kubectl` conventions, that removes any charts, components, or no-longer-referenced images orphaned by the new deployment.
+- `zarf package deploy` and `zarf package remove` gain an opt-in `--prune[=<scopes>]` flag, matching Helm / `kubectl` conventions. Scopes are selected with a comma-separated list, and a bare `--prune` defaults to all scopes applicable to the command.
 - `DeployOptions`' config-affecting fields (`SetVariables`, `Values`, `NamespaceOverride`, `ValuesOverridesMap`) move into a new `DeployConfig` type, and `RemoveOptions`' equivalent fields (`Values`, `NamespaceOverride`) move into a new `RemoveConfig` type. Every deploy or remove `PackageEvent` records a `ConfigDigest` computed from the relevant one, so library users can tell whether a candidate deploy or remove's configuration differs from previous events.
 
 ### User Stories (Optional)
@@ -103,7 +103,7 @@ To meet these goals, this proposal adds an event history to Zarf's `DeployedPack
 ### Risks and Mitigations
 
 - **`--prune` incorrectly removes resources still in use.** If the orphan-detection logic incorrectly identifies a component as removed, or the cross-package image reference counting has a bug, `--prune` could delete a chart or image that's still needed - including one shared with an unrelated package. This is the only irreversible/destructive behavior this proposal adds.
-  - *Mitigation:* `--prune` is opt-in and off by default on both `zarf package deploy` and `zarf package remove`, so Zarf's existing behavior is unchanged unless a user explicitly asks for it - anyone who hits a correctness issue can stop passing the flag.
+  - *Mitigation:* `--prune` is opt-in and off by default on both `zarf package deploy` and `zarf package remove`. Users can limit pruning to explicit scopes, and anyone who hits a correctness issue can stop passing the flag to get today's behavior.
 - **The latest `PackageEvent`/`LastEvent` can be left at `InProgress`.** If a deploy or remove is interrupted, the most recent package `PackageEvent` or component `LastEvent` can be left indefinitely showing an operation that's no longer actually running.
   - *Mitigation:* see [Graceful Cancellation Handling](#graceful-cancellation-handling) - on a controlled stop (e.g. `SIGINT`/`SIGTERM`), Zarf appends a `Cancelled` package event and sets `Cancelled` `LastEvent`s for any components in progress before exiting. This does not cover an ungraceful termination (`SIGKILL`, node crash, power loss); no code runs in those cases, so the latest event can still be left at `InProgress`. That residual risk is accepted - Zarf is not becoming a continuously reconciling controller (see [Non-Goals](#non-goals)).
 - **Unbounded `Events` growth.** `DeployedPackage` is stored in a Kubernetes Secret; an ever-growing `Events` list risks approaching the Secret size limit on a long-lived, frequently-redeployed package. `DeployedComponent.LastEvent` is a single value, not a list, so it doesn't carry this risk.
@@ -268,25 +268,34 @@ Library users get the `DeployConfig.Digest()`/`RemoveConfig.Digest()` helpers ab
 
 Zarf also needs to reconcile differences between package upgrades to avoid orphaned charts or components, matching Helm / `kubectl` conventions.
 
-- `zarf package deploy` gains a `--prune` flag, off by default. At the start of a deployment, Zarf compares the existing deployed state against the to-be-deployed state. Any charts or components that would be orphaned by the new package are removed, along with any images referenced only by those components. (Zarf itself does not perform registry garbage collection.) It's opt-in, so anyone who hits a correctness issue with it can omit the flag and get today's behavior.
-- `zarf package remove` gains the same `--prune` flag, applying the equivalent image-removal behavior for components that are being uninstalled.
-- Before pruning anything, Zarf prints the charts, components, and images it's about to remove during the same flow as Zarf's existing `--confirm` prompt.
+Both commands accept an optional comma-separated value for `--prune`:
+
+- Omitting `--prune` disables optional pruning.
+- A bare `--prune` or `--prune=all` enables every prune scope applicable to the command.
+- `--prune=cluster-resources`, `--prune=images`, and `--prune=cluster-resources,images` select explicit scopes. Explicit lists remain limited to those scopes if more scopes are added later, while `all` includes future scopes applicable to the command.
+
+| Command | `cluster-resources` | `images` |
+| --- | --- | --- |
+| `zarf package deploy` | Removes charts and components orphaned by the new package. | Removes images orphaned by the new package and no longer referenced by any deployed package. |
+| `zarf package remove` | Not applicable; the command already removes the package's cluster resources. | Removes the package's images that are no longer referenced by any remaining package. |
+
+Unknown scopes and scopes not applicable to the selected command fail validation before the operation begins. Before pruning anything, Zarf identifies the selected scopes and prints the charts, components, and images it's about to remove during the same flow as Zarf's existing `--confirm` prompt.
 
 #### Chart, Component, and Image Reconciliation
 
-`--prune` reconciles at three levels: charts within a component that's still deployed, components dropped entirely from the new package, and images no longer referenced by any deployed package. Each level compares the previously deployed package (fetched via `Cluster.GetDeployedPackage`) against the package about to be deployed (`pkgLayout.Pkg`, already filtered by OS).
+The selected scopes reconcile at three levels: charts within a component that's still deployed, components dropped entirely from the new package, and images no longer referenced by any deployed package. Each level compares the previously deployed package (fetched via `Cluster.GetDeployedPackage`) against the package about to be deployed (`pkgLayout.Pkg`, already filtered by OS).
 
 ##### Chart reconciliation
 
-For a component present in both the old and new package, the deploy path already builds the full list of installed charts for that component into a single `[]state.InstalledChart` - both actual Helm charts (`installCharts`) and charts synthesized from `manifests` (`installManifests`), see `deploy.go:531-546`. Each entry is uniquely identified by `namespace/chartName`, the same key `state.MergeInstalledChartsForComponent` already uses to merge chart state across deployments. `--prune` diffs the component's previously recorded `InstalledCharts` against this new list by that key: any chart present in the old list but absent from the new one is uninstalled with the same `helm.RemoveChart(ctx, chart.Namespace, chart.ChartName, opts.Timeout)` call `zarf package remove` already uses, and dropped from the stored `InstalledCharts` for that component.
+When `cluster-resources` is selected, the deploy path builds the full list of installed charts for a component present in both the old and new package into a single `[]state.InstalledChart` - both actual Helm charts (`installCharts`) and charts synthesized from `manifests` (`installManifests`), see `deploy.go:531-546`. Each entry is uniquely identified by `namespace/chartName`, the same key `state.MergeInstalledChartsForComponent` already uses to merge chart state across deployments. Zarf diffs the component's previously recorded `InstalledCharts` against this new list by that key: any chart present in the old list but absent from the new one is uninstalled with the same `helm.RemoveChart(ctx, chart.Namespace, chart.ChartName, opts.Timeout)` call `zarf package remove` already uses, and dropped from the stored `InstalledCharts` for that component.
 
 ##### Component reconciliation
 
-If an entire component is missing from the new package (its name isn't in `pkgLayout.Pkg.Components`), `--prune` removes it the same way `zarf package remove` would: running `Actions.OnRemove` (`Before`, then uninstalling every chart in `InstalledCharts` - Helm-defined and manifest-derived alike, since they already share one list - then `After`/`OnSuccess`/`OnFailure`), and deleting the component's `DeployedComponent` entry. `remove.go`'s per-component removal loop already implements exactly this behavior; this proposal extracts it into a shared helper so `zarf package deploy --prune` and `zarf package remove` stay behaviorally identical instead of reimplementing component teardown twice.
+When `cluster-resources` is selected and an entire component is missing from the new package (its name isn't in `pkgLayout.Pkg.Components`), Zarf removes it the same way `zarf package remove` would: running `Actions.OnRemove` (`Before`, then uninstalling every chart in `InstalledCharts` - Helm-defined and manifest-derived alike, since they already share one list - then `After`/`OnSuccess`/`OnFailure`), and deleting the component's `DeployedComponent` entry. `remove.go`'s per-component removal loop already implements exactly this behavior; this proposal extracts it into a shared helper so `zarf package deploy --prune=cluster-resources` and `zarf package remove` stay behaviorally identical instead of reimplementing component teardown twice.
 
 ##### Image reconciliation
 
-For each component that changed or was removed, `--prune` diffs the previously deployed component's `Images` against the new component's `Images` (both plain `[]string` image references on `v1alpha1.ZarfComponent`). An image present in the old set but not the new one is a pruning candidate only if no other deployed package still needs it: `--prune` calls `Cluster.GetDeployedZarfPackages` to list every `DeployedPackage` secret in the cluster and checks whether the candidate image appears in any other package's component images. If nothing else references it, both tags Zarf pushes for that image are removed from the internal registry - the plain tag and the CRC-32-suffixed tag the Zarf agent uses for transparent redirection (see `images/push.go`). If another package still references it, both tags are left alone.
+When `images` is selected, Zarf diffs each changed or removed component's previously deployed `Images` against the new component's `Images` (both plain `[]string` image references on `v1alpha1.ZarfComponent`). An image present in the old set but not the new one is a pruning candidate only if no other deployed package still needs it: Zarf calls `Cluster.GetDeployedZarfPackages` to list every `DeployedPackage` secret in the cluster and checks whether the candidate image appears in any other package's component images. If nothing else references it, both tags Zarf pushes for that image are removed from the internal registry - the plain tag and the CRC-32-suffixed tag the Zarf agent uses for transparent redirection (see `images/push.go`). If another package still references it, both tags are left alone.
 
 This is the same reference-counted removal `zarf tools registry prune` already does against the whole registry, just scoped down to the images that belonged to the package being deployed or removed instead of scanning every image in the registry.  Because this is package-scoped this operation is also more separable within a registry that is shared with Zarf since users can namespace the repository Zarf uses (`127.0.0.1:31999/zarf`) and place other repositories for other purposes next to Zarf and not have those be affected (like they would with the full catalog explosion the existing prune does).
 
@@ -304,7 +313,7 @@ to implement this proposal.
 
 ##### Prerequisite testing updates
 
-The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM` to a running `zarf package deploy`/`zarf package remove`) so [Graceful Cancellation Handling](#graceful-cancellation-handling) can be exercised end-to-end rather than only unit tested. Test fixtures will also be needed for `--prune`: package definitions that differ only by an added/removed component or chart, so orphan-detection can be tested against a real upgrade rather than a synthetic diff. Fixtures driving multiple sequential deploy/remove cycles against the same package will also be needed to exercise `Events` accumulation and retention eviction once the cap is exceeded.
+The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM` to a running `zarf package deploy`/`zarf package remove`) so [Graceful Cancellation Handling](#graceful-cancellation-handling) can be exercised end-to-end rather than only unit tested. Test fixtures will also be needed for each `--prune` scope: package definitions that differ only by an added/removed component, chart, or image, so scope selection and orphan-detection can be tested against a real upgrade rather than a synthetic diff. Fixtures driving multiple sequential deploy/remove cycles against the same package will also be needed to exercise `Events` accumulation and retention eviction once the cap is exceeded.
 
 ##### Unit tests
 
@@ -313,12 +322,13 @@ The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM
 - `DeployConfig.Digest()` is deterministic: repeated calls with the same config, and calls with map literals built in a different key order, all produce the same digest; the digest changes when `SetVariables`, `Values`, `NamespaceOverride`, or `ValuesOverridesMap` change, and does not change when only imperative `DeployOptions` fields change.
 - `DeployConfig.Digest()` returns an error rather than panicking when given a value `encoding/json` can't marshal.
 - `RemoveConfig.Digest()` has the same determinism and error-handling properties as `DeployConfig.Digest()`, scoped to its smaller `Values`/`NamespaceOverride` field set; it does not change when only imperative `RemoveOptions` fields (`Timeout`, `SkipVersionCheck`) change.
-- The `--prune` orphan-detection logic correctly identifies charts/components that were removed between two `ZarfPackage` definitions (see [Chart, Component, and Image Reconciliation](#chart-component-and-image-reconciliation)), and correctly leaves an image alone if it's still referenced by any other deployed package, not just the one being pruned.
+- Prune scope parsing handles an absent flag, bare `--prune`, each explicit scope, a comma-separated scope list, `all`, unknown scopes, and scopes not applicable to the command.
+- `cluster-resources` and `images` independently gate their reconciliation behavior, and image pruning leaves an image alone if it's still referenced by any other deployed package, not just the one being pruned.
 
 ##### e2e tests
 
-- `zarf package deploy --prune` against a package that removed a component/chart from the previously deployed version, confirming the orphaned chart, component, and any now-unreferenced images are removed.
-- `zarf package remove --prune`, confirming the equivalent image cleanup for components being uninstalled.
+- `zarf package deploy` with each explicit prune scope, confirming only the selected resource class is removed, and with bare `--prune`, confirming both applicable scopes run.
+- `zarf package remove` with `--prune=images` and bare `--prune`, confirming image cleanup for components being uninstalled, and invalid-scope validation before removal begins.
 - Two packages sharing an image, with one pruned/removed: confirming the shared image's tags survive while the other package still references it, and are removed once nothing references it anymore.
 - Interrupting a `zarf package deploy`/`zarf package remove` with `SIGINT`, confirming a `Cancelled` event of the correct `Type` is appended to the package's `Events` and set on the in-progress component's `LastEvent`.
 - Deploying a package twice with identical configuration produces the same `ConfigDigest` on both events; changing `SetVariables` or `Values` between deploys produces a different `ConfigDigest`.
@@ -328,7 +338,7 @@ The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM
 
 `Events` on `DeployedPackage` is purely additive, and on `DeployedComponent`, `LastEvent` is added alongside the existing `Status` (`ComponentStatus`) field rather than replacing it outright - `ComponentStatus` is deprecated and scheduled for removal after 4 release cycles, but stays populated until then (see [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy)). A single Zarf version generally manages a given cluster, and integrations built around it are typically tailored to that version, so these schema changes can be absorbed as part of upgrading those integrations rather than needing a coordinated migration. Once Zarf deploys again in that environment, existing package status structs are upgraded (or downgraded) automatically as part of that deploy.
 
-`--prune` is the part of this proposal that can destroy data (see [Risks and Mitigations](#risks-and-mitigations)), so it should stay opt-in to limit that risk and to match `kubectl` and `helm` conventions that already work this way.
+`--prune` is the part of this proposal that can destroy data (see [Risks and Mitigations](#risks-and-mitigations)), so it should stay opt-in and scope-selectable to limit that risk and to match `kubectl` and `helm` conventions that already work this way.
 
 ### Upgrade / Downgrade Strategy
 
@@ -353,6 +363,7 @@ It does introduce skew between CLI versions reading the same `DeployedPackage`/`
 2026-07-01: Initial version of this document.
 2026-07-01: Replaced the flat `PackageStatus`/`ComponentStatus` fields with an `Events` list; see [Alternatives](#alternatives).
 2026-07-06: `ComponentStatus` is now deprecated and kept for 4 release cycles instead of being dropped immediately.
+2026-08-05: Made `--prune` scope-selectable, with bare `--prune` defaulting to all scopes applicable to the command.
 
 ## Drawbacks
 
