@@ -195,7 +195,13 @@ A component's outcomes generally mirror the package's own `Events` timeline one-
 ```go
 // LatestEvent returns the most recently recorded PackageEvent, or false if there aren't any yet.
 func (d *DeployedPackage) LatestEvent() (PackageEvent, bool)
+
+// LastSuccessfulDeploy returns the most recent retained successful Deploy event, or false if
+// there isn't one.
+func (d *DeployedPackage) LastSuccessfulDeploy() (PackageEvent, bool)
 ```
+
+`LastSuccessfulDeploy()` scans from newest to oldest, skipping later failed or cancelled deploys and remove events. This gives library users the `Source`, package metadata, and `ConfigDigest` associated with the last successful deployment without duplicating those fields at the top level. Because it operates on the retained event history, `false` means there is no matching retained event, not necessarily that the package has never deployed successfully.
 
 `DeployedComponent.LastEvent` becomes the source of truth in place of `ComponentStatus` - `Type`+`Outcome` say whether that component is deploying, removing, or at a terminal state. `ComponentStatus` is deprecated but continues to be populated alongside `LastEvent` for the deprecation window described in [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy).
 
@@ -260,7 +266,7 @@ func (c RemoveConfig) Digest() (string, error) {
 
 `packager.Deploy` computes `DeployConfig.Digest()` at the start of every deployment and `packager.Remove` computes `RemoveConfig.Digest()` at the start of every removal; each sets it as `ConfigDigest` on the `PackageEvent` it appends - `Deploy` events also get `Source`, and both `Deploy` and `Remove` events get `Version` / `Flavor` / `Digest` - all at the same point that event's `Outcome` starts as `InProgress`. If the digest can't be computed (see [Risks and Mitigations](#risks-and-mitigations)), the operation fails fast before making any changes.
 
-Library users get the `DeployConfig.Digest()`/`RemoveConfig.Digest()` helpers above so they can compute a digest for a candidate operation and compare it against a previous event without actually deploying or removing.  Packages deployed before `Events` existed will have no deploy events to find, so comparisons in that case should be treated as unknown/always-different, since Zarf has no record of what those packages were deployed with.
+Library users get the `DeployConfig.Digest()`/`RemoveConfig.Digest()` helpers above so they can compute a digest for a candidate operation and compare it against `LastSuccessfulDeploy()` without actually deploying or removing. Packages deployed before `Events` existed will have no deploy events to find, so comparisons in that case should be treated as unknown/always-different, since Zarf has no record of what those packages were deployed with.
 
 **Known limitation:** values passed through YAML/JSON can round-trip as `float64`, so numerically-equal-but-differently-formatted values (e.g. `5` vs `5.0`) could theoretically produce different digests even though they represent the same configuration. This proposal accepts that limitation for v1 - see [Risks and Mitigations](#risks-and-mitigations).
 
@@ -318,6 +324,7 @@ The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM
 ##### Unit tests
 
 - `DeployedPackage.Events` are appended (never overwritten) for every deploy/remove outcome, including `Cancelled`; `DeployedComponent.LastEvent` is overwritten on every deploy/remove attempt against that component.
+- `LatestEvent()` returns the newest event, while `LastSuccessfulDeploy()` skips newer failed, cancelled, and remove events and returns `false` when no successful deploy remains in retained history.
 - `DeployedPackage.Events` retention caps at the configured number of entries, evicting the oldest entry first.
 - `DeployConfig.Digest()` is deterministic: repeated calls with the same config, and calls with map literals built in a different key order, all produce the same digest; the digest changes when `SetVariables`, `Values`, `NamespaceOverride`, or `ValuesOverridesMap` change, and does not change when only imperative `DeployOptions` fields change.
 - `DeployConfig.Digest()` returns an error rather than panicking when given a value `encoding/json` can't marshal.
