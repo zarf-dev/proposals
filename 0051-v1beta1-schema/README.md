@@ -255,7 +255,11 @@ The Zarf v1alpha1 schema allows for package templates during create using the ##
 
 The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml`, then fall back to a `zarf.gen.yaml`.
 
-`zarf dev template` will have logic to follow local component imports. For any entry in `.import.local` whose `path` points to a file called `<base>.tpl.yaml`, Zarf will template the `<base>.tpl.yaml` file and rewrite the entry to `<base>.gen.yaml`. Users who prefer to template in separate steps may set their import path entries to `<base>.gen.yaml` directly. Zarf will template imports after the current file is finished templating, so a user will be able to template a value into an entry of `.import.local` and Zarf will template the resulting file.
+<!-- 
+Commenting out the below feature as there is not a clear use case, and the behavior might be unintuitive. If there is a request in the future, we could add this, and we'd have more context on what a user is looking for.
+
+`zarf dev template` will have logic to follow local component imports. For any entry in `.import.local` whose `path` points to a file called `<base>.tpl.yaml`, Zarf will template the `<base>.tpl.yaml` file and rewrite the entry to `<base>.gen.yaml`. Users who prefer to template in separate steps may set their import path entries to `<base>.gen.yaml` directly. Zarf will template imports after the current file is finished templating, so a user will be able to template a value into an entry of `.import.local` and Zarf will template the resulting file. 
+-->
 
 Package templates will be required to have a value; otherwise the command will fail.
 
