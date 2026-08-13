@@ -83,6 +83,7 @@ To meet these goals, this proposal adds an event history and the last successful
 - On a graceful stop, Zarf appends a `Cancelled` package event and sets the component `LastEvent` to `Cancelled`, rather than leaving either stuck at `InProgress`. See [Graceful Cancellation Handling](#graceful-cancellation-handling).
 - `zarf package deploy` and `zarf package remove` gain an opt-in `--prune[=<scopes>]` flag. Scopes are selected with a comma-separated list, and a bare `--prune` defaults to all scopes applicable to the command.
 - `DeployOptions`' config-affecting fields move into an embedded `DeployConfig`; `RemoveOptions`' equivalent fields move into an embedded `RemoveConfig`. Every deploy or remove `PackageEvent` records a standard `sha256:<hex>` config digest. `zarf package deploy --reuse-config` seeds the base config with the stored successful `DeployConfig`, then merges any inputs from the new invocation over it.
+- Package digest fields and APIs use `github.com/opencontainers/go-digest.Digest` while preserving the existing `sha256:<hex>` JSON representation and exact OCI manifest identity.
 
 ### User Stories (Optional)
 
@@ -158,9 +159,9 @@ type PackageEvent struct {
 	Version string `json:"version,omitempty"`
 	// Flavor is the package's Build.Flavor at the time of this event.
 	Flavor string `json:"flavor,omitempty"`
-	// Digest is the package's content digest (as returned by pkgLayout.Digest()) at the time
-	// of this event.
-	Digest string `json:"digest,omitempty"`
+	// Digest is the package's OCI manifest digest (as returned by pkgLayout.Digest()) at
+	// the time of this event.
+	Digest digest.Digest `json:"digest,omitempty"`
 	// Source is the source the package was deployed from (e.g. oci:// URL, tarball path).
 	// Only set on Deploy events.
 	Source string `json:"source,omitempty"`
@@ -181,20 +182,42 @@ type ComponentEvent struct {
 
 Each deploy/remove attempt appends an `InProgress` `PackageEvent`; completion appends a terminal event of the same type. `LatestEvent()` therefore returns current status without finding and mutating an earlier entry. `DeployedComponent.LastEvent` remains a single value and is overwritten as that component progresses.
 
-`Version`, `Flavor`, `Digest`, and `ConfigDigest` are set on every `PackageEvent`, deploy or remove alike, since both operations act on a specific package version and both have a config-affecting subset of options (`DeployConfig`/`RemoveConfig` - see [`DeployConfig`, `RemoveConfig`, and `ConfigDigest`](#deployconfig-removeconfig-and-configdigest)). `Version`/`Flavor`/`Digest` give a history of what versions/flavors/digests were deployed and removed over time, alongside `DeployedPackage`'s own top-level `Digest` field (which still tracks only the current one, unchanged by this proposal). `Source` stays Deploy-only, since a remove doesn't have a source of its own - it operates on whatever's already deployed.
+`Version`, `Flavor`, `Digest`, and `ConfigDigest` are set on every `PackageEvent`, deploy or remove alike, since both operations act on a specific package version and both have a config-affecting subset of options (`DeployConfig`/`RemoveConfig` - see [`DeployConfig`, `RemoveConfig`, and `ConfigDigest`](#deployconfig-removeconfig-and-configdigest)). `Version`/`Flavor`/`Digest` give a history of what versions/flavors/digests were deployed and removed over time, alongside `DeployedPackage`'s own top-level `Digest` field, whose tracking behavior remains current-package-only even though its Go type changes from `string` to `digest.Digest`. `Source` stays Deploy-only, since a remove doesn't have a source of its own - it operates on whatever's already deployed.
 
-`DeployedPackage` gains `Events []PackageEvent` - a history. `DeployedComponent` gains a single `LastEvent ComponentEvent` - not a list, and not the same type as the package's events:
+The new event fields compose with the existing state types as follows (abridged to show the relevant fields):
 
 ```go
-// LastEvent is the outcome of the most recent deploy or remove attempt against this component,
-// which can be ahead of, behind, or independent of the package's own latest PackageEvent - e.g.
-// a package still shows Deploy/InProgress overall while component 1 is already Deploy/Succeeded,
-// component 2 is still Deploy/InProgress, and component 3 hasn't been reached yet at all (no
-// DeployedComponent recorded).
-LastEvent ComponentEvent `json:"lastEvent,omitempty"`
+type DeployedPackage struct {
+	Name                string               `json:"name"`
+	Digest              digest.Digest        `json:"digest"`
+	Data                v1alpha1.ZarfPackage `json:"data"`
+	CLIVersion          string               `json:"cliVersion"`
+	Generation          int                  `json:"generation"`
+	DeployedComponents  []DeployedComponent  `json:"deployedComponents"`
+	ConnectStrings      ConnectStrings       `json:"connectStrings,omitempty"`
+	PackageConnectivity PackageConnectivity  `json:"packageConnectivity"`
+	NamespaceOverride   string               `json:"namespaceOverride,omitempty"`
+
+	// Events is the retained package-level deploy/remove history added by this proposal.
+	Events []PackageEvent `json:"events,omitempty"`
+	// DeployConfig is the normalized config from the latest successful deploy.
+	// It is independent of Events retention and is not replaced by failed or cancelled attempts.
+	DeployConfig *DeployConfig `json:"deployConfig,omitempty"`
+}
+
+type DeployedComponent struct {
+	Name               string           `json:"name"`
+	InstalledCharts    []InstalledChart `json:"installedCharts"`
+	ObservedGeneration int              `json:"observedGeneration"`
+
+	// LastEvent is the most recent deploy/remove transition for this component.
+	LastEvent ComponentEvent `json:"lastEvent,omitempty"`
+	// Deprecated: use LastEvent. Populated for the compatibility window.
+	Status ComponentStatus `json:"status"`
+}
 ```
 
-A component's outcomes generally mirror the package's own `Events` timeline one-for-one, so a full per-component history would mostly duplicate it. A component only needs one fact from its history: what happened the last time that component was touched. `LastEvent` gives that directly. `Type` and `Outcome` reuse the same `EventType`/`EventOutcome` vocabulary as `PackageEvent`, so there's nothing new to keep in sync between the two levels; `ComponentEvent` just omits the fields (`Version`, `Flavor`, `Digest`, `Source`, `ConfigDigest`) that only make sense at the package level.
+A component's `LastEvent` can be ahead of, behind, or independent of the package's latest event. For example, a package can remain `Deploy`/`InProgress` while one component is already `Deploy`/`Succeeded`, another is still in progress, and an unreached component has no state yet. Component outcomes otherwise mostly mirror the package's `Events` timeline, so a full per-component history would duplicate it. `Type` and `Outcome` reuse the same vocabulary at both levels; `ComponentEvent` omits fields (`Version`, `Flavor`, `Digest`, `Source`, `ConfigDigest`) that only make sense for the package operation.
 
 #### Reading status from `Events`
 
@@ -224,9 +247,9 @@ Comparing a candidate deployment's configuration against what's already deployed
 - **Config** (affects the resulting deployment, and should be part of the digest): `SetVariables`, `Values` (`value.Values`), `NamespaceOverride`, `ValuesOverridesMap`, `OptionalComponents`, and `Connected`
 - **Imperative** (affects only the deploy operation, and stays out of the digest): everything else, e.g. `Timeout`, `Retries`, `OCIConcurrency`, `IsInteractive`, `ForceConflicts`, `AdoptExistingResources`, `SkipVersionCheck`, `ReuseConfig`, `RemoteOptions`, and the Zarf init state used to configure a cluster (`GitServer`, `RegistryInfo`, `ArtifactServer`, `AgentTLS`, `AgentMutationPolicy`, `StorageClass`, `InjectorPort`)
 
-The same split applies to `packager.RemoveOptions`, which today also mixes `Values` and `NamespaceOverride` in with imperative fields (`Cluster`, `Timeout`, `SkipVersionCheck`) - Zarf Values are usable in `onRemove` actions, so they affect what a remove actually does, not just how it runs. `RemoveOptions`' config subset is smaller than `DeployOptions`': it has no `SetVariables` or `ValuesOverridesMap` to begin with, since those only apply to Helm chart installs.
+The same split applies to `packager.RemoveOptions`, which today also mixes `Values` and `NamespaceOverride` in with imperative fields (`Cluster`, `Timeout`, `SkipVersionCheck`) - Zarf Values are usable in `onRemove` actions, so they affect what a remove actually does, not just how it runs. `OptionalComponents` also belongs in `RemoveConfig` because `zarf package remove --components` controls which deployed components and `onRemove` actions are processed. `RemoveOptions`' config subset remains smaller than `DeployOptions`': it has no `SetVariables`, `ValuesOverridesMap`, or `Connected` fields.
 
-The config fields move into new `DeployConfig` and `RemoveConfig` types, embedded in `DeployOptions` and `RemoveOptions` respectively. `DeployConfig` is also the persisted representation used by `DeployedPackage`:
+The existing config fields move into new `DeployConfig` and `RemoveConfig` types, and `OptionalComponents` moves from command-layer filter plumbing into both configs. Each config type is embedded in its operation's options type, while only `DeployConfig` is also persisted on `DeployedPackage` after a successful deployment. The following abridged definitions show that composition:
 
 ```go
 // DeployConfig holds the subset of deploy options that affect the resulting deployment,
@@ -236,12 +259,35 @@ type DeployConfig struct {
 	Values             value.Values      `json:"values,omitempty"`
 	NamespaceOverride  string            `json:"namespaceOverride,omitempty"`
 	ValuesOverridesMap ValuesOverrides   `json:"valuesOverridesMap,omitempty"`
-	OptionalComponents []string          `json:"optionalComponents,omitempty"`
+	// OptionalComponents is the resolved comma-separated --components selector expression.
+	OptionalComponents string            `json:"optionalComponents,omitempty"`
 	Connected          bool              `json:"connected,omitempty"`
+}
+
+// DeployOptions contains reusable deployment config plus options that control
+// only this invocation. Existing imperative fields not relevant here are omitted.
+type DeployOptions struct {
+	DeployConfig
+
+	TakeOwnership              bool
+	ForceConflicts             bool
+	Timeout                    time.Duration
+	Retries                    int
+	OCIConcurrency             int
+	types.RemoteOptions
+	IsInteractive              bool
+	SkipValuesSchemaValidation bool
+	SkipVersionCheck           bool
+	ReuseConfig                bool
 }
 
 // Digest returns a deterministic SHA-256 digest of the deploy config.
 func (c DeployConfig) Digest() (digest.Digest, error) {
+	var err error
+	c.OptionalComponents, err = filters.NormalizeComponentSelectors(c.OptionalComponents)
+	if err != nil {
+		return "", err
+	}
 	b, err := json.Marshal(c)
 	if err != nil {
 		return "", err
@@ -252,12 +298,29 @@ func (c DeployConfig) Digest() (digest.Digest, error) {
 // RemoveConfig holds the subset of remove options that affect the resulting removal (via
 // onRemove actions), as opposed to options that only affect how the remove operation runs.
 type RemoveConfig struct {
-	Values            value.Values `json:"values,omitempty"`
-	NamespaceOverride string       `json:"namespaceOverride,omitempty"`
+	Values             value.Values `json:"values,omitempty"`
+	NamespaceOverride  string       `json:"namespaceOverride,omitempty"`
+	// OptionalComponents is the comma-separated --components selector expression.
+	OptionalComponents string       `json:"optionalComponents,omitempty"`
+}
+
+// RemoveOptions contains reusable removal config plus options that control
+// only this invocation. RemoveConfig is digested but is not persisted in full.
+type RemoveOptions struct {
+	RemoveConfig
+
+	Cluster          *cluster.Cluster
+	Timeout          time.Duration
+	SkipVersionCheck bool
 }
 
 // Digest returns a deterministic SHA-256 digest of the remove config.
 func (c RemoveConfig) Digest() (digest.Digest, error) {
+	var err error
+	c.OptionalComponents, err = filters.NormalizeComponentSelectors(c.OptionalComponents)
+	if err != nil {
+		return "", err
+	}
 	b, err := json.Marshal(c)
 	if err != nil {
 		return "", err
@@ -266,18 +329,52 @@ func (c RemoveConfig) Digest() (digest.Digest, error) {
 }
 ```
 
-`DeployedPackage` stores the latest successful snapshot as a pointer so package state written before this proposal can be distinguished from a successful deployment whose normalized config is empty:
+Embedding preserves ordinary selector access inside the deploy and remove implementations (`opts.Values`, `opts.NamespaceOverride`, `opts.Connected`), minimizing churn to existing logic. Keyed struct literals must explicitly nest the config fields:
 
 ```go
-// DeployConfig is the normalized configuration used by the latest successful deployment.
-DeployConfig *DeployConfig `json:"deployConfig,omitempty"`
+opts := DeployOptions{
+	DeployConfig: DeployConfig{
+		SetVariables:       variables,
+		Values:             values,
+		OptionalComponents: "logging,-debug-*",
+		Connected:          true,
+	},
+	Timeout: 10 * time.Minute,
+}
 ```
 
-`encoding/json` sorts map keys alphabetically at every nesting level, so `json.Marshal` over either type is deterministic for the map-shaped fields they contain. `OptionalComponents` is the normalized, deduplicated, and sorted optional-component input supplied to the deploy process, rather than the full component set selected after applying package `only` filters such as local OS or cluster architecture. This keeps the persisted config directly reusable while the incoming package and current environment determine filter-based selection during each deployment. Input files and their layering are not persisted; `DeployConfig` contains the normalized explicit inputs produced after they are parsed and merged. Package and chart defaults are also not stored in `DeployConfig`; the package digest identifies that packaged content which (unless the source shifts) is re-retrievable through `Source`.
+`RemoveOptions` is composed the same way:
+
+```go
+opts := RemoveOptions{
+	RemoveConfig: RemoveConfig{
+		Values:             values,
+		NamespaceOverride:  "tenant-a",
+		OptionalComponents: "logging",
+	},
+	Cluster: cluster,
+	Timeout: 10 * time.Minute,
+}
+```
+
+This makes the ownership boundary visible to SDK callers: `opts.DeployConfig` and `opts.RemoveConfig` are the normalized, digest-affecting values; the remaining option fields govern only that invocation. `DeployedPackage.DeployConfig` stores an independent copy of the former, not the complete `DeployOptions`. It is a pointer so state written before this proposal can be distinguished from a successful deployment whose normalized config is empty.
+
+`OptionalComponents` preserves the existing comma-separated selector language accepted by `--components`, including glob expressions such as `*` and exclusions with a leading `-`. The new shared `filters.NormalizeComponentSelectors` helper parses that expression using the existing selector rules, validates glob syntax, normalizes case and whitespace, removes duplicate selectors, and writes a deterministic comma-separated form. It stores selectors rather than the full resolved component set: the incoming package and current environment still determine `only`-filter selection such as local OS or cluster architecture. Both digest methods normalize a copy before marshaling, and the execution paths retain the normalized value before recording events or successful deploy state, so direct SDK digest calls and persisted config use the same representation without mutating the caller's config.
+
+Today optional-component selection lives in command-layer filter plumbing rather than `packager.DeployOptions` or `packager.RemoveOptions`. This proposal moves the selector input into the embedded configs and refactors selection so SDK and CLI callers use the same path:
+
+- Deploy selection retains `filters.ForDeploy` semantics, including required/default components, groups, globs, exclusions, and unmatched-selector validation.
+- Remove selection retains `filters.BySelectState` semantics, including partial removal by component selector; it does not adopt deploy's required/default/group behavior.
+- Interactive deploy prompts update the selector expression itself before the config snapshot is hashed: accepted choices add an exact-name include selector and declined choices add an exact-name `-component` selector, alongside any selectors already supplied. Because the existing syntax can represent both outcomes, the resulting `OptionalComponents` can be passed directly into a later noninteractive deploy and reproduce the choices without prompting.
+- The CLI may still use component selection early to avoid pulling unneeded OCI component layers and to render an accurate confirmation, but that filtering must be derived from the same normalized config and shared selection result. It must not independently apply a filter a second time to an already-filtered package.
+
+`encoding/json` sorts map keys alphabetically at every nesting level, so `json.Marshal` over either config is deterministic for the map-shaped fields it contains. Input files and their layering are not persisted; `DeployConfig` contains the normalized explicit inputs produced after they are parsed, merged, and any interactive component choices are captured. Package and chart defaults are also not stored in `DeployConfig`; the package digest identifies that packaged content which (unless the source shifts) is re-retrievable through `Source`.
 
 Config digests use the standard `github.com/opencontainers/go-digest` representation (`sha256:<hex>`). They deliberately carry no separate Zarf format version. Digests are compared only within the same operation type: deploy config to deploy config or remove config to remove config. Equality is authoritative only when both digests were produced under compatible normalization and serialization rules; a mismatch means the config changed or the rules did. Changing those rules should be intentional and covered by deterministic test fixtures, but will not require compatibility code unless stable cross-version comparison becomes a concrete requirement in the future.
 
-Before changing anything, `packager.Deploy` resolves all config inputs, takes an independent snapshot of the resulting `DeployConfig`, and computes `DeployConfig.Digest()` from that snapshot. The new `PackageEvent` records that digest, along with `Source`, `Version`, `Flavor`, and `Digest`, when `InProgress` is appended. Only when the entire deployment succeeds does Zarf assign that same snapshot to `DeployedPackage.DeployConfig` while appending `Succeeded`. A failed or cancelled deployment retains the prior successful config. A remove attempt does not modify it; a successful remove deletes the package state as it does today.
+Package digests also move from `string` to `digest.Digest` throughout the package identity path, including `PackageLayout.Digest()`, `PackageDigest(...)`, `DeployedPackage.Digest`, and `PackageEvent.Digest`. Unlike config digests, these values are the exact OCI manifest digest and are not re-hashed or wrapped by Zarf. The Go type change makes that contract explicit and gives callers standard parsing and validation APIs while preserving the existing JSON representation (`"sha256:<hex>"`), so existing Secrets require no data migration. Because unmarshaling a string into `digest.Digest` does not itself call `Validate()`, readers validate non-empty package digests when loading persisted or externally supplied state; an empty digest remains accepted for legacy state written before package digest tracking.
+
+Before changing anything, the deploy flow resolves all config inputs and interactive component choices, takes an independent snapshot of the resulting `DeployConfig`, and computes `DeployConfig.Digest()` from that snapshot. The new `PackageEvent` records that digest, along with `Source`, `Version`, `Flavor`, and `Digest`, when `InProgress` is appended. Only when the entire deployment succeeds does Zarf assign that same snapshot to `DeployedPackage.DeployConfig` while appending `Succeeded`. A failed or cancelled deployment retains the prior successful config. A remove attempt does not modify it; a successful remove deletes the package state as it does today.
 
 `packager.Remove` similarly computes `RemoveConfig.Digest()` before changing anything and records it on the remove event, but does not persist the full `RemoveConfig`. Library users can compare a candidate deploy digest with `DeployedPackage.DeployConfig.Digest()` or the retained event returned by `LastSuccessfulDeploy()`, and compare a candidate remove digest with the relevant retained remove event, without performing either operation.
 
@@ -352,10 +449,13 @@ The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM
 - A successful deploy stores an independent normalized `DeployConfig` snapshot whose digest matches the successful event; failed and cancelled deploys retain the previous snapshot, and remove attempts do not replace it.
 - `--reuse-config` copies the stored config before merging explicit new inputs, preserves unspecified prior inputs, applies explicit inputs with normal precedence, and fails before side effects when no stored config exists.
 - Default inspect, status, confirmation, and state-related log rendering does not expose the persisted config field, and loading it for reuse does not print it.
-- `DeployConfig.Digest()` is deterministic: repeated calls with the same normalized config, map literals built in a different key order, and optional components supplied in a different order produce the same digest; the digest changes when deploy config changes and does not change when only imperative `DeployOptions` fields change.
+- `DeployConfig.Digest()` is deterministic: repeated calls with the same normalized config, map literals built in a different key order, and equivalent optional-component selector strings with different whitespace, case, duplicate entries, or order produce the same digest; the digest changes when deploy config changes and does not change when only imperative `DeployOptions` fields change.
 - Config digests parse and validate as `github.com/opencontainers/go-digest.Digest` values and use SHA-256.
+- Package digest APIs and state fields use `digest.Digest`; local, OCI, and retained-state package digests preserve the exact OCI manifest digest and validate when non-empty, while empty legacy state remains readable.
 - `DeployConfig.Digest()` returns an error rather than panicking when given a value `encoding/json` can't marshal.
-- `RemoveConfig.Digest()` has the same determinism and error-handling properties as `DeployConfig.Digest()`, scoped to its smaller `Values`/`NamespaceOverride` field set; it does not change when only imperative `RemoveOptions` fields (`Timeout`, `SkipVersionCheck`) change.
+- `RemoveConfig.Digest()` has the same determinism, optional-component normalization, and error-handling properties as `DeployConfig.Digest()`, scoped to its smaller field set; it changes when `Values`, `NamespaceOverride`, or `OptionalComponents` changes and does not change when only imperative `RemoveOptions` fields (`Timeout`, `SkipVersionCheck`) change.
+- Deploy and remove apply their config's `OptionalComponents` through `filters.ForDeploy` and `filters.BySelectState`, respectively; CLI and SDK entry points produce the same selected components without applying the same validation-bearing filter twice.
+- Interactive deploy records accepted components as include selectors and declined components as exact-name exclusions before hashing, and reusing the stored config noninteractively reproduces those choices.
 - Prune scope parsing handles an absent flag, bare `--prune`, each explicit scope, a comma-separated scope list, `all`, unknown scopes, and scopes not applicable to the command.
 - `cluster-resources` and `images` independently gate their reconciliation behavior, and image pruning leaves an image alone if it's still referenced by any other deployed package, not just the one being pruned.
 
@@ -367,8 +467,9 @@ The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM
 - Deploying with variables, values, namespace overrides, and per-chart overrides, then deploying with `--reuse-config`, confirming the prior config is reused without being printed; explicitly override one input and confirm the other stored inputs remain unchanged.
 - Attempting `--reuse-config` against legacy or otherwise missing config state, confirming the command fails before running actions or changing cluster resources.
 - Interrupting a `zarf package deploy`/`zarf package remove` with `SIGINT`, confirming a `Cancelled` package event is appended and the in-progress component's `LastEvent` is set to `Cancelled`.
-- Deploying a package twice with identical configuration produces the same `ConfigDigest` on both events; changing `SetVariables` or `Values` between deploys produces a different `ConfigDigest`.
-- Removing a package twice (redeploying between removals) with identical `Values` produces the same `ConfigDigest` on both Remove events; changing `Values` between removals produces a different `ConfigDigest`.
+- Deploying a package twice with identical configuration produces the same `ConfigDigest` on both events; changing `SetVariables`, `Values`, or `OptionalComponents` between deploys produces a different `ConfigDigest`.
+- Removing a package twice (redeploying between removals) with identical config produces the same `ConfigDigest` on both Remove events; changing `Values` or `OptionalComponents` between removals produces a different `ConfigDigest` and processes only the selected deployed components.
+- (optionally) An interactive deploy that accepts one optional component and declines another stores equivalent include/exclude selectors; a later noninteractive `--reuse-config` deploy selects the same components. (note this may be deferred due to there not being an interactive test harness today)
 
 ### Graduation Criteria
 
@@ -380,7 +481,9 @@ The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM
 
 The state schema changes are additive, and the new prune and reuse behaviors are opt-in, so upgrades should happen automatically without breaking existing operations. Successful deploys with the newer CLI begin persisting `DeployConfig`. Downgrading remains operationally compatible because older versions ignore or strip the new fields, but `--reuse-config` is unavailable and callers must provide config again; users of `--prune` must likewise return to the older command behavior manually.
 
-This is a breaking change for SDK/library users: moving deploy configuration into `DeployConfig`, and moving `Values`/`NamespaceOverride` into `RemoveConfig` (see [`DeployConfig`, `RemoveConfig`, and `ConfigDigest`](#deployconfig-removeconfig-and-configdigest)), will not compile against existing keyed struct literals. The fix is mechanical: callers nest those fields in `DeployConfig`/`RemoveConfig`; downgrading maps them back to the old top level. This should be documented in release notes.
+This is a breaking change for SDK/library users: moving deploy configuration into `DeployConfig`, and moving `Values`/`NamespaceOverride` into `RemoveConfig` (see [`DeployConfig`, `RemoveConfig`, and `ConfigDigest`](#deployconfig-removeconfig-and-configdigest)), will not compile against existing keyed struct literals. The fix is mechanical: callers nest those fields in `DeployConfig`/`RemoveConfig`; downgrading maps them back to the old top level. `OptionalComponents` is newly available on both library option types and moves component-selection ownership into the packager API rather than requiring callers to pre-filter the package.  This has the added benefit though of allowing callers to more closely match Zarf's behavior around filtering without having to replicate it themselves.
+
+Changing package digest fields and return values from `string` to `digest.Digest` is another source-level SDK change, although its underlying type is still a string and its JSON representation is unchanged. Callers that require a plain string use `.String()`; callers constructing or consuming package digests should use the `go-digest` parsing and validation APIs. Existing persisted state remains wire-compatible and needs no migration. Both SDK changes should be documented in release notes.
 
 Rather than dropping `DeployedComponent.Status` (`ComponentStatus`) outright in favor of `LastEvent`, this proposal deprecates it and keeps setting it for 4 release cycles. Zarf doesn't have a general deprecation-timeline policy, but an immediate break is risky here: a tool reading Zarf state and the Zarf CLI writing it aren't guaranteed to be on the same version, so either side could be caught without the new field.
 
@@ -402,11 +505,11 @@ Config digest equality across CLI versions is best-effort. If normalization or s
 2026-07-01: Replaced the flat `PackageStatus`/`ComponentStatus` fields with an `Events` list; see [Alternatives](#alternatives).
 2026-07-06: `ComponentStatus` is now deprecated and kept for 4 release cycles instead of being dropped immediately.
 2026-08-05: Made `--prune` scope-selectable, with bare `--prune` defaulting to all scopes applicable to the command.
-2026-08-13: Stored the latest successful `DeployConfig` and added `--reuse-config` behavior.
+2026-08-13: Stored the latest successful `DeployConfig` and added `--reuse-config` behavior along with covering more edges and improving consistency.
 
 ## Drawbacks
 
-This proposal introduces a breaking SDK change by splitting both `DeployOptions` into `DeployConfig` and `RemoveOptions` into `RemoveConfig`, each separated from their imperative fields, to enable configuration comparison, import hydration, and config reuse. For a proposal primarily about status tracking, requiring every library consumer to update their integration code in two places introduces migration cost, even though the fix itself is mechanical (see [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy)).
+This proposal introduces breaking SDK changes by splitting both `DeployOptions` into `DeployConfig` and `RemoveOptions` into `RemoveConfig`, and by changing package digest fields and return values from `string` to `digest.Digest`. For a proposal primarily about status tracking, requiring library consumers to update option literals and some digest handling introduces migration cost, even though both fixes are mechanical and package-state JSON remains compatible (see [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy)).
 
 `--prune` is also a larger maintenance commitment than the rest of this proposal. Correctly reconciling orphaned charts, components, and cross-package image references across arbitrary upgrade paths is nontrivial logic to get right and keep right, and a bug here can delete something a user still needed, which most Zarf features don't risk.
 
