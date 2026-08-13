@@ -62,7 +62,7 @@ There are existing issues tracking against the above such as https://github.com/
   - Redeploy (when the source is online - e.g. https/oci)
   - Report deploy state / progress
   - Report remove state / progress
-  - Resume multi-package deployment (based on uniqueness of package + config)
+  - Resume multi-package deployment (identified by package digest + config digest)
 - Match Kubernetes/Helm conventions where we can
 
 ### Non-Goals
@@ -74,15 +74,15 @@ There are existing issues tracking against the above such as https://github.com/
 
 ## Proposal
 
-To meet these goals, this proposal adds an event history and the last successful deployment configuration to Zarf's `DeployedPackage` struct, plus a single last-event snapshot to each `DeployedComponent` struct. It also changes deploy/remove behavior so both stay accurate over time, and reorganizes `packager.DeployOptions`/`packager.RemoveOptions` so a subset of each can be stored and hashed for comparison. See [Design Details](#design-details) for the specifics of each change.
+To meet these goals, this proposal adds an event history and the last successful `DeployConfig` to `DeployedPackage`, plus a single last-event snapshot to each `DeployedComponent`. It also changes deploy/remove behavior so both stay accurate over time, and reorganizes `packager.DeployOptions`/`packager.RemoveOptions` so a subset of each can be stored and hashed for comparison. See [Design Details](#design-details) for the specifics of each change.
 
-- `DeployedPackage` gains an `Events` list recording every deploy/remove attempt against the package - its type (`Deploy`/`Remove`), outcome (`InProgress`/`Succeeded`/`Failed`/`Cancelled`), timestamp, package version, flavor and digest, and config digest. Deploy events additionally carry the source used.
-- `DeployedPackage` stores the normalized `DeployConfig` from its latest successful deployment. Failed and cancelled attempts remain visible in `Events` but do not replace this snapshot, and full configs are not copied into event history.
+- `DeployedPackage` gains an append-only `Events` history recording deploy/remove lifecycle transitions - each transition's type (`Deploy`/`Remove`), outcome (`InProgress`/`Succeeded`/`Failed`/`Cancelled`), timestamp, package version, flavor and digest, and config digest. Deploy events additionally carry the source used.
+- `DeployedPackage` stores the normalized `DeployConfig` from its latest successful deployment. Failed and cancelled attempts remain visible while retained in `Events` but do not replace it, and full configs are not copied into event history.
 - `DeployedComponent` gains a `LastEvent` field recording only the most recent deploy/remove attempt against that specific component, since components mostly mirror the package's own timeline and rarely need a history of their own.
 - Package status is read via `LatestEvent()`, component status by reading `LastEvent` directly - neither is a separately stored field, so neither can drift from what actually happened. See [Reading status from `Events`](#reading-status-from-events).
-- On a graceful stop, Zarf appends a `Cancelled` event for whatever was in progress at the package level, and sets `Cancelled` on the in-progress component's `LastEvent`, rather than leaving either stuck at `InProgress`. See [Graceful Cancellation Handling](#graceful-cancellation-handling).
-- `zarf package deploy` and `zarf package remove` gain an opt-in `--prune[=<scopes>]` flag, matching Helm / `kubectl` conventions. Scopes are selected with a comma-separated list, and a bare `--prune` defaults to all scopes applicable to the command.
-- `DeployOptions`' config-affecting fields (`SetVariables`, `Values`, `NamespaceOverride`, `ValuesOverridesMap`) move into a new `DeployConfig` type, and `RemoveOptions`' equivalent fields (`Values`, `NamespaceOverride`) move into a new `RemoveConfig` type. Every deploy or remove `PackageEvent` records a `ConfigDigest` computed from the relevant one, so library users can tell whether a candidate deploy or remove's configuration differs from previous events. `zarf package deploy --reuse-config` uses the stored successful `DeployConfig` as a baseline for a new deployment.
+- On a graceful stop, Zarf appends a `Cancelled` package event and sets the component `LastEvent` to `Cancelled`, rather than leaving either stuck at `InProgress`. See [Graceful Cancellation Handling](#graceful-cancellation-handling).
+- `zarf package deploy` and `zarf package remove` gain an opt-in `--prune[=<scopes>]` flag. Scopes are selected with a comma-separated list, and a bare `--prune` defaults to all scopes applicable to the command.
+- `DeployOptions`' config-affecting fields move into an embedded `DeployConfig`; `RemoveOptions`' equivalent fields move into an embedded `RemoveConfig`. Every deploy or remove `PackageEvent` records a standard `sha256:<hex>` config digest. `zarf package deploy --reuse-config` seeds the base config with the stored successful `DeployConfig`, then merges any inputs from the new invocation over it.
 
 ### User Stories (Optional)
 
@@ -107,21 +107,23 @@ To meet these goals, this proposal adds an event history and the last successful
 - **`--prune` incorrectly removes resources still in use.** If the orphan-detection logic incorrectly identifies a component as removed, or the cross-package image reference counting has a bug, `--prune` could delete a chart or image that's still needed - including one shared with an unrelated package. This is the only irreversible/destructive behavior this proposal adds.
   - *Mitigation:* `--prune` is opt-in and off by default on both `zarf package deploy` and `zarf package remove`. Users can limit pruning to explicit scopes, and anyone who hits a correctness issue can stop passing the flag to get today's behavior.
 - **The latest `PackageEvent`/`LastEvent` can be left at `InProgress`.** If a deploy or remove is interrupted, the most recent package `PackageEvent` or component `LastEvent` can be left indefinitely showing an operation that's no longer actually running.
-  - *Mitigation:* see [Graceful Cancellation Handling](#graceful-cancellation-handling) - on a controlled stop (e.g. `SIGINT`/`SIGTERM`), Zarf appends a `Cancelled` package event and sets `Cancelled` `LastEvent`s for any components in progress before exiting. This does not cover an ungraceful termination (`SIGKILL`, node crash, power loss); no code runs in those cases, so the latest event can still be left at `InProgress`. That residual risk is accepted - Zarf is not becoming a continuously reconciling controller (see [Non-Goals](#non-goals)).
+  - *Mitigation:* see [Graceful Cancellation Handling](#graceful-cancellation-handling) - on a controlled stop, Zarf appends a `Cancelled` package event and sets in-progress component events to `Cancelled` before exiting. An ungraceful termination can still leave `InProgress` as the latest event; that residual risk is accepted because Zarf is not a continuously reconciling controller.
 - **Unbounded `Events` growth.** `DeployedPackage` is stored in a Kubernetes Secret; an ever-growing `Events` list risks approaching the Secret size limit on a long-lived, frequently-redeployed package. `DeployedComponent.LastEvent` is a single value, not a list, so it doesn't carry this risk.
   - *Mitigation:* `Events` is capped at a fixed number of most-recent entries (see [`PackageEvent` retention](#packageevent-retention)), evicting the oldest entry once the cap is exceeded. Also, only one successful `DeployConfig` is stored at the package level rather than one copy per event.
-- **Persisting `DeployConfig` creates another copy of sensitive deployment inputs.** Helm release Secrets already retain values passed to charts, but package-level variables and values can also feed Zarf actions, manifests, cluster creation, or host-level components and may never reach Helm. Persisting the complete normalized config in the `DeployedPackage` Secret centralizes those inputs for anyone who can read that Secret or its backups. Importing them into another provider (such as OpenTofu) would also copy them into that provider's state under a different access boundary, and `--reuse-config` can replay credentials or action inputs long after their original use.
-  - *Mitigation:* store only the latest successful config, never copy full configs into `PackageEvent`, and redact the config field from default human-readable inspect, status, confirmation, and state-related log output. Loading it through `--reuse-config` does not itself print it; the flag is opt-in and explicitly supplied inputs can replace stale values. Operators must protect Zarf state Secrets with appropriate RBAC and encryption at rest, and other providers must mark corresponding state attributes as sensitive. Zarf cannot reliably filter only values used by cluster resources because values are package-scoped and can be consumed indirectly, so the residual exposure of action and host-level values is accepted and documented.
-- **`DeployConfig.Digest()`/`RemoveConfig.Digest()` computation can fail on non-serializable config.** `Values` and `ValuesOverridesMap` are typed as `map[string]any`, so a library user could put something in them that `encoding/json` can't marshal (e.g. a function or channel value set programmatically rather than parsed from YAML).
-  - *Mitigation:* document that `DeployConfig`/`RemoveConfig` fields must be JSON-marshalable, and have `packager.Deploy`/`packager.Remove` compute (and fail fast on) the digest at the start of the operation rather than only when a library user calls it later for comparison - so an unmarshalable config is caught immediately instead of surfacing as a confusing error somewhere else.
-- **Config digest false negatives from numeric formatting.** `ConfigDigest` is computed by JSON-marshaling user-supplied values. Semantically-identical values that are formatted differently (e.g. `5` vs `5.0` in a values file) could produce different digests, causing Zarf to report a configuration change when there isn't a meaningful one.
-  - *Mitigation:* document this as a known limitation for v1; if it proves disruptive in practice, add a canonicalization pass (e.g. normalize numeric types before hashing) in a follow-up.
+- **Persisting the successful `DeployConfig` creates another copy of sensitive deployment inputs.** Helm release Secrets already retain values passed to charts, but package-level variables and values can also feed Zarf actions, manifests, cluster creation, or host-level components and may never reach Helm. Persisting the normalized override layer in the `DeployedPackage` Secret centralizes those inputs for anyone who can read that Secret or its backups. Importing them into another provider (such as OpenTofu) would also copy them into that provider's state under a different access boundary, and `--reuse-config` can replay credentials or action inputs long after their original use.
+  - *Mitigation:* redact the snapshot from default human-readable inspect, status, confirmation, and state-related log output and document that operators must protect Zarf state Secrets with appropriate RBAC and encryption at rest.  Any other providers using Zarf as a library must also mark corresponding state attributes as sensitive. Zarf cannot reliably filter only values used by cluster resources because values are package-scoped and can be consumed indirectly, so the residual exposure of action and host-level values must be accepted and documented.
+- **Config digest false change reports from numeric formatting.** `ConfigDigest` is computed by JSON-marshaling user-supplied values. Semantically-identical values that are formatted differently (e.g. `5` vs `5.0` in a values file) could produce different digests, causing Zarf to report a configuration change when there isn't a meaningful one.
+  - *Mitigation:* document this as a known limitation of the initial implementation; if it proves disruptive in practice, add a canonicalization pass (e.g. normalize numeric types before hashing) in a follow-up.
+- **Config digest generation can change between CLI versions.** A future change to config normalization or serialization could make the same logical config produce a different digest. Because retained events can have been written by several CLI versions, `DeployedPackage.CLIVersion` cannot reliably identify the rules used for each digest.
+  - *Mitigation:* config digests are comparison fingerprints, not permanent content identifiers. A mismatch means "changed or unknown," so a conservative mismatch across versions is safe. For deploy comparisons, the retained `DeployConfig` can be re-hashed using the current rules; historical event-only comparisons remain best-effort.
 - **A `Source` could persist embedded credentials.** A source string like `https://user:pass@host/...` recorded on a deploy `PackageEvent` would be stored as-is in the `DeployedPackage` secret and could resurface in `zarf package inspect` output or logs. In practice this should be rare - most sources are `oci://` or local tarballs, and Zarf already supports `.netrc` for credential storage, so embedding credentials in the source URI is uncommon.
   - *Mitigation:* document that credentials should be provided via `.netrc` rather than embedded in the source string; no code-level scrubbing planned given how rare this path is.
 
 ## Design Details
 
 ### `DeployedPackage` and `DeployedComponent` changes
+
+`DeployedPackage.CLIVersion` is existing provenance identifying the Zarf CLI version recorded with the deployed package; it is not a schema version and is not necessarily refreshed by every state update. This proposal does not add a schema version. In particular, `CLIVersion` does not version individual `PackageEvent` entries: a retained event history can contain entries from several CLI versions, and a newer unsuccessful attempt can update package state while preserving an older successful `DeployConfig`. Readers therefore must not use the top-level `CLIVersion` to infer how a particular config digest was generated and must accept the "changed or unknown" mitigation mentioned above.
 
 #### Add `Events`
 
@@ -147,7 +149,7 @@ const (
 	EventOutcomeCancelled  EventOutcome = "Cancelled"
 )
 
-// PackageEvent records a single deploy or remove attempt against a package.
+// PackageEvent records one lifecycle transition in a deploy or remove attempt.
 type PackageEvent struct {
 	Type      EventType    `json:"type"`
 	Outcome   EventOutcome `json:"outcome"`
@@ -162,9 +164,9 @@ type PackageEvent struct {
 	// Source is the source the package was deployed from (e.g. oci:// URL, tarball path).
 	// Only set on Deploy events.
 	Source string `json:"source,omitempty"`
-	// ConfigDigest is a deterministic, self-describing digest of the DeployConfig (Deploy
-	// events) or RemoveConfig (Remove events) used for this operation (e.g. "sha256:<hex>").
-	ConfigDigest string `json:"configDigest,omitempty"`
+	// ConfigDigest is a deterministic digest of the DeployConfig (Deploy events) or
+	// RemoveConfig (Remove events) used for this operation.
+	ConfigDigest digest.Digest `json:"configDigest,omitempty"`
 }
 
 // ComponentEvent records the most recent deploy or remove attempt against a single component.
@@ -176,6 +178,8 @@ type ComponentEvent struct {
 	Timestamp time.Time    `json:"timestamp"`
 }
 ```
+
+Each deploy/remove attempt appends an `InProgress` `PackageEvent`; completion appends a terminal event of the same type. `LatestEvent()` therefore returns current status without finding and mutating an earlier entry. `DeployedComponent.LastEvent` remains a single value and is overwritten as that component progresses.
 
 `Version`, `Flavor`, `Digest`, and `ConfigDigest` are set on every `PackageEvent`, deploy or remove alike, since both operations act on a specific package version and both have a config-affecting subset of options (`DeployConfig`/`RemoveConfig` - see [`DeployConfig`, `RemoveConfig`, and `ConfigDigest`](#deployconfig-removeconfig-and-configdigest)). `Version`/`Flavor`/`Digest` give a history of what versions/flavors/digests were deployed and removed over time, alongside `DeployedPackage`'s own top-level `Digest` field (which still tracks only the current one, unchanged by this proposal). `Source` stays Deploy-only, since a remove doesn't have a source of its own - it operates on whatever's already deployed.
 
@@ -211,13 +215,13 @@ func (d *DeployedPackage) LastSuccessfulDeploy() (PackageEvent, bool)
 
 #### `PackageEvent` retention
 
-Since `DeployedPackage` is stored inside a Kubernetes Secret, `Events` can't grow without bound. The list is capped at a fixed number of most-recent entries (e.g. `10`); once the cap is exceeded, the oldest entry is dropped when a new one is appended. This keeps enough history to answer "what was the last event, and the one before it" without risking the Secret's size limit on a package that's redeployed or removed and redeployed many times over its lifetime. `DeployedComponent.LastEvent` is a single value, not a list, so there's nothing to cap there - each deploy or remove attempt overwrites it.
+Since `DeployedPackage` is stored inside a Kubernetes Secret, `Events` can't grow without bound. The list is capped at a fixed number of most-recent entries (e.g. `10`); once the cap is exceeded, the oldest entry is dropped. `DeployedComponent.LastEvent` is a single value, so each deploy or remove transition overwrites it.
 
 #### `DeployConfig`, `RemoveConfig`, and `ConfigDigest`
 
 Comparing a candidate deployment's configuration against what's already deployed - or retaining the inputs needed to repeat a successful deployment - requires distinguishing fields that affect the resulting deployment from fields that only affect how the deploy operation runs. Today `packager.DeployOptions` mixes both. This proposal splits it as follows:
 
-- **Config** (affects the resulting deployment, and should be part of the digest): `SetVariables`, `Values` (`value.Values`), `NamespaceOverride`, `ValuesOverridesMap`
+- **Config** (affects the resulting deployment, and should be part of the digest): `SetVariables`, `Values` (`value.Values`), `NamespaceOverride`, `ValuesOverridesMap`, `OptionalComponents`, and `Connected`
 - **Imperative** (affects only the deploy operation, and stays out of the digest): everything else, e.g. `Timeout`, `Retries`, `OCIConcurrency`, `IsInteractive`, `ForceConflicts`, `AdoptExistingResources`, `SkipVersionCheck`, `ReuseConfig`, `RemoteOptions`, and the Zarf init state used to configure a cluster (`GitServer`, `RegistryInfo`, `ArtifactServer`, `AgentTLS`, `AgentMutationPolicy`, `StorageClass`, `InjectorPort`)
 
 The same split applies to `packager.RemoveOptions`, which today also mixes `Values` and `NamespaceOverride` in with imperative fields (`Cluster`, `Timeout`, `SkipVersionCheck`) - Zarf Values are usable in `onRemove` actions, so they affect what a remove actually does, not just how it runs. `RemoveOptions`' config subset is smaller than `DeployOptions`': it has no `SetVariables` or `ValuesOverridesMap` to begin with, since those only apply to Helm chart installs.
@@ -232,19 +236,17 @@ type DeployConfig struct {
 	Values             value.Values      `json:"values,omitempty"`
 	NamespaceOverride  string            `json:"namespaceOverride,omitempty"`
 	ValuesOverridesMap ValuesOverrides   `json:"valuesOverridesMap,omitempty"`
+	OptionalComponents []string          `json:"optionalComponents,omitempty"`
+	Connected          bool              `json:"connected,omitempty"`
 }
 
-// Digest returns a deterministic, self-describing digest of the config (e.g. "sha256:<hex>"),
-// suitable for comparing against PackageEvent.ConfigDigest. The algorithm prefix allows a 
-// future change to the hashing/canonicalization approach to be identified rather than
-// silently comparing incompatible digests.
-func (c DeployConfig) Digest() (string, error) {
+// Digest returns a deterministic SHA-256 digest of the deploy config.
+func (c DeployConfig) Digest() (digest.Digest, error) {
 	b, err := json.Marshal(c)
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(b)
-	return "sha256:" + hex.EncodeToString(sum[:]), nil
+	return digest.FromBytes(b), nil
 }
 
 // RemoveConfig holds the subset of remove options that affect the resulting removal (via
@@ -254,15 +256,13 @@ type RemoveConfig struct {
 	NamespaceOverride string       `json:"namespaceOverride,omitempty"`
 }
 
-// Digest returns a deterministic, self-describing digest of the config, using the same
-// approach as DeployConfig.Digest().
-func (c RemoveConfig) Digest() (string, error) {
+// Digest returns a deterministic SHA-256 digest of the remove config.
+func (c RemoveConfig) Digest() (digest.Digest, error) {
 	b, err := json.Marshal(c)
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(b)
-	return "sha256:" + hex.EncodeToString(sum[:]), nil
+	return digest.FromBytes(b), nil
 }
 ```
 
@@ -273,23 +273,27 @@ func (c RemoveConfig) Digest() (string, error) {
 DeployConfig *DeployConfig `json:"deployConfig,omitempty"`
 ```
 
-`encoding/json` sorts map keys alphabetically at every nesting level, so `json.Marshal` over either type is deterministic for the map-shaped fields they contain (`SetVariables`, `Values`, `ValuesOverridesMap`) without any extra canonicalization work. Input files and their layering are not persisted; `DeployConfig` contains the normalized maps and overrides produced after those inputs are parsed and merged.
+`encoding/json` sorts map keys alphabetically at every nesting level, so `json.Marshal` over either type is deterministic for the map-shaped fields they contain. `OptionalComponents` is the normalized, deduplicated, and sorted optional-component input supplied to the deploy process, rather than the full component set selected after applying package `only` filters such as local OS or cluster architecture. This keeps the persisted config directly reusable while the incoming package and current environment determine filter-based selection during each deployment. Input files and their layering are not persisted; `DeployConfig` contains the normalized explicit inputs produced after they are parsed and merged. Package and chart defaults are also not stored in `DeployConfig`; the package digest identifies that packaged content which (unless the source shifts) is re-retrievable through `Source`.
 
-Before changing anything, `packager.Deploy` resolves all config inputs, takes an independent snapshot of the resulting `DeployConfig`, and computes `DeployConfig.Digest()` from that snapshot. The new `PackageEvent` records that digest, along with `Source`, `Version`, `Flavor`, and `Digest`, when its `Outcome` starts as `InProgress`. Only when the entire deployment succeeds does Zarf assign that same snapshot to `DeployedPackage.DeployConfig`, in the state update that marks the event `Succeeded`. A failed or cancelled deployment retains the prior successful config. A remove attempt does not modify it; a successful remove deletes the package state as it does today.
+Config digests use the standard `github.com/opencontainers/go-digest` representation (`sha256:<hex>`). They deliberately carry no separate Zarf format version. Digests are compared only within the same operation type: deploy config to deploy config or remove config to remove config. Equality is authoritative only when both digests were produced under compatible normalization and serialization rules; a mismatch means the config changed or the rules did. Changing those rules should be intentional and covered by deterministic test fixtures, but will not require compatibility code unless stable cross-version comparison becomes a concrete requirement in the future.
 
-`packager.Remove` similarly computes `RemoveConfig.Digest()` before changing anything and records it on the remove event, but does not persist the full `RemoveConfig`. Library users can compare a candidate deploy digest with `DeployedPackage.DeployConfig.Digest()` or the retained event returned by `LastSuccessfulDeploy()`, and compare a candidate remove digest with the relevant retained remove event, without performing either operation. No duplicate top-level `ConfigDigest` is stored: while the successful deploy event is retained its digest is available through `LastSuccessfulDeploy()`, and it can always be recomputed from `DeployedPackage.DeployConfig`.
+Before changing anything, `packager.Deploy` resolves all config inputs, takes an independent snapshot of the resulting `DeployConfig`, and computes `DeployConfig.Digest()` from that snapshot. The new `PackageEvent` records that digest, along with `Source`, `Version`, `Flavor`, and `Digest`, when `InProgress` is appended. Only when the entire deployment succeeds does Zarf assign that same snapshot to `DeployedPackage.DeployConfig` while appending `Succeeded`. A failed or cancelled deployment retains the prior successful config. A remove attempt does not modify it; a successful remove deletes the package state as it does today.
 
-**Known limitation:** values passed through YAML/JSON can round-trip as `float64`, so numerically-equal-but-differently-formatted values (e.g. `5` vs `5.0`) could theoretically produce different digests even though they represent the same configuration. This proposal accepts that limitation for v1 - see [Risks and Mitigations](#risks-and-mitigations).
+`packager.Remove` similarly computes `RemoveConfig.Digest()` before changing anything and records it on the remove event, but does not persist the full `RemoveConfig`. Library users can compare a candidate deploy digest with `DeployedPackage.DeployConfig.Digest()` or the retained event returned by `LastSuccessfulDeploy()`, and compare a candidate remove digest with the relevant retained remove event, without performing either operation.
+
+For deploys, package digest + config digest is the complete resume identity: the package digest identifies the Zarf package and all content/defaults it contains, while the config digest identifies how that package was deployed. The package digest remains the exact OCI manifest digest rather than a Zarf-wrapped value, so it can be used directly as an OCI reference. A change to how Zarf constructs or orders the manifest can legitimately change that digest even when inputs appear semantically equivalent; pinned deterministic tests guard against doing so accidentally.
+
+**Known limitation:** values passed through YAML/JSON can round-trip as `float64`, so numerically-equal-but-differently-formatted values (e.g. `5` vs `5.0`) could theoretically produce different digests even though they represent the same configuration. This proposal accepts that limitation initially - see [Risks and Mitigations](#risks-and-mitigations).
 
 ### Behavior Changes
 
 #### Reusing the successful deploy config
 
-`zarf package deploy` gains an opt-in `--reuse-config` flag, with a matching `ReuseConfig bool` SDK option. When selected, Zarf loads `DeployedPackage.DeployConfig` and uses an independent copy as the lowest-precedence config source for the new deployment. Config inputs explicitly supplied for the new operation are resolved over that baseline through the ordinary precedence and merge path. With no new config inputs, the prior successful config is reused exactly.
+`zarf package deploy` gains an opt-in `--reuse-config` flag, with a matching `ReuseConfig bool` SDK option. When selected, Zarf loads `DeployedPackage.DeployConfig` and uses an independent copy as the lowest-precedence explicit config source for the new deployment. Inputs supplied for the new operation are resolved over that baseline through the ordinary precedence and merge path: maps merge recursively, while lists and scalar values replace the stored value. With no new config inputs, the prior successful config is reused exactly.
 
-Only `DeployConfig` is reused. The package source and imperative options such as timeout, retries, confirmation, and pruning still come from the new operation. The merged config is processed and validated exactly like config supplied without `--reuse-config`; incompatibilities with a newer package version therefore follow the normal deploy behavior rather than a separate reuse path. Zarf computes the new event's `ConfigDigest` from this merged config and, if the deployment succeeds, replaces the stored snapshot with it.
+Only explicit `DeployConfig` is reused. Package and chart defaults are loaded from the incoming package, so this behaves like Helm's `--reset-then-reuse-values`, not exact `--reuse-values`: incoming defaults, then stored explicit config, then new explicit config. The package source and imperative options such as timeout, retries, confirmation, and pruning still come from the new operation. Zarf computes the new event's `ConfigDigest` from the merged config and, if the deployment succeeds, replaces the stored config with it.
 
-`--reuse-config` fails validation before any actions or cluster changes if the package is not already deployed or its state has no stored `DeployConfig`, including package state written before this proposal. It does not fall back to empty or default config, and Zarf does not print the stored config as part of loading or reusing it.
+`--reuse-config` fails validation before any actions or cluster changes if the package is not already deployed or its state has no stored `DeployConfig`. It does not fall back to empty config, and Zarf does not print the stored config as part of loading or reusing it.
 
 Zarf also needs to reconcile differences between package upgrades to avoid orphaned charts or components, matching Helm / `kubectl` conventions.
 
@@ -328,7 +332,7 @@ This is the same reference-counted removal `zarf tools registry prune` already d
 
 Today, if a `zarf package deploy` or `zarf package remove` is interrupted, the latest package `PackageEvent`/component `LastEvent` (once this proposal exists) can be left at `InProgress` indefinitely, with nothing to correct it afterward.
 
-On a controlled stop - Zarf catching `SIGINT`/`SIGTERM` via a cancellable `context.Context` (e.g. `signal.NotifyContext`) - Zarf will attempt to append a `Cancelled` event to the package's `Events`, and set `LastEvent` to `Cancelled` on whatever component was in progress, before exiting; both use the `Type` of the operation that was interrupted. This lets library users tell which operation was in flight when Zarf stopped, without having to separately track what command was running. This is best-effort: an ungraceful termination (`SIGKILL`, node crash, power loss) gives Zarf no opportunity to run any code, so the latest event can still be left at `InProgress` in that case - see [Risks and Mitigations](#risks-and-mitigations).
+On a controlled stop - Zarf catching `SIGINT`/`SIGTERM` via a cancellable `context.Context` (e.g. `signal.NotifyContext`) - Zarf will attempt to append a `Cancelled` package event and set the in-progress component's `LastEvent` to `Cancelled` before exiting. This is best-effort: an ungraceful termination (`SIGKILL`, node crash, power loss) gives Zarf no opportunity to run any code, so the latest event can still be left at `InProgress` - see [Risks and Mitigations](#risks-and-mitigations).
 
 ### Test Plan
 
@@ -342,13 +346,14 @@ The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM
 
 ##### Unit tests
 
-- `DeployedPackage.Events` are appended (never overwritten) for every deploy/remove outcome, including `Cancelled`; `DeployedComponent.LastEvent` is overwritten on every deploy/remove attempt against that component.
+- `DeployedPackage.Events` appends `InProgress` and terminal transitions for deploy/remove attempts; `DeployedComponent.LastEvent` is overwritten as the latest component attempt progresses.
 - `LatestEvent()` returns the newest event, while `LastSuccessfulDeploy()` skips newer failed, cancelled, and remove events and returns `false` when no successful deploy remains in retained history.
 - `DeployedPackage.Events` retention caps at the configured number of entries, evicting the oldest entry first without clearing the independent successful `DeployConfig` snapshot.
 - A successful deploy stores an independent normalized `DeployConfig` snapshot whose digest matches the successful event; failed and cancelled deploys retain the previous snapshot, and remove attempts do not replace it.
 - `--reuse-config` copies the stored config before merging explicit new inputs, preserves unspecified prior inputs, applies explicit inputs with normal precedence, and fails before side effects when no stored config exists.
 - Default inspect, status, confirmation, and state-related log rendering does not expose the persisted config field, and loading it for reuse does not print it.
-- `DeployConfig.Digest()` is deterministic: repeated calls with the same config, and calls with map literals built in a different key order, all produce the same digest; the digest changes when `SetVariables`, `Values`, `NamespaceOverride`, or `ValuesOverridesMap` change, and does not change when only imperative `DeployOptions` fields change.
+- `DeployConfig.Digest()` is deterministic: repeated calls with the same normalized config, map literals built in a different key order, and optional components supplied in a different order produce the same digest; the digest changes when deploy config changes and does not change when only imperative `DeployOptions` fields change.
+- Config digests parse and validate as `github.com/opencontainers/go-digest.Digest` values and use SHA-256.
 - `DeployConfig.Digest()` returns an error rather than panicking when given a value `encoding/json` can't marshal.
 - `RemoveConfig.Digest()` has the same determinism and error-handling properties as `DeployConfig.Digest()`, scoped to its smaller `Values`/`NamespaceOverride` field set; it does not change when only imperative `RemoveOptions` fields (`Timeout`, `SkipVersionCheck`) change.
 - Prune scope parsing handles an absent flag, bare `--prune`, each explicit scope, a comma-separated scope list, `all`, unknown scopes, and scopes not applicable to the command.
@@ -361,7 +366,7 @@ The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM
 - Two packages sharing an image, with one pruned/removed: confirming the shared image's tags survive while the other package still references it, and are removed once nothing references it anymore.
 - Deploying with variables, values, namespace overrides, and per-chart overrides, then deploying with `--reuse-config`, confirming the prior config is reused without being printed; explicitly override one input and confirm the other stored inputs remain unchanged.
 - Attempting `--reuse-config` against legacy or otherwise missing config state, confirming the command fails before running actions or changing cluster resources.
-- Interrupting a `zarf package deploy`/`zarf package remove` with `SIGINT`, confirming a `Cancelled` event of the correct `Type` is appended to the package's `Events` and set on the in-progress component's `LastEvent`.
+- Interrupting a `zarf package deploy`/`zarf package remove` with `SIGINT`, confirming a `Cancelled` package event is appended and the in-progress component's `LastEvent` is set to `Cancelled`.
 - Deploying a package twice with identical configuration produces the same `ConfigDigest` on both events; changing `SetVariables` or `Values` between deploys produces a different `ConfigDigest`.
 - Removing a package twice (redeploying between removals) with identical `Values` produces the same `ConfigDigest` on both Remove events; changing `Values` between removals produces a different `ConfigDigest`.
 
@@ -375,7 +380,7 @@ The e2e suite will need to simulate a controlled stop (sending `SIGINT`/`SIGTERM
 
 The state schema changes are additive, and the new prune and reuse behaviors are opt-in, so upgrades should happen automatically without breaking existing operations. Successful deploys with the newer CLI begin persisting `DeployConfig`. Downgrading remains operationally compatible because older versions ignore or strip the new fields, but `--reuse-config` is unavailable and callers must provide config again; users of `--prune` must likewise return to the older command behavior manually.
 
-This is a breaking change for SDK/library users: moving `SetVariables`, `Values`, `NamespaceOverride`, and `ValuesOverridesMap` out of `DeployOptions` and into the nested `DeployConfig`, and moving `Values`/`NamespaceOverride` out of `RemoveOptions` and into the nested `RemoveConfig` (see [`DeployConfig`, `RemoveConfig`, and `ConfigDigest`](#deployconfig-removeconfig-and-configdigest)), will not compile against existing caller code. The fix is mechanical, though - callers move those fields from a top-level `DeployOptions`/`RemoveOptions` struct literal into a `DeployConfig`/`RemoveConfig` struct literal, either inline or assigned to `DeployOptions.DeployConfig`/`RemoveOptions.RemoveConfig`. Downgrading is the same mapping in reverse. This kind of internal restructuring is similar to other breaking changes Zarf has shipped before, and should be documented in release notes the same way those were.
+This is a breaking change for SDK/library users: moving deploy configuration into `DeployConfig`, and moving `Values`/`NamespaceOverride` into `RemoveConfig` (see [`DeployConfig`, `RemoveConfig`, and `ConfigDigest`](#deployconfig-removeconfig-and-configdigest)), will not compile against existing keyed struct literals. The fix is mechanical: callers nest those fields in `DeployConfig`/`RemoveConfig`; downgrading maps them back to the old top level. This should be documented in release notes.
 
 Rather than dropping `DeployedComponent.Status` (`ComponentStatus`) outright in favor of `LastEvent`, this proposal deprecates it and keeps setting it for 4 release cycles. Zarf doesn't have a general deprecation-timeline policy, but an immediate break is risky here: a tool reading Zarf state and the Zarf CLI writing it aren't guaranteed to be on the same version, so either side could be caught without the new field.
 
@@ -387,7 +392,9 @@ Existing `DeployedPackage` secrets predating this proposal start with an empty `
 
 This proposal doesn't impact how Zarf's Agent and CLI interact, so no changes are needed there.
 
-It does introduce skew between CLI versions reading the same `DeployedPackage`/`DeployedComponent` secret. A newer CLI reading a secret written by an older, pre-`Events` CLI sees an empty package `Events` list, no `DeployConfig`, and zero-value component `LastEvent`s, and reports `Unknown` via `LatestEvent` until the package's next deploy or remove. An older CLI reading a secret written by a newer CLI ignores the unrecognized `Events`, `DeployConfig`, and `LastEvent` JSON fields, but does still see `ComponentStatus`, which the newer CLI keeps writing during the deprecation window (see [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy)). If the older CLI subsequently writes the package state, the stored config can be lost and `--reuse-config` remains unavailable until another successful deploy with a newer CLI. No coordinated rollout is required.
+It does introduce skew between CLI versions reading the same `DeployedPackage`/`DeployedComponent` secret. A newer CLI reading a secret written by an older, pre-`Events` CLI sees an empty package `Events` list, no `DeployConfig`, and zero-value component `LastEvent`s, and reports `Unknown` via `LatestEvent` until the package's next deploy or remove. An older CLI reading a secret written by a newer CLI ignores the unrecognized `Events`, `DeployConfig`, and `LastEvent` JSON fields, but does still see `ComponentStatus`, which the newer CLI keeps writing during the deprecation window (see [Upgrade / Downgrade Strategy](#upgrade--downgrade-strategy)). If the older CLI subsequently writes the package state, the stored config can be lost and `--reuse-config` remains unavailable until another successful deploy with a newer CLI.
+
+Config digest equality across CLI versions is best-effort. If normalization or serialization changes, a digest produced with the new rules may not match a retained event digest produced with the old rules; Zarf treats that as "changed or unknown" rather than attempting to select digest rules from the top-level `CLIVersion`. The persisted successful `DeployConfig` remains reusable and can be re-hashed under the current rules. No coordinated rollout is required.
 
 ## Implementation History
 
@@ -395,7 +402,7 @@ It does introduce skew between CLI versions reading the same `DeployedPackage`/`
 2026-07-01: Replaced the flat `PackageStatus`/`ComponentStatus` fields with an `Events` list; see [Alternatives](#alternatives).
 2026-07-06: `ComponentStatus` is now deprecated and kept for 4 release cycles instead of being dropped immediately.
 2026-08-05: Made `--prune` scope-selectable, with bare `--prune` defaulting to all scopes applicable to the command.
-2026-08-11: Stored the latest successful `DeployConfig` and added `--reuse-config` behavior.
+2026-08-13: Stored the latest successful `DeployConfig` and added `--reuse-config` behavior.
 
 ## Drawbacks
 
@@ -403,7 +410,7 @@ This proposal introduces a breaking SDK change by splitting both `DeployOptions`
 
 `--prune` is also a larger maintenance commitment than the rest of this proposal. Correctly reconciling orphaned charts, components, and cross-package image references across arbitrary upgrade paths is nontrivial logic to get right and keep right, and a bug here can delete something a user still needed, which most Zarf features don't risk.
 
-`ConfigDigest` approximates whether the configuration changed rather than guaranteeing it - the known numeric-formatting limitation (see [Risks and Mitigations](#risks-and-mitigations)) means it can report a change where there isn't a meaningful one. This should be documented clearly so users don't treat a digest mismatch as an authoritative diff.
+`ConfigDigest` approximates whether the configuration changed rather than guaranteeing it. Numeric formatting and future normalization or serialization changes can produce a mismatch where there isn't a meaningful configuration difference (see [Risks and Mitigations](#risks-and-mitigations)). This should be documented clearly so users treat a digest mismatch as "changed or unknown," not an authoritative diff.
 
 Persisting `DeployConfig` improves import, drift reporting, and repeat deployment, but it also makes all normalized deployment inputs durable cluster state even when some values were used only by actions or host-level components. This increases the sensitive data available through the Zarf state Secret and its backups, and consumers such as OpenTofu will generally retain another copy in their own state.
 
@@ -456,7 +463,7 @@ const (
 )
 ```
 
-This solves the enum-pairing problem the same way `Events` does - `Phase` and `Outcome` vary independently instead of multiplying - but it was rejected in favor of `Events` for two reasons. First, two independently-set fields can drift from each other the same way a single status field could go stale; `Events` is a single append-only list, so there's nothing for two separate writers to disagree about. Second, a pair of scalars still can't carry history or timestamps - `Events` answers "what was the last Deploy vs. the last Remove, and when" directly, and `Phase`/`Outcome` can't represent that without becoming a list of pairs.
+This solves the enum-pairing problem the same way `Events` does - `Phase` and `Outcome` vary independently instead of multiplying - but it was rejected in favor of `Events` because a pair of scalars cannot retain operation history or timestamps. `Events` answers "what was the last Deploy vs. the last Remove, and when" directly.
 
 `Phase`/`Outcome` would offer one capability `Events` doesn't: a persistent "health" value that changes independently of any operation in progress - useful for a system that reconciles continuously, which this proposal explicitly says Zarf isn't becoming (see [Non-Goals](#non-goals)). If that changes, this tradeoff should be revisited.
 
