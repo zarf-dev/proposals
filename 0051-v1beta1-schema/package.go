@@ -104,6 +104,8 @@ type Component struct {
 	Description string `json:"description,omitempty"`
 	// Do not install this component unless explicitly requested. Defaults to false, meaning the component is required.
 	Optional bool `json:"optional,omitempty"`
+	// Filter when this component is included during package creation based on architecture or flavor.
+	Selector ComponentSelector `json:"selector,omitempty"`
 	ComponentSpec
 }
 
