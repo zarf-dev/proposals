@@ -233,6 +233,12 @@ The `Kind` "ZarfInitConfig" will be removed. Every package will be of kind "Zarf
 
 The v1beta1 APIVersion will introduce a new `Kind` alongside ZarfPackageConfig called ZarfComponentConfig. ZarfComponentConfig files will allow declaring a component to be imported from other packages. It will have its own schema, and this schema will be verified on create and publish. ZarfComponentConfigs will be importable only by v1beta1 packages. Components from other ZarfPackageConfigs will not be importable in v1beta1 packages.
 
+A component in `ZarfComponentConfig` differs from one in `ZarfPackageConfig` in a few ways:
+
+- `.component.name` and `.component.description` are moved from the component object to the metadata object.
+- `optional` does not exist in `ZarfComponentConfig` because component inclusion is relevant only when building a package.
+- `.component.selector.architecture` and `.component.selector.flavor` are moved to `.metadata.variant.architecture` and `.metadata.variant.flavor`. Including the architecture and flavor in the metadata makes it clear when the component can be imported.
+
 Each ZarfComponentConfig declares exactly one component under the `component` field. If a user wants multiple variations of a component differentiated by flavor or architecture, they create one ZarfComponentConfig file per variation and set the `.metadata.flavor` or `.metadata.architecture` fields on each. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
 
 The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will result in an error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and promote a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
