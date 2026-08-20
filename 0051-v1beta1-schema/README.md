@@ -237,13 +237,13 @@ A component in `ZarfComponentConfig` differs from one in `ZarfPackageConfig` in 
 
 - `.component.name` and `.component.description` are moved from the component object to the metadata object.
 - `optional` does not exist in `ZarfComponentConfig` to force the parent package to decide whether or not the component is required.
-- `.component.selector.architecture` and `.component.selector.flavor` are moved to `.metadata.variant.architecture` and `.metadata.variant.flavor`. Including the architecture and flavor in the metadata makes it clear when the component can be imported.
+- `.component.selector.architecture` and `.component.selector.flavor` are moved to the top-level `.variants.architecture` and `.variants.flavor` fields. This makes it clear when the component will be imported.
 
-Each ZarfComponentConfig declares exactly one component under the `component` field. If a user wants multiple variations of a component differentiated by flavor or architecture, they create one ZarfComponentConfig file per variation and set the `.metadata.variant.flavor` or `.metadata.variant.architecture` fields on each. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
+Each ZarfComponentConfig declares exactly one component under the `component` field. If a user wants multiple variations of a component differentiated by flavor or architecture, they create one ZarfComponentConfig file per variation and set the top-level `.variants.flavor` or `.variants.architecture` fields on each. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
 
 The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will result in an error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and promote a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
 
-`.import.local` is a list of local file path references to ZarfComponentConfig files; directories are not accepted. `.import.remote` is a list of `oci://` URL references to remote component configs pulled at create time. All entries from both are combined when applying component compatibility rules: when more than one entry is given, every referenced component must share the same name, and at most one must match the package's create-time architecture and flavor using its `.metadata.variant.architecture` and `.metadata.variant.flavor` fields, otherwise Zarf will error.
+`.import.local` is a list of local file path references to ZarfComponentConfig files; directories are not accepted. `.import.remote` is a list of `oci://` URL references to remote component configs pulled at create time. All entries from both are combined when applying component compatibility rules: when more than one entry is given, every referenced component must share the same name, and at most one must match the package's create-time architecture and flavor using its `.variants.architecture` and `.variants.flavor` fields, otherwise Zarf will error.
 
 The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, inspect, and find-images) will accept component config files. For example, `zarf dev inspect definition my-component-config.yaml`.
 
@@ -251,7 +251,7 @@ The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, 
 
 Skeleton packages will be replaced by remote components. Instead of publishing an entire package, users will be able to publish a ZarfComponentConfig. This component will behave similarly to Skeleton packages in that local resources will be published alongside it, while remote resources will be pulled at create time.
 
-Remote components will be published using the new command `zarf component publish <component-file> <oci-repo>`. The component config's metadata determines its flavor and architecture variant.
+Remote components will be published using the new command `zarf component publish <component-file> <oci-repo>`. The component config's `variants` object determines its flavor and architecture variant.
 
 Unlike Skeleton packages, which are published with unresolved templates, remote components must be fully templated before publishing. By templating before publish, we avoid issues with validating a non-templated package ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and stay aligned with the overall [Package Templates](#package-templates) strategy.
 
