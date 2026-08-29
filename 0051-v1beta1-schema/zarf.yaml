@@ -55,6 +55,9 @@ components:
     remote:
       - url: oci://ghcr.io/my-org/components/a-component:1.0.0
   service: registry # one of: registry, seed-registry, injector, agent, git-server
+  stateValues:
+  - sourcePath: ".registry.port"
+    targetPath: ".Registry.Port"
   manifests:
   - name: manifest
     namespace: manifest-ns
