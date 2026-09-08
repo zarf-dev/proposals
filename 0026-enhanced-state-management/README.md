@@ -62,7 +62,7 @@ There are existing issues tracking against the above such as https://github.com/
   - Redeploy (when the source is online - e.g. https/oci)
   - Report deploy state / progress
   - Report remove state / progress
-  - Resume multi-package deployment (identified by package digest + config digest)
+  - Determine whether a specific package and deployment configuration has already been successfully deployed
 - Match Kubernetes/Helm conventions where we can
 
 ### Non-Goals
@@ -378,7 +378,7 @@ Before changing anything, the deploy flow resolves all config inputs and interac
 
 `packager.Remove` similarly computes `RemoveConfig.Digest()` before changing anything and records it on the remove event, but does not persist the full `RemoveConfig`. Library users can compare a candidate deploy digest with `DeployedPackage.DeployConfig.Digest()` or the retained event returned by `LastSuccessfulDeploy()`, and compare a candidate remove digest with the relevant retained remove event, without performing either operation.
 
-For deploys, package digest + config digest is the complete resume identity: the package digest identifies the Zarf package and all content/defaults it contains, while the config digest identifies how that package was deployed. The package digest remains the exact OCI manifest digest rather than a Zarf-wrapped value, so it can be used directly as an OCI reference. A change to how Zarf constructs or orders the manifest can legitimately change that digest even when inputs appear semantically equivalent; pinned deterministic tests guard against doing so accidentally.
+For deploys, package digest + config digest identifies the package content and deployment configuration used for an operation. Callers can compare that identity with retained lifecycle events when deciding whether a package operation needs to run.
 
 **Known limitation:** values passed through YAML/JSON can round-trip as `float64`, so numerically-equal-but-differently-formatted values (e.g. `5` vs `5.0`) could theoretically produce different digests even though they represent the same configuration. This proposal accepts that limitation initially - see [Risks and Mitigations](#risks-and-mitigations).
 
