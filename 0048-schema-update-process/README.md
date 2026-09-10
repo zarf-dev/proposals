@@ -294,7 +294,7 @@ If a field is renamed with a 1:1 replacement, then Zarf will automatically conve
 
 ##### Converting Removed Fields
 
-When Zarf internally converts an older schema version to the internal superset type (for example, while deploying a v1alpha1 package), it must convert without data loss. Fields that are removed stay on the superset, but are absent from new API versions. A newer type such as `v1beta1` carries no backwards-compatibility fields. When an older package is loaded, its removed fields ride along on the superset for the lifetime of the in-memory package and are written back out whenever the package is rendered to that older version. Once the API version the fields originate from is no longer supported, that section of the superset is deleted.
+When an older schema is converted to `api.Package`, a removed field with a direct replacement will be normalized to that replacement. If the field represents behavior Zarf still supports, that behavior will remain in `api.Package` without preserving the deprecated field itself. Conversions must preserve package behavior, but do not need to reproduce the exact structure of the original YAML.
 
 #### zarf dev upgrade-schema
 
@@ -313,24 +313,6 @@ Usage:
 Flags:
   --to string      Specify the API version to upgrade the package definition to. Defaults to the newest schema version.
 ```
-
-### The PackageAccessor interface
-
-A new interface called `PackageAccessor` will be introduced. On disk built packages (`PackageLayout`) will implement this interface, as well as loaded or in memory packages. 
-
-```go
-// PackageAccessor is the read contract for a parsed package definition.
-type PackageAccessor interface {
-	AsV1alpha1() v1alpha1.ZarfPackage
-	AsV1beta1() v1beta1.Package
-}
-```
-
-Functions that operate on either a built package or a cluster source, such as `packager.Remove` and the `zarf package inspect` functions, accept a `PackageAccessor` rather than a concrete type. Functions specific to a single source still take that concrete type.
-
-Once support is dropped for an API version, the interface will remove its associated reader. 
-
-Zarf will expose a new type `PackageDefinition` that implements `PackageAccessor`. In memory representations of packages such as cluster sourced packages (`DeployedPackage`) will call a method that turns their explicitly typed API version into a `PackageDefinition`.  
 
 ### Package Layout
 
@@ -472,6 +454,7 @@ Major milestones might include:
 - 2025-10-18: Proposal submitted.
 - 2025-12-08: Updated proposal to focus more on the process Zarf maintainers should follow to ensure that new API versions can be introduced.
 - 2026-07-17: Design changed to have a PackageAccessor interface rather than using the latest version as the internal working type.
+- 2026-09-10: Deleted PackageAccessor interface and changed generic type to be the operation type.
 
 ## Drawbacks
 
