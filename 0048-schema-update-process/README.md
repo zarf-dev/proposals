@@ -257,37 +257,37 @@ Zarf will need to handle two use cases for conversions. The first is library con
 
 #### Type API changes
 
-The api packages will be structured as below:
+The API packages will be structured as below:
 
 ```bash
-# internal/api/types holds the superset working type; see below.
-├── internal
-│   └──api
-│     └── types
-│       └── package.go
-│     └── v1alpha1
-│       └── convert.go
-│       └── validate.go   
-│     └── v1beta1
-│       └── convert.go
-│       └── validate.go   
 ├── api
-│   └──v1alpha1
-│     ├── package.go
-│     ├── ...
-│   └──v1beta1
-│     ├── package.go
-│     ├── ...
-│   └──convert
-│     ├── convert.go
+│   ├── package.go
+│   ├── ...
+│   ├── convert
+│   │   └── convert.go
+│   ├── v1alpha1
+│   │   ├── package.go
+│   │   └── ...
+│   └── v1beta1
+│       ├── package.go
+│       └── ...
+└── internal
+    └── api
+        ├── v1alpha1
+        │   ├── convert.go
+        │   └── validate.go
+        └── v1beta1
+            ├── convert.go
+            └── validate.go
 ```
 
-The `types.Package` struct contains a superset of Zarf fields spanning all supported API versions. It plays two roles. First, it is the working representation that `PackageLayout` uses internally. Callers will obtain a versioned view through per-version read accessors, `AsV1alpha1()` and `AsV1beta1()`, which will translate the internal type to the specific version. Because the superset is never named in a public signature, introducing a new API version requires no function signature changes when `PackageAccessor` is accepted. 
-Second, it is the pivot for conversions: rather than converting v1alpha1 directly to v1beta1, Zarf converts v1alpha1 to the superset then the superset to v1beta1, so Zarf needs only N conversion functions (one per API version) rather than N² conversions between every pair of versions.
+`api.Package` will be the public, version-neutral representation used by Zarf operations and SDK consumers. It will contain each supported behavior once, rather than every field name from every API version. The versioned packages will remain the public representations of their YAML schemas, but operational code will use them only at serialization boundaries and during initial load and import.
 
-The internal package will not be exposed by the SDK. Instead the convert package will expose functions such as `func V1Alpha1PkgToV1Beta1(in v1alpha1.ZarfPackage) v1beta1.Package`. These functions will call the internal API packages, `internalv1alpha1.ConvertToGeneric(in v1alpha1.ZarfPackage) types.Package` and `internalv1beta1.ConvertFromGeneric(in types.Package) v1beta1.Package`. This will provide a clean interface for SDK users while avoiding exposing the internal types. This strategy will also keep the src/api/<version> packages focused solely on data rather than including validation or conversion logic. These conversion functions will be manually written as opposed to [automatically generating conversion functions](#automatically-generating-conversion-functions). 
+Each API version will convert to and from `api.Package`. This makes `api.Package` the pivot for conversions, requiring one converter per API version rather than converters between every pair of versions. Conversion must preserve package behavior, but does not guarantee the exact structure of the original YAML.
 
-Zarf will not expose a public method such as v1alpha1.Validate() as this is a subset of the package validation required, and contains only specific logic not covered by the schema. This validation logic, currently in src/pkg/lint/validate.go, will be moved to internal/api/v1alpha1. This structure will be implemented before v1beta1 is released, and added to with each new API version. Package validation will continue to occur in `load.PackageDefinition`, keeping the SDK flow the same. 
+Packages such as `filters`, `actions`, and `helm` will accept `api.Package` or one of its child types. `load.PackageDefinition` will return an editable `api.Package`. Functions such as `packager.Remove` that operate only on the definition will accept this type, while operations tied to assembled resources will continue to use `PackageLayout`.
+
+The `convert` package will expose conversions for SDK consumers. Validation specific to an API version will remain in `internal/api/<version>`, and complete package validation will continue to occur in `load.PackageDefinition`.
 
 ##### Converting 1:1 Replacements
 If a field is renamed with a 1:1 replacement, then Zarf will automatically convert the field to its replacement. For example, if a field called `noWait` was changed to `wait` then the value of the field will flip during conversion.
@@ -330,7 +330,7 @@ Functions that operate on either a built package or a cluster source, such as `p
 
 Once support is dropped for an API version, the interface will remove its associated reader. 
 
-Zarf will expose a new type `PackageDefinition` that implements `PackageAccessor`. In memory representations of packages such as cluster sourced packages (`DeployedPackage`) will call a method that turns their explicitly typed API version into a `PackageDefinition`.
+Zarf will expose a new type `PackageDefinition` that implements `PackageAccessor`. In memory representations of packages such as cluster sourced packages (`DeployedPackage`) will call a method that turns their explicitly typed API version into a `PackageDefinition`.  
 
 ### Package Layout
 
@@ -358,34 +358,6 @@ func (p *PackageLayout) FilterComponents(filter filters.ComponentFilterStrategy)
 ```
 
 There is no generic `SetDefinition(v1beta1.Package)` function as replacing the package data with a versioned API package will be lossy if the package was initially created at another version. 
-
-### Filters
-
-A filter is a component selection decision. It needs only a small projection of each component. The `filters` package owns that projection, so filters never see internal types and never break when a new schema ships:
-
-```go
-// ComponentView is the stable projection a filter sees
-type ComponentView struct {
-	Name        string
-	Optional    bool
-	Default     bool
-	Group       string
-	OnlyLocalOS string
-}
-
-type PackageView struct {
-	Components []ComponentView
-}
-
-type ComponentFilterStrategy interface {
-	// Apply returns the indices of the components to keep, in order.
-	Apply(PackageView) ([]int, error)
-}
-```
-
-`PackageLayout` will expose a function `FilterComponents(filter filters.ComponentFilterStrategy) error` to allow filtering on a package after it is loaded.
-
-There will be other cases in the codebase where we decouple packages from an explicit API version, but they are omitted from this proposal for brevity. 
 
 ### JSON Schema
 
