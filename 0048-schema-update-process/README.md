@@ -164,7 +164,7 @@ API versions of the package schema will not necessarily coincide with releases o
 
 Once an API version is released, fields will not be removed from it, and there will be no new required fields.
 
-To keep the SDK stable as new API versions are introduced, `packager` will accept an implementer of the new [`PackageAccessor`](#the-packageaccessor-interface) interface that exposes each supported version. Most public functions will therefore stay unchanged across API versions.
+To keep the SDK stable as new API versions are introduced, Zarf will expose a public, version-neutral `api.Package` for operational functions. Operations tied to assembled resources will continue to accept `PackageLayout`.
 
 ### User Stories (Optional)
 
@@ -207,6 +207,12 @@ How will UX be reviewed, and by whom?
 `layout.PackageLayout.Pkg` is currently a public, mutable field, and some SDK consumers edit it directly after loading a package — for example to rename it, rewrite annotations, or override the namespace. Replacing it with an opaque handle removes that general-purpose write access, which is a breaking change for those consumers.
 
 This risk is tolerable as it makes sense to have safeguards on package mutations given that most arbitrary edits to a package would corrupt it. For instance, changing a chart name would cause a failure on deploy since the chart name is used to find the chart tarball within the package layout. The known post-load mutations are a small set and each may be exposed as a targeted setter (`SetName`, `SetAnnotations`, `OverrideNamespace`, `FilterComponents`); more can be added as consumer needs surface. See [Package Layout](#package-layout) for more detail.
+
+### Public Operational Type
+
+Making `api.Package` public makes it an SDK compatibility boundary and allows users to interact with it in unexpected ways. For instance, a user could call `Assemble.Package` directly with a `api.Package` they edit themselves. There could be confusion in these cases about which fields belong to which API, and a user could create an invalid package.
+
+This risk is tolerable since high level `Packager` flows expect either a `PackageLayout` or zarf.yaml file.  Additionally, when a function does accept an `api.Package` checks will be run to ensure it is compatible with the given API version. When v1alpha1 packages any users who do rely on `api.Package` should expect these fields to disappear.
 
 ## Design Details
 
@@ -253,7 +259,7 @@ type DeployedPackage struct {
 
 ### Conversions
 
-Zarf will need to handle two use cases for conversions. The first is library convert functions. These functions will move a specific version to the internal, superset type; this is always lossless. The second is `zarf dev upgrade-schema`, which will provide a simple way for users to convert their zarf.yaml files from one schema version to the next.
+Zarf will need to handle two use cases for conversions. The first is converting each versioned package type to and from `api.Package` for loading, operational use, and serialization. These conversions must preserve package behavior, but do not need to reproduce the exact structure of the original YAML. The second is `zarf dev upgrade-schema`, which will provide a simple way for users to convert their zarf.yaml files from one schema version to the next.
 
 #### Type API changes
 
@@ -282,8 +288,6 @@ The API packages will be structured as below:
 ```
 
 `api.Package` will be the public, version-neutral representation used by Zarf operations and SDK consumers. It will contain each supported behavior once, rather than every field name from every API version. The versioned packages will remain the public representations of their YAML schemas, but operational code will use them only at serialization boundaries and during initial load and import.
-
-Each API version will convert to and from `api.Package`. This makes `api.Package` the pivot for conversions, requiring one converter per API version rather than converters between every pair of versions. Conversion must preserve package behavior, but does not guarantee the exact structure of the original YAML.
 
 Packages such as `filters`, `actions`, and `helm` will accept `api.Package` or one of its child types. `load.PackageDefinition` will return an editable `api.Package`. Functions such as `packager.Remove` that operate only on the definition will accept this type, while operations tied to assembled resources will continue to use `PackageLayout`.
 
@@ -460,8 +464,7 @@ Major milestones might include:
 
 <!--
 Why should this ZEP _not_ be implemented?
--->
-
+--> 
 
 ## Alternatives
 
