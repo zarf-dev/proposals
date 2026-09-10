@@ -210,9 +210,9 @@ This risk is tolerable as it makes sense to have safeguards on package mutations
 
 ### Public Operational Type
 
-Making `api.Package` public makes it an SDK compatibility boundary and allows users to interact with it in unexpected ways. For instance, a user could call `Assemble.Package` directly with a `api.Package` they edit themselves. There could be confusion in these cases about which fields belong to which API, and a user could create an invalid package.
+Making `api.Package` public makes it an SDK compatibility boundary. SDK uses could use this type in unexpected ways, for instance, calling a `Assemble.Package` with a `api.Package` written in go rather than loaded from file or converted from a data struct such as `v1beta1.Package`. These users could be confused about which fields belong to which API, and a user could theoretically create an invalid package.
 
-This risk is tolerable since high level `Packager` flows expect either a `PackageLayout` or zarf.yaml file.  Additionally, when a function does accept an `api.Package` checks will be run to ensure it is compatible with the given API version. When v1alpha1 packages any users who do rely on `api.Package` should expect these fields to disappear.
+This risk is tolerable since common `Packager` flows expect either a `PackageLayout` or zarf.yaml file. Additionally, when a function does accept an `api.Package`, checks will be run to ensure it is compatible with the given API version. When v1alpha1 packages are no longer supported, any users who rely on `api.Package` should expect these fields to disappear.
 
 ## Design Details
 
@@ -263,7 +263,7 @@ Zarf will need to handle two use cases for conversions. The first is converting 
 
 #### Type API changes
 
-The API packages will be structured as below:
+The API packages will be structured as follows:
 
 ```bash
 ├── api
