@@ -10,7 +10,6 @@
 - [Design Details](#design-details)
 - [Graduation Criteria](#graduation-criteria)
 - [SBOM selection](#sbom-selection)
-- [SBOM augmentations](#sbom-augmentations)
 - [Publication and provenance](#publication-and-provenance)
 - [Registry publication](#registry-publication)
 - [Test Plan](#test-plan)
@@ -23,7 +22,7 @@
 
 ## Summary
 
-Zarf will allow for defining pre-existing SBOM (Software Bill of Materials) inventory files declaratively for each OCI image and file that currently receives an SBOM today. Ingestion during package creation will replace the internal generation process product and provide preservation of upstream SBOM processes that may produce or augment documents. Explicit definition of ingestion location will follow current packaging expectations for existence - in that creation will fail if unable to retrieve the file for packaging. This creates an explicit expectation of ingestion source and will support options such as local, remote, or OCI implementation. 
+Zarf will allow a package author to declaratively ingest one pre-existing SBOM (Software Bill of Materials) for an OCI image that resolves to one manifest. Package creation will preserve the producer's SBOM instead of regenerating it; an image without an explicit SBOM retains the current Syft-generated inventory. Phase 1 accepts a package-local source. A later phase may add an explicitly declared, content-pinned remote source, but Zarf will not discover, select among, or merge multiple supplier SBOMs.
 
 ## Motivation
 
@@ -31,36 +30,34 @@ The internals of the package today all dictate declarative packaging, except the
 
 ### Goals
 
-- Declarative SBOM ingestion.
-- Retain Syft generation as the fallback.
-- Validate that a supplied SBOM describes the resolved image artifact before accepting it as inventory.
+- Declarative ingestion of one author-selected SBOM for an image manifest.
+- Retain Syft generation when no SBOM is declared.
+- Validate that a supplied SBOM describes the resolved image manifest before accepting it as inventory.
 - Support native Syft JSON, SPDX JSON, and CycloneDX JSON inputs supported by the bundled Syft version.
-- Retain Syft JSON as Zarf's canonical operational outputs
+- Retain Syft JSON as Zarf's canonical operational output.
 - Retain exactly one canonical SBOM for each resolved image manifest and publish that SBOM when Zarf pushes the corresponding image to a registry.
 
 ### Non-Goals
 
-- Automatically discover arbitrary files as authoritative SBOMs.
+- Accept, discover, or select among multiple supplier SBOMs for one image.
 - Infer a product CPE from an image name, tag, OCI label, package name, or dependency graph.
 - Merge two independently produced SBOM inventories.
 
 ## Proposal
 
-Zarf will introduce an image-scoped `sboms` declaration. The field is a list so its shape remains stable if multiple candidate sources are later supported. Each entry configures the image's effective SBOM: one selected inventory source, with Syft used only when fallback is permitted.
+Zarf will introduce an image-scoped `sbom` declaration. It contains one explicit source and format for the image's effective inventory. When the declaration is absent, Zarf generates the inventory with Syft. When it is present, the source must validate or package creation fails; Zarf never substitutes a generated or second supplier inventory.
 
 ```yaml
 components:
-  - name: application
+  - name: applicationstart
     images:
       - name: registry.example/app:1.2.3
-        sboms:
-          - source: ./sboms/example-application.cdx.json
-            format: cyclonedx-json
+        sbom:
+          source: ./sboms/example-application.cdx.json
+          format: cyclonedx-json
 ```
 
-Zarf resolves an image reference to an immutable digest before discovering or selecting an SBOM. A supplied SBOM is accepted only when its subject identifies that resolved image artifact. For an image index, Zarf selects inventory per platform manifest. An index-level SBOM may be an explicit fallback; it is not silently copied into every platform-specific SBOM.
-
-When no source is selected and fallback is permitted, Zarf generates the inventory with Syft as it does today. When a source is selected, Zarf uses its inventory instead of merging it with a generated inventory.
+Zarf resolves an image reference to an immutable digest before retrieving the declared SBOM. In Phase 1, a package-local `sbom` is valid only when the reference resolves to one image manifest and its subject identifies that manifest. If an image reference resolves to an image index, package creation rejects an `sbom` declaration. Without a declaration, the existing Syft fallback continues to generate inventory for each platform manifest. This ZEP deliberately does not define platform-keyed, index-level, or multi-source supplier SBOMs.
 
 Each resolved image manifest in a package has exactly one effective canonical SBOM. During deployment, when Zarf pushes that manifest to a target registry, it also publishes the matching SBOM as an artifact bound to the manifest digest.
 
@@ -83,11 +80,11 @@ As a package author building offline, I want to provide a local SBOM file so Zar
 
 **Mitigation:** Resolve the image digest first and require a matching subject for every accepted source. Reject an explicit source that does not match; do not use filename, repository, or tag similarity as evidence.
 
-#### Conflicting inventories or identities
+#### Conflicting inventories
 
-**Risk:** Combining SBOMs or application identities can create facts not asserted by either producer.
+**Risk:** Accepting more than one supplier inventory could create facts not asserted by either producer.
 
-**Mitigation:** Select one inventory source. Do not perform generic inventory merges. Deduplicate identical declared identities and fail on conflicting explicit application CPEs.
+**Mitigation:** Accept one explicit supplier SBOM or generate one with Syft. Do not discover, select among, or merge supplier inventories.
 
 
 #### Input and output fidelity
@@ -108,54 +105,24 @@ As a package author building offline, I want to provide a local SBOM file so Zar
 
 #### Phase 1: Declarative in-package ingestion and formatting
 
-Introduce one image-scoped `sboms` entry for a package-local SBOM file. Validate the image subject, preserve the original bytes, and normalize supported Syft JSON, SPDX JSON, and CycloneDX JSON inputs to Zarf's canonical native Syft JSON output. Preserve the existing Syft-generation fallback. This phase establishes the one-SBOM-to-one-image-manifest package contract.
+Introduce one optional image-scoped `sbom` declaration for a package-local SBOM file that resolves to one image manifest. Reject an explicit declaration for an image index, because this feature does not define platform-to-source mapping. Validate the image subject, preserve the original bytes, and normalize supported Syft JSON, SPDX JSON, and CycloneDX JSON inputs to Zarf's canonical native Syft JSON output. Preserve the existing Syft-generation fallback, including per-platform generation for an image index without an `sbom` declaration. This phase establishes the one-SBOM-to-one-image-manifest package contract.
 
 #### Phase 2: Registry publication during deployment
 
 When deployment pushes an image manifest, publish its already packaged canonical SBOM as a subject-bound registry artifact. Use the Referrers API when available and the OCI referrers-tag fallback otherwise. This phase does not discover supplier SBOMs. This will set the pattern for re-use with artifacts such as signatures.
 
-#### Phase 3: External source and referrer discovery
+#### Phase 3: Explicit remote source retrieval
 
-Add content-pinned remote sources and automatic discovery of OCI referrer candidates for the resolved image digest. Discovery remains subject validation and deterministic source selection; it never merges inventories or treats a referrer attachment as sufficient proof.
+Add a content-pinned remote source to the singular `sbom` declaration. The source remains author-selected and subject validation remains required. This phase does not add OCI-referrer discovery or multiple-source selection.
 
-<!-- #### Phase 5: Declared application CPE augmentation
-
-Add `sboms[].augmentations.applications`. Validate author-declared application CPEs and add their distinct application components after inventory selection and normalization. This phase does not add source discovery or registry publication. -->
 
 ### SBOM selection
 
-An SBOM source has an explicit location, format, and acceptance policy. Phase 1 supports a package-local file. Phase 3 adds a remote file with an expected content digest and OCI-referrer discovery for the resolved image digest.
+An `sbom` declaration has one explicit location and format. Phase 1 supports a package-local file only for an image that resolves to one manifest. Phase 3 adds a remote source with an expected content digest. Zarf does not automatically discover OCI referrers or choose among supplier candidates.
 
-In Phase 3, OCI discovery follows this sequence:
 
-```text
-resolve image reference → record digest → query referrers for the digest
-→ select an allowed artifact type and format → fetch by digest
-→ verify the SBOM subject → use or reject the source
-```
+The API contains one optional `sbom` object, not an `sboms` list. An explicit declaration for an image index is rejected. A manifest with no declaration uses Syft generation; a manifest with a declaration either accepts that source or fails package creation.
 
-The initial API permits one SBOM configuration. Its `sboms` list has `maxItems: 1`. a later release may permit multiple candidates only with an explicit, deterministic selection policy. Zarf never selects the first referrer or merges candidates.
-
-<!-- ### SBOM augmentations
-
-A CPE identifies a software product, not an OCI image reference or a Go module. An `sboms[].augmentations.applications` entry creates a separate application component in the effective image SBOM with the declared name, version, and CPE. The augmentation applies after source selection or Syft generation and does not mutate the original supplier document.
-
-```yaml
-sboms:
-  - source: ./sboms/example-application.cdx.json
-    format: cyclonedx-json
-    augmentations:
-      applications:
-        - name: Example Application
-          version: 1.2.3
-          cpe: cpe:2.3:a:example:application:1.2.3:*:*:*:*:*:*:*
-```
-
-The CPE version is the upstream product version and is independent of a Zarf package version or image tag. For native Syft JSON, Zarf represents the component as a `binary` package with a declared CPE source. This produces a CycloneDX `application` component and an SPDX `cpe23Type` security external reference.
-
-If a selected supplier SBOM already contains the same declared application identity, Zarf retains it without duplication. If it presents an explicit, conflicting identity for the same product, package creation fails.
-
-The release pipeline may use this same component model for Zarf's own release assets. For example, a Zarf release component uses the product CPE vocabulary published by NVD rather than a heuristic CPE derived from its Go-module path. -->
 
 ### Publication and provenance
 
@@ -185,14 +152,13 @@ The registry artifact uses an explicitly selected standard output format. Native
 
 ### Test Plan
 
-- Phase 1 unit and integration tests cover local source declaration, supported format normalization, source/image subject validation, preserved supplier evidence, the one-to-one manifest association, and Syft fallback.
+- Phase 1 unit and integration tests cover a local declaration for a single manifest, rejection of an explicit declaration for an image index, the existing per-platform Syft fallback for an index without a declaration, supported format normalization, source/image subject validation, preserved supplier evidence, the one-to-one manifest association, and Syft fallback.
 - Phase 2 deployment tests cover a registry with the Referrers API and a registry that requires the referrers-tag fallback. They assert one published SBOM artifact per pushed image manifest, digest subject binding, idempotent publication, and a failed deployment result when publication is unconfirmed.
-- Phase 3 tests cover content-pinned remote retrieval and OCI-referrer discovery, including rejected mismatched subjects and ambiguous candidates.
-<!-- - Phase 4 tests cover CPE validation, duplicate and conflict handling, CycloneDX/SPDX CPE serialization, and scanner interoperability with pinned scanner and vulnerability-data fixtures. -->
+- Phase 3 tests cover content-pinned remote retrieval, including rejected mismatched subjects and content digests.
 
 ### Upgrade / Downgrade Strategy
 
-Packages with no `sboms` declaration, or with no SBOM augmentation, retain current Syft SBOM generation behavior. A package that uses these fields requires a Zarf version that supports the introduced API schema and must fail clearly on an older CLI rather than silently dropping the declaration.
+Packages with no `sbom` declaration retain current Syft SBOM generation behavior. A package that uses this field requires a Zarf version that supports the introduced API schema and must fail clearly on an older CLI rather than silently dropping the declaration.
 
 Removing a declaration restores generated inventory for the image. Removing a supplier SBOM from a package does not alter the preserved bytes in packages that were already built.
 
@@ -206,7 +172,7 @@ This feature changes the v1beta1 package schema.
 
 ## Drawbacks
 
-This adds schema, source-validation, format-conversion, and provenance complexity to package creation. Restricting the first release to one selected source avoids unsafe merging but does not cover every multi-producer SBOM workflow.
+This adds schema, source-validation, format-conversion, and provenance complexity to package creation. Restricting the feature to one explicit supplier source avoids unsafe merging but does not cover workflows that require multiple independently produced inventories.
 
 ## Alternatives
 
@@ -218,9 +184,9 @@ Syft remains the fallback, but exclusive generation discards an application prod
 
 Appending a declared CPE to a dependency or Go-module component conflates product identity with dependency identity and is not a reliable scanner interoperability model.
 
-### Merge all discovered and supplied SBOMs
+### Merge multiple SBOMs
 
-No general component identity or relationship merge is safe across independent SBOM producers. A merge can create false inventory or scanner findings.
+Zarf accepts only one supplier SBOM for a manifest. No general component identity or relationship merge is safe across independent SBOM producers; a merge can create false inventory or scanner findings.
 
 ### Preserve every input format as the operational package SBOM
 
