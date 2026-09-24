@@ -1,0 +1,29 @@
+schema-version: 1.0.0
+
+title: Native Zarf Ansible Module
+zep-number: 0072
+authors:
+  - TBD
+status: provisional
+creation-date: 2026-09-23
+reviewers:
+  - "@zarf-maintainers"
+approvers:
+  - TBD
+
+see-also: []
+replaces: []
+
+# The target maturity stage in the current dev cycle for this ZEP.
+stage: alpha
+
+# The most recent milestone for which work toward delivery of this ZEP has been
+# done. This can be the current (upcoming) milestone, if it is being actively
+# worked on.
+latest-milestone: ""
+
+# The milestone at which this feature was, or is targeted to be, at each stage.
+milestone:
+  alpha: ""
+  beta: ""
+  stable: ""
