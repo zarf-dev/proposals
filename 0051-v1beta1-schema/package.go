@@ -10,6 +10,8 @@ type PackageKind string
 const (
 	// ZarfPackageConfig is the default kind of Zarf package.
 	ZarfPackageConfig PackageKind = "ZarfPackageConfig"
+	// ZarfInitConfig is the kind of package used during zarf init.
+	ZarfInitConfig PackageKind = "ZarfInitConfig"
 	// APIVersion is the api version of this package.
 	APIVersion string = "zarf.dev/v1beta1"
 )
@@ -19,7 +21,7 @@ type Package struct {
 	// The API version of the Zarf package.
 	APIVersion string `json:"apiVersion" jsonschema:"enum=zarf.dev/v1beta1"`
 	// The kind of Zarf package.
-	Kind PackageKind `json:"kind" jsonschema:"enum=ZarfPackageConfig"`
+	Kind PackageKind `json:"kind" jsonschema:"enum=ZarfInitConfig,enum=ZarfPackageConfig"`
 	// Package metadata.
 	Metadata PackageMetadata `json:"metadata,omitempty"`
 	// Zarf-generated package build data.
