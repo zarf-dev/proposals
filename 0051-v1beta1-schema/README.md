@@ -215,7 +215,7 @@ In the v1alpha1 schema, Zarf looks at init component names to determine when to 
 
 A new `service` key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. The field is an enum with the allowed values `registry`, `seed-registry`, `injector`, `agent`, and `git-server`. 
 
-Only a package with `kind: ZarfInitConfig` may contain a component with a `service` key. A component config may declare a service, but the importing package must be an init package. An init package may contain no services; its kind still determines how Zarf handles initialization.
+Only a package with `kind: ZarfInitConfig` may contain a component with a `service` key. A component config may declare a service, but the importing package must be an init package. An init package may contain no services. A niche, but plausible, use case is a custom init package which relies on an external registry and no agent.
 
 View the full schema in [package.go](package.go#L200).
 
@@ -738,4 +738,4 @@ This was rejected. Create and deploy often run on separate hosts and have differ
 
 ### Removing ZarfInitConfig
 
-This proposal initially removed `ZarfInitConfig` because [Zarf Services](#zarf-services) identify the components with special behavior. The kind remains useful for identifying the package's initialization lifecycle, including init packages without services, and for preventing services in ordinary packages.
+This proposal initially removed `ZarfInitConfig` because the Kind mainly functioned to identify components with special behavior and this is now handled by [Zarf Services](#zarf-services). However, the kind remains useful as a method of way to describe the package's purpose, allowing init packages without services, and for preventing services in ordinary packages.
