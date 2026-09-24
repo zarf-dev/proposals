@@ -213,7 +213,9 @@ There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`
 
 In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators, [#4528](https://github.com/zarf-dev/zarf/issues/4528), and leave little room for configurability.
 
-A new `service` key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. The field is an enum with the allowed values `registry`, `seed-registry`, `injector`, `agent`, and `git-server`.
+A new `service` key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. The field is an enum with the allowed values `registry`, `seed-registry`, `injector`, `agent`, and `git-server`. 
+
+In order to declare a service key the package must declare `Kind: ZarfInitConfig`. A component config may declare a service, however, it's importing package must be an init package. 
 
 View the full schema in [package.go](package.go#L200).
 
@@ -224,10 +226,6 @@ View the full schema in [package.go](package.go#L200).
   service: agent
   ...
 ```
-
-### ZarfInitConfig will be Removed
-
-The `Kind` "ZarfInitConfig" will be removed. Every package will be of kind "ZarfPackageConfig". `zarf init` will default to deploying a package called `zarf-package-init-<arch>-<cli-version>.tar.zst`. A template will be created that exposes the CLI version, so a `zarf.tpl.yaml` file could set the `.metadata.version` field to `[[ .cli.version ]]`. If a package called `zarf-package-init-<arch>-<cli-version>.tar.zst` is not found in the cache or current directory, Zarf will prompt the user to pull the default zarf-dev init package. `zarf init` will continue to accept custom packages, for example, `zarf init <zarf-package-my-custom-init>`. If no component in the package declares a `.service`, Zarf will error and ask the user to run `zarf package deploy` instead. 
 
 ### ZarfComponentConfig
 
@@ -737,3 +735,7 @@ Remote components cannot be templated during import; this is a removed feature f
 Action defaults could be set once at the component level rather than separately under each action set (`onCreate`, `onDeploy`, `onRemove`). This would reduce the schema's surface area. 
 
 This was rejected. Create and deploy often run on separate hosts and have different jobs: `onCreate` actions typically pull files or load images as docker tars, while `onDeploy` actions typically run `kubectl` or stand up a cluster. Sharing defaults across that boundary creates an awkward mental model. The [example v1beta1 zarf.yaml](./zarf.yaml) is large because every action set has its own defaults block, but in practice actions are an escape hatch used sparingly. It is rare for a real component to define both `onCreate` and `onDeploy` actions.
+
+### Removing ZarfInitConfig
+
+This proposal initially removed the `Kind` "ZarfInitConfig" since the main functional purpose of special actions with init components is not handled by [Zarf Services](#zarf-services). However, to make the existence of an init package immediately obvious and to avoid the possibility of someone accidentally using the service field in a "ZarfPackageConfig" it has been kept.
