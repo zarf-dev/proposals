@@ -233,34 +233,20 @@ Some service behavior needs CLI functionality; similarly, some CLI functionality
 
 At deploy, if a newer init package is used with an older Zarf CLI then the version requirements will prevent deployment. If an older init package is used by a newer CLI, then Zarf will check if the capability is available and block deployment if necessary.
 
-For example, an injector component can configure the tolerations used by the injector from package values:
+For example, a Git server component can declare support for CLI-managed TLS:
 
 ```yaml
 apiVersion: zarf.dev/v1beta1
 kind: ZarfInitConfig
-values:
-  files:
-    - values.yaml
 components:
-  - name: custom-injector
+  - name: git-server
     service:
-      name: injector
+      name: git-server
       capabilities:
-        - injector-tolerations
+        - git-server-tls
 ```
 
-For `injector-tolerations`, Zarf expects `.injector.tolerations` in the package values. For example, `values.yaml` could contain:
-
-```yaml
-injector:
-  tolerations:
-    - key: dedicated
-      operator: Equal
-      value: zarf
-      effect: NoSchedule
-```
-
-The CLI reads this list of Kubernetes tolerations when deploying the injector component and applies it to the injector workload.
+During init, if the user requests tls, then Zarf will verify that the init package has the capability `git-server-tls`, and fail if not. 
 
 ### ZarfComponentConfig
 
