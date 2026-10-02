@@ -229,7 +229,7 @@ View the full schema in [componentConfig.go](componentConfig.go).
   ...
 ```
 
-Some service behavior needs CLI functionality; similarly, some CLI functionality expects features in the init package. Init components will declare the behavior they need in `service.capabilities`. Each entry is a capability name with a contract understood by the Zarf CLI. Zarf maintains a minimum supported CLI version for each capability name. During package creation, Zarf finds the capabilities in the included components and adds their minimum versions and reasons to `.build.versionRequirements`. Unknown capabilities for a service fail validation.
+Some service behavior needs CLI functionality; similarly, some CLI functionality expects features in the init package. Init components will declare the behavior they need in `service.capabilities`. Each entry is a capability name with a contract understood by the Zarf CLI. Zarf maintains a minimum supported CLI version for each capability name. During package creation, Zarf finds the capabilities in the included components and adds their minimum versions and reasons to `.build.versionRequirements`. One disadvantage of this approach and minimum version requirements generally is that a deploy may be blocked on an optional component, or a component skipped by an external registry or git server. In these cases the user would have the option of running `--skip-version-check`. 
 
 During deployment, if a newer init package is used with an older Zarf CLI, the version requirements will prevent deployment. If an older init package is used by a newer CLI, Zarf will check if the capability is available and block deployment if necessary.
 
