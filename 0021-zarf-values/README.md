@@ -65,7 +65,6 @@ any additional information provided beyond the standard ZEP template.
 - [Proposal](#proposal)
   - [User Stories (Optional)](#user-stories-optional)
     - [Story 1](#story-1)
-    - [Story 2](#story-2)
   - [Risks and Mitigations](#risks-and-mitigations)
 - [Design Details](#design-details)
   - [Test Plan](#test-plan)
@@ -83,7 +82,7 @@ any additional information provided beyond the standard ZEP template.
 
 ## Summary
 
-This ZEP proposes to introduce a new way to provide configuration to Zarf Packages that is more in line with the Helm values paradigm.  This proposal would provide a new settable interface that uses `map[string]interface{}` instead of the current variable interface of `map[string]string`.  These values would also be able to be mapped directly to Helm chart values, and would interact with other Zarf features where Zarf Variables are used today through Go templating (i.e. `actions`, `manifests` and `files`).
+This ZEP proposes to introduce a new way to provide configuration to Zarf Packages that is more in line with the Helm values paradigm.  This proposal would provide a new settable interface that uses `map[string]interface{}` instead of the current variable interface of `map[string]string`.  These values would also be able to be mapped directly to Helm chart values, and would interact with other Zarf features where Zarf Variables are used today through Go templating (i.e. `actions`, `manifests` and `files`). Zarf's Go-template contexts would additionally expose a cluster `lookup` function compatible with [Helm's `lookup` function](https://helm.sh/docs/chart_template_guide/functions_and_pipelines/#using-the-lookup-function), allowing templates to read live Kubernetes resources.
 
 This ZEP supercedes [ZEP-0015](0015-helm-value-style-variable-interfaces/README.md).
 
@@ -104,9 +103,13 @@ The motivation for this centers around the long-lived desire to have Zarf Variab
 
 ## Proposal
 
-The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts with a new optional `values` field under `charts`. This `values` field accepts a list of objects, each with a required `sourcePath` and `targetPath`. These fields use dot-notation (always starting with .) to map package-level values from the `sourcePath` to the chart value key specified by `targetPath`. A single `.` is a valid path for both fields and represents the root of the values.
+The proposed solution is to add a new `values` global field to the Zarf package configuration that will accept a list of values files to serve as package defaults as well as an optional schema file for validating the values provided.  These fields would follow existing Zarf compose conventions and would map into Helm charts with a new optional `values` field under `charts`. This `values` field accepts a list of objects, each with a required `sourcePath` and `targetPath`.
+
+Every `sourcePath`, `targetPath`, and `setValues.path` uses the same Zarf Values path syntax. Paths start with `.`, use `.` for the root, and support exact map keys, quoted keys, and non-negative list indexes, such as `.resources.limits`, `.labels["app.kubernetes.io/name"]`, and `.addresses[0]`. They do not include filters, wildcards, or other expressions. Reads do not mutate Values; writes create missing maps and extend lists with `null` values, but fail when an existing value has an incompatible type.
 
 The Zarf configuration itself would also change to allow Go templating of values in Zarf actions instead of being injected into the environment like Zarf Variables are today. Zarf `files` and `manifests` would optionally allow Go templating to be able to take advantage of values as well.
+
+Zarf would also expose a Helm-compatible `lookup` function anywhere it evaluates Go templates, including actions, manifests, chart values files, and files. This would match Helm's native `lookup` function with the same interface.
 
 To set these values new `package.[deploy|remove].values` configuration options would be added to the Viper config and a new `-f`/`--values` flag would be added to the CLI to allow values files to be specified on `zarf package deploy`, `zarf package remove` and `zarf dev deploy`.  For now, the `--set` flag would remain as it is for Zarf Variables though eventually we may want to deprecate it and align to the [Helm `--set` syntax](https://helm.sh/docs/intro/using_helm/#the-format-and-limitations-of---set) with the values specified setting Zarf Values instead of Zarf Variables.  Zarf `actions` would also add a new `setValues` field that would allow setting values from an action similar to `setVariables`.
 
@@ -204,7 +207,7 @@ components:
         before:
           - cmd: "echo '{ \"memory\": \"256Mi\", \"cpu\": \"200m\" }'"
             setValues:
-              - path: my-component.resources.limits
+              - path: .my-component.resources.limits
                 type: json
                 
 ```
@@ -292,15 +295,47 @@ other-component:
 **When** I deploy that package without setting any values
 **Then** Zarf will template the file and manifest with the resources given
 
+---
+
+**Given** I have a component where a database chart creates a credential Secret and a later third-party application chart accepts the password through `.database.password`
+```yaml
+# zarf.yaml
+components:
+  - name: application
+    charts:
+      - name: database
+        namespace: application
+        url: https://charts.example.com
+        repoName: database
+        version: 1.0.0
+      - name: application
+        namespace: application
+        url: https://charts.example.com
+        repoName: application
+        version: 1.0.0
+        templatedValuesFiles:
+          - application-values.yaml
+```
+```yaml
+# application-values.yaml
+{{ $credentials := lookup "v1" "Secret" "application" "database-credentials" }}
+database:
+  password: {{ $credentials.data.password | b64dec | quote }}
+```
+**When** I deploy the component
+**Then** Zarf will render `application-values.yaml` with the password from the Secret before passing the values file to the application chart
+
 ### Risks and Mitigations
 
 This will introduce a wholly new way to input values into Zarf that will live alongside the existing Variables, Constants and Templates for now.  Because of this, the feature will need to be clearly disambiguated from Variables/Constants/Templates in documentation and, while this feature should not introduce many breaking changes being implemented alongside the existing featureset, the feature to map Zarf Variables to Helm Values should be deprecated and removed in favor of the new Zarf Values mapping to assist with disambiguation.  If the feature gains traction and is accepted by the community, a deprecation plan for the original Zarf Variables/Constants/Templates should be created.  Likely this plan would not break `charts.variables` in existing packages and would simply prevent furutre packages from using this feature.
 
-The schema should validate during package create that `.components[x].charts[x].values[x].sourcePath/targetPath` begin with a `.` to avoid user error. 
+The schema should compile every Zarf Values path during package creation so malformed paths fail early.
 
 This feature also could open up Zarf packages to being less declarative - especially if a package author opens up security-critical Helm values in their charts.  This caveat should be clearly documented as a concern which should also recommend a policy engine be used to enforce security-critical values within the cluster itself.
 
 Because we will be using more `interface{}` types, we should also look into the security implications of this feature and ensure that this is well tested and that we utilize some of Helm's existing protections against `nil` maps and other potential security issues with this feature.
+
+`lookup` makes template rendering depend on live cluster state and may expose sensitive data. Kubernetes API errors, including insufficient RBAC, should fail template rendering, and Zarf should never print looked-up resources in logs or errors. Template functions are not visible in the package schema, so Zarf's template function documentation should clearly list `lookup`, its arguments, return values, supported template contexts, error behavior, and security implications.
 
 This proposal also adds to the concept of Zarf `onDeploy` actions and creates another way to execute arbitrary bash commands on the host (depending on how the package creator implemented Zarf Values and their Go templates).  If this feature is to replace Zarf variables however, using Values in actions is still needed, and examples exist in the wild where Helm templates alone are not sufficient to provide the desired functionality for a package.  One example being the GitLab Runner UDS Package that creates a runner token through the GitHub API - this requires pulling a registration token from an existing secret (which is possible today with Helm templates), but then this token is used to register the runner with the GitLab API.  This requires making an HTTP request which Helm cannot help with requiring onDeploy actions to wire this in. References: [GitLab Runner Config Chart Values](https://github.com/defenseunicorns/uds-package-gitlab-runner/blob/d2b573bdbed12ac2aafd52082f1b9ea84b213439/chart/values.yaml#L9), [GitLab Runner Token `onDeploy` action](https://github.com/defenseunicorns/uds-package-gitlab-runner/blob/d2b573bdbed12ac2aafd52082f1b9ea84b213439/common/zarf.yaml#L34).  This will need to be mitigated with documentation and it may be desireable to implement a form of `shellcheck` to `zarf dev lint` to look for areas where this might be an issue.  Users would be able to control the shape of input values via the `values.schema` field and Zarf should halt a deployment if a bad value is provided.  Users could also pass user input through the `env` field in actions for some additional protection.
 
@@ -337,6 +372,12 @@ components:
             targetPath: .resources # this wins
 ```
 
+Zarf's `lookup` function would mirror [Helm's function](https://helm.sh/docs/chart_template_guide/functions_and_pipelines/#using-the-lookup-function): `lookup apiVersion kind namespace name`. A named lookup returns the resource as a dictionary. An empty name returns a resource list whose objects are available through `.items`. Cluster-scoped resources use an empty namespace; for namespaced resources, empty namespace and name arguments perform an all-namespace list lookup. A resource that does not exist returns an empty value, while a Kubernetes API error fails template rendering.
+
+The function would be available anywhere Zarf evaluates Go templates, including actions, templated manifests, chart values files, and files. Lookup results are scoped to the consuming template with package Values and their precedence being unchanged.
+
+Lookups occur when their containing template is evaluated, so they can consume resources installed earlier in the deployment but cannot consume a resource created by the same template. Cluster reads use the deploying identity's normal `get` or `list` permissions. Lookup does not implicitly decode or transform fields; existing template functions such as `b64dec`, `fromJson`, and `fromYaml` can transform the returned data when needed.
+
 ### Test Plan
 
 [X] I/we understand the owners of the involved components may require updates to
@@ -349,11 +390,11 @@ As mentioned above, for additional safety when implementing the elements of this
 
 ##### Unit tests
 
-Values interfaces and libraries should be updated to ensure that interfaces are properly passed to charts and templated in actions.
+Values interfaces and libraries should be updated to ensure that interfaces are properly passed to charts and templated in actions. Unit tests should cover Values path reads and writes, list extension, create-time path validation, and `lookup` object, list, missing-resource, and API-error behavior in each supported Zarf template context.
 
 ##### e2e tests
 
-Additional E2E tests should be added to ensure that `zarf-config` values files and `-f`/`--values` are passed through appropriately to Helm on chart install / upgrade.
+Additional E2E tests should be added to ensure that `zarf-config` values files and `-f`/`--values` are passed through appropriately to Helm on chart install / upgrade. An E2E test should also verify that an action, Helm chart template, manifest, templated chart values file, and templated file can consume an object installed earlier in the deployment through `lookup`.
 
 ### Graduation Criteria
 
@@ -370,6 +411,7 @@ This proposal doesn't impact how Zarf's Agent and CLI interact so no changes wou
 ## Implementation History
 
 2025-03-31: Initial version of this document.
+2026-08-19: Added a Helm-compatible `lookup` template function and expanded Zarf Values Paths.
 
 ## Drawbacks
 
@@ -378,6 +420,10 @@ This feature will require a lot of design work to ensure that it has a solid use
 ## Alternatives
 
 We could patch the existing Variables/Constants/Templates paradigm to align more with Helm paradigms but this would not address the other issues that exist with Variables/Constants/Templates.  Features like `autoIndent` and `setVariables` have always been limiting to users and creating a new way to set values will allow us to design something that is more user friendly (especially since many Zarf users are also Helm users).
+
+Zarf could use its embedded `mikefarah/yq` library for Values reads and writes. Full yq expressions operate on YAML nodes and provide filters, transformations, and other behavior beyond deterministic path traversal. Using them with `map[string]interface{}` Values would require conversion and make write behavior harder to validate though. The proposed Values path grammar supports the required map and list operations with more predictable reads and writes.
+
+Zarf could add a `valuesFrom` schema to charts and manifests for mapping live Kubernetes resources into Values. This, however, would not align with the Helm template interface and would require Zarf-specific fields and behavior for concerns such as conditional evaluation through `enabledPath`, target paths, precedence, retries, decoding, and resource ordering. A Helm-compatible `lookup` function provides the same cluster access through a familiar interface in every supported template context.
 
 ## Infrastructure Needed (Optional)
 

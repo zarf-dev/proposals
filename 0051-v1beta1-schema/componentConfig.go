@@ -11,6 +11,8 @@ type ComponentConfig struct {
 	Kind PackageKind `json:"kind" jsonschema:"enum=ZarfComponentConfig,default=ZarfComponentConfig"`
 	// Component metadata.
 	Metadata ComponentMetadata `json:"metadata"`
+	// Variants identify the architecture or flavor this component config targets.
+	Variants ComponentVariants `json:"variants,omitempty"`
 	// The single component this config defines.
 	Component ComponentSpec `json:"component"`
 	// Values imports Zarf values files for templating and overriding Helm values.
@@ -25,8 +27,6 @@ type ComponentSpec struct {
 	Import ComponentImport `json:"import,omitempty"`
 	// Filter when this component is deployed based on OS.
 	Target ComponentTarget `json:"target,omitempty"`
-	// Filter when this component is included during package creation based on architecture or flavor.
-	Selector ComponentSelector `json:"selector,omitempty"`
 	// Kubernetes manifests to be included in a generated Helm chart on package deploy.
 	Manifests []Manifest `json:"manifests,omitempty"`
 	// Helm charts to install during package deploy.
@@ -65,6 +65,14 @@ type ComponentMetadata struct {
 	Version string `json:"version,omitempty"`
 	// Annotations contains arbitrary metadata about the component config.
 	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// ComponentVariants identifies the architecture or flavor this component config targets.
+type ComponentVariants struct {
+	// Architecture identifies the architecture-specific component artifact.
+	Architecture string `json:"architecture,omitempty" jsonschema:"enum=amd64,enum=arm64"`
+	// Flavor identifies the component config variant.
+	Flavor string `json:"flavor,omitempty"`
 }
 
 // ComponentPublishData is written during publish to track details of the component config.

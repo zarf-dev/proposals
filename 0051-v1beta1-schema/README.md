@@ -216,6 +216,8 @@ In the v1alpha1 schema, Zarf looks at init component names to determine when to 
 
 A new `service` key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. The field is an enum with the allowed values `registry`, `seed-registry`, `injector`, `agent`, and `git-server`.
 
+Only a package with `kind: ZarfInitConfig` may contain a component with a `service` key. A component config may declare a service, but the importing package must be an init package. An init package may contain no services; a niche but plausible use case is a custom init package that uses an external registry and does not deploy an agent.
+
 View the full schema in [package.go](package.go#L200).
 
 ```yaml
@@ -239,19 +241,21 @@ type StateValue struct {
 
 CLI flags will exist alongside StateValues to retain discoverability; however, new fields may or may not have their own CLI flags, depending on how niche their use is. CLI flags will take precedence over StateValues. Credential fields will be allowed so long as this is a first time service install, or the fields match what is in the cluster, mirroring the existing logic. The list of targets will mostly mirror the [values cluster state](https://docs.zarf.dev/ref/package-values/#cluster-state-state) list; however, some calculated state fields, such as `.injector.PayloadShaSum`, will be excluded.
 
-### ZarfInitConfig will be Removed
-
-The `Kind` "ZarfInitConfig" will be removed. Every package will be of kind "ZarfPackageConfig". `zarf init` will default to deploying a package called `zarf-package-init-<arch>-<cli-version>.tar.zst`. A template will be created that exposes the CLI version, so a `zarf.tpl.yaml` file could set the `.metadata.version` field to `[[ .cli.version ]]`. If a package called `zarf-package-init-<arch>-<cli-version>.tar.zst` is not found in the cache or current directory, Zarf will prompt the user to pull the default zarf-dev init package. `zarf init` will continue to accept custom packages, for example, `zarf init <zarf-package-my-custom-init>`. If no component in the package declares a `.service`, Zarf will error and ask the user to run `zarf package deploy` instead. 
-
 ### ZarfComponentConfig
 
 The v1beta1 APIVersion will introduce a new `Kind` alongside ZarfPackageConfig called ZarfComponentConfig. ZarfComponentConfig files will allow declaring a component to be imported from other packages. It will have its own schema, and this schema will be verified on create and publish. ZarfComponentConfigs will be importable only by v1beta1 packages. Components from other ZarfPackageConfigs will not be importable in v1beta1 packages.
 
-Each ZarfComponentConfig declares exactly one component under the `component` field. If a user wants multiple variations of a component differentiated by flavor or architecture, they create one ZarfComponentConfig file per variation and set the or `.component.selector` fields on each. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
+A component in `ZarfComponentConfig` differs from one in `ZarfPackageConfig` in a few ways:
+
+- `.component.name` and `.component.description` are moved from the component object to the metadata object.
+- `optional` does not exist in `ZarfComponentConfig` to force the parent package to decide whether or not the component is required.
+- `.component.selector.architecture` and `.component.selector.flavor` are moved to the top-level `.variants.architecture` and `.variants.flavor` fields. This makes it clear when the component will be imported.
+
+Each ZarfComponentConfig declares exactly one component under the `component` field. If a user wants multiple variations of a component differentiated by flavor or architecture, they create one ZarfComponentConfig file per variation and set the top-level `.variants.flavor` or `.variants.architecture` fields on each. View the ZarfComponentConfig schema in [design details](#zarf-component-config-schema).
 
 The component in a ZarfComponentConfig will be able to import another ZarfComponentConfig. Cyclical imports will result in an error. ZarfComponentConfig files will not have a default filename such as zarf.yaml. This will encourage users to give their files descriptive names and promote a flatter directory structure as users will not default to having a new folder for each component. ZarfComponentConfigs will be able to define their own values and valuesSchema.
 
-`.import.local` is a list of local file path references to ZarfComponentConfig files; directories are not accepted. `.import.remote` is a list of `oci://` URL references to remote component configs pulled at create time. All entries from both fields are combined when applying compatibility rules: when more than one entry is given, every referenced component must share the same name, and at most one of them must be compatible with parent component after selectors (flavor, architecture) are applied, otherwise Zarf will error.
+`.import.local` is a list of local file path references to ZarfComponentConfig files; directories are not accepted. `.import.remote` is a list of `oci://` URL references to remote component configs pulled at create time. All entries from both are combined when applying component compatibility rules: when more than one entry is given, every referenced component must share the same name, and at most one must match the package's create-time architecture and flavor using its `.variants.architecture` and `.variants.flavor` fields, otherwise Zarf will error.
 
 The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, inspect, and find-images) will accept component config files. For example, `zarf dev inspect definition my-component-config.yaml`.
 
@@ -259,7 +263,7 @@ The `zarf dev` commands that accept a directory containing a `zarf.yaml` (lint, 
 
 Skeleton packages will be replaced by remote components. Instead of publishing an entire package, users will be able to publish a ZarfComponentConfig. This component will behave similarly to Skeleton packages in that local resources will be published alongside it, while remote resources will be pulled at create time.
 
-Remote components will be published using the new command `zarf component publish <component-file> <oci-repo>`. This command will have the flag `--flavor` to publish a component whose `.component.selector.flavor` matches the supplied value.
+Remote components will be published using the new command `zarf component publish <component-file> <oci-repo>`. The component config's `variants` object determines its flavor and architecture variant.
 
 Unlike Skeleton packages, which are published with unresolved templates, remote components must be fully templated before publishing. By templating before publish, we avoid issues with validating a non-templated package ([#4491](https://github.com/zarf-dev/zarf/issues/4491)) and stay aligned with the overall [Package Templates](#package-templates) strategy.
 
@@ -269,7 +273,11 @@ The Zarf v1alpha1 schema allows for package templates during create using the ##
 
 The `.gen` extension will be used to easily discern between generated and included packages. It will also make it simple to ignore these files within Git repositories. When `zarf package create`, or any other relevant command, is run on a directory, it will first look for a `zarf.yaml`, then fall back to a `zarf.gen.yaml`.
 
-`zarf dev template` will have logic to follow local component imports. For any entry in `.import.local` whose `path` points to a file called `<base>.tpl.yaml`, Zarf will template the `<base>.tpl.yaml` file and rewrite the entry to `<base>.gen.yaml`. Users who prefer to template in separate steps may set their import path entries to `<base>.gen.yaml` directly. Zarf will template imports after the current file is finished templating, so a user will be able to template a value into an entry of `.import.local` and Zarf will template the resulting file.
+<!-- 
+Commenting out the below feature as there is not a clear use case, and the behavior might be unintuitive. If there is a request in the future, we could add this, and we'd have more context on what a user is looking for.
+
+`zarf dev template` will have logic to follow local component imports. For any entry in `.import.local` whose `path` points to a file called `<base>.tpl.yaml`, Zarf will template the `<base>.tpl.yaml` file and rewrite the entry to `<base>.gen.yaml`. Users who prefer to template in separate steps may set their import path entries to `<base>.gen.yaml` directly. Zarf will template imports after the current file is finished templating, so a user will be able to template a value into an entry of `.import.local` and Zarf will template the resulting file. 
+-->
 
 Package templates will be required to have a value; otherwise the command will fail.
 
@@ -741,3 +749,7 @@ Remote components cannot be templated during import; this is a removed feature f
 Action defaults could be set once at the component level rather than separately under each action set (`onCreate`, `onDeploy`, `onRemove`). This would reduce the schema's surface area. 
 
 This was rejected. Create and deploy often run on separate hosts and have different jobs: `onCreate` actions typically pull files or load images as docker tars, while `onDeploy` actions typically run `kubectl` or stand up a cluster. Sharing defaults across that boundary creates an awkward mental model. The [example v1beta1 zarf.yaml](./zarf.yaml) is large because every action set has its own defaults block, but in practice actions are an escape hatch used sparingly. It is rare for a real component to define both `onCreate` and `onDeploy` actions.
+
+### Removing ZarfInitConfig
+
+This proposal initially removed `ZarfInitConfig` because [Zarf Services](#zarf-services) would identify components with special behavior. However, the kind remains useful to identify the package's purpose, permits init packages without services, and prevents services in ordinary packages.
