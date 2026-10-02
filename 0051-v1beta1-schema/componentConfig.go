@@ -41,7 +41,7 @@ type ComponentSpec struct {
 	Repositories []Repository `json:"repositories,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
 	Actions ComponentActions `json:"actions,omitempty"`
-	// The Zarf CLI service this component provides and its required capabilities.
+	// The Zarf CLI service this component provides and its capabilities.
 	Service Service `json:"service,omitempty"`
 }
 
