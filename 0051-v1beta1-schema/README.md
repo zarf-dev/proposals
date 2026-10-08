@@ -243,7 +243,9 @@ type Service struct {
 }
 ```
 
-`.init` will be a special parent value read during `zarf package deploy` and `zarf init` when the kind is ZarfInitConfig. If there is an unrecognized child object under `.init` then Zarf will error, and instruct the user to clear that value as it is not understood by the current version of Zarf. This will provide clear error messages when an old CLI does not having features introduced in newer CLIs. For instance, if the `injector` Service added a value `.init.injector.tolerations` users would only be able to set that value on versions of the CLI that will read and act on it. Likewise, all new configuration options that depend on updates to the init package will be configured through `.init` values instead of flags on `zarf init`. This way it is impossible for a new CLI to mistakenly expect functionality non-existent in old init packages. 
+CLI Flags on init will take precedence when a field exists as both a state value and `zarf init` flag. 
+
+`.init` will be a special parent value read during `zarf package deploy` and `zarf init` when the kind is ZarfInitConfig. If there is an unrecognized child object under `.init` then Zarf will error, and instruct the user to remove the value since it is not understood by the current version of Zarf. This will provide clear error messages when an older CLI does not have features introduced in newer init packages. For instance, if the `injector` Service added a value `.init.injector.tolerations` users would only be able to set that value on versions of the CLI that will read and act on it. Likewise, all new configuration options that depend on functionality in the init package will be configured through `.init` values instead of flags on `zarf init`. This way it is impossible for a new CLI to mistakenly expect functionality non-existent in old init packages. For instance, if Zarf introduced Git TLS functionality, then the `git-server` service would gain the values `.init.git.tls.ca`, `init.git.tls.cert`, and `init.git.tls.key` without accompanying flags in the CLI as the Helm chart in the init package would need updates. 
 
 ### ZarfComponentConfig
 
