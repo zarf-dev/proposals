@@ -145,18 +145,28 @@ type ComponentImportRemote struct {
 	URL string `json:"url"`
 }
 
-// Service identifies which Zarf CLI service a component provides.
-type Service string
+// Service identifies which Zarf CLI service a component provides and the values used to configure it.
+type Service struct {
+	// The Zarf CLI service this component provides.
+	Name ServiceName `json:"name" jsonschema:"enum=Registry,enum=SeedRegistry,enum=Injector,enum=Agent,enum=GitServer"`
+	// List of Zarf value keys used to configure this service's state.
+	Values []string `json:"values,omitempty"`
+}
+
+// ServiceName identifies a Zarf CLI service.
+type ServiceName string
+
 const (
-	ServiceRegistry Service = "registry"
-	ServiceSeedRegistry Service = "seed-registry"
-	ServiceInjector Service = "injector"
-	ServiceAgent Service = "agent"
-	ServiceGitServer Service = "git-server"
+	ServiceRegistry     ServiceName = "Registry"
+	ServiceSeedRegistry ServiceName = "SeedRegistry"
+	ServiceInjector     ServiceName = "Injector"
+	ServiceAgent        ServiceName = "Agent"
+	ServiceGitServer    ServiceName = "GitServer"
 )
 
 // ServerSideApplyMode controls when server-side apply is used during deploy.
 type ServerSideApplyMode string
+
 const (
 	ServerSideApplyEnabled  ServerSideApplyMode = "true"
 	ServerSideApplyDisabled ServerSideApplyMode = "false"
