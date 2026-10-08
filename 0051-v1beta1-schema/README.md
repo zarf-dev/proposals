@@ -214,7 +214,7 @@ There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`
 
 In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators, [#4528](https://github.com/zarf-dev/zarf/issues/4528), and leave little room for configurability.
 
-A new `service` object under components will make the inherent coupling between the init package and the Zarf CLI more transparent. Its required `name` field is an enum with the allowed values `Registry`, `SeedRegistry`, `Injector`, `Agent`, and `GitServer`. Its optional `values` field is a list of Zarf value keys, such as `init.registry.port`, used to configure the service's state.
+A new `service` object under components will make the inherent coupling between the init package and the Zarf CLI more transparent. Its required `name` field is an enum with the allowed values `Registry`, `SeedRegistry`, `Injector`, `Agent`, and `GitServer`. Its optional `values` field is a list of Zarf value keys, such as `init.registry.port`, used to configure the service.
 
 Only a package with `kind: ZarfInitConfig` may contain a component with a `service` key. A component config may declare a service, but the importing package must be an init package. An init package may contain no services; a niche but plausible use case is a custom init package that uses an external registry and does not deploy an agent.
 
