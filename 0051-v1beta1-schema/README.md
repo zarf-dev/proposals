@@ -201,7 +201,8 @@ If a package has these fields defined, then `zarf dev upgrade-schema` will error
 
 ### New Fields
 
-- `.components.[x].service` will be introduced to avoid magic names in Init package components. See [Zarf Services](#zarf-services) for more details.
+- `.components.[x].service` will be introduced to avoid magic names in init package components. See [Zarf Services](#zarf-services) for more details.
+- `.components.[x].service.values` will be introduced to couple init flags to the init package. See [Zarf Services](#zarf-services) for more details.
 
 ### Behavior Changes
 
@@ -213,19 +214,38 @@ There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`
 
 In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators, [#4528](https://github.com/zarf-dev/zarf/issues/4528), and leave little room for configurability.
 
-A new `service` key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. The field is an enum with the allowed values `registry`, `seed-registry`, `injector`, `agent`, and `git-server`.
+A new `service` object under components will make the inherent coupling between the init package and the Zarf CLI more transparent. Its required `name` field is an enum with the allowed values `Registry`, `SeedRegistry`, `Injector`, `Agent`, and `GitServer`. Its optional `values` field is a list of Zarf value keys, such as `init.registry.port`, used to configure the service.
 
 Only a package with `kind: ZarfInitConfig` may contain a component with a `service` key. A component config may declare a service, but the importing package must be an init package. An init package may contain no services; a niche but plausible use case is a custom init package that uses an external registry and does not deploy an agent.
 
-View the full schema in [package.go](package.go#L200).
+View the service schema in [package.go](package.go) and the component schema in [componentConfig.go](componentConfig.go).
 
 ```yaml
 - name: zarf-registry
-  service: registry
+  service:
+    name: Registry
+    values:
+      - init.registry.port
 - name: zarf-agent
-  service: agent
+  service:
+    name: Agent
   ...
 ```
+
+Services are usually accompanied by configuration during initialization. Init fields such as the registry URL are typically set during `init` by command-line flags (`--registry-url`). This makes these fields impossible to set during `zarf package deploy`. Additionally, potential future fields such as `.init.Injector.Tolerations` are impractical to set through a CLI flag. The `.components.[X].service.values` list declares the value keys used to configure the component's service. For instance, a component declaring `service.name: Registry` can list `init.registry.port` to configure `.Registry.Port`. Each listed key must be supported by the declared service.
+
+```go
+Service Service `json:"service,omitempty"`
+
+type Service struct {
+    Name ServiceName `json:"name"`
+    Values []string `json:"values,omitempty"`
+}
+```
+
+CLI flags on `zarf init` will take precedence when a field exists as both a service value and a `zarf init` flag. If a value changes credentials from what is stored in state during a re-init then Zarf will return an error and ask the user to run `zarf dev update-creds`, keeping the same behavior as the current CLI flags. 
+
+`.init` will be a special parent value read during `zarf package deploy` and `zarf init` when the kind is `ZarfInitConfig`. If there is an unrecognized child object under `.init`, then Zarf will return an error and instruct the user to remove the value since it is not understood by the current version of Zarf. This will provide clear error messages when an older CLI does not have features introduced in newer init packages. For instance, if the `injector` service added the value `.init.injector.tolerations`, users would only be able to set that value on versions of the CLI that will read and act on it. Likewise, all new configuration options that depend on functionality in the init package will be configured through `.init` values instead of flags on `zarf init`. This way, it is impossible for a new CLI to mistakenly expect functionality that does not exist in older init packages. For instance, if Zarf introduced Git TLS functionality in the `git-server` chart, then the service would gain the values `.init.git.tls.ca`, `init.git.tls.cert`, and `init.git.tls.key` without accompanying flags in the CLI as only an updated init package could understand the values. The values schema in the init package will set `additionalProperties: false` on `.init` to block users from setting these values until the init package recognizes them. 
 
 ### ZarfComponentConfig
 

@@ -41,8 +41,8 @@ type ComponentSpec struct {
 	Repositories []Repository `json:"repositories,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
 	Actions ComponentActions `json:"actions,omitempty"`
-	// The Zarf CLI service this component provides, such as the registry, injector, or agent.
-	Service Service `json:"service,omitempty" jsonschema:"enum=registry,enum=seed-registry,enum=injector,enum=agent,enum=git-server"`
+	// The Zarf CLI service this component provides and optional value keys used to configure its state.
+	Service Service `json:"service,omitempty"`
 }
 
 // ComponentMetadata holds metadata about a component config.
