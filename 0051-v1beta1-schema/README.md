@@ -232,7 +232,7 @@ View the service schema in [package.go](package.go) and the component schema in 
   ...
 ```
 
-Services are usually accompanied by configuration on init. Init fields such as the registry url are typically set during `init` by command-line flags (`--registry-url`). This makes these fields impossible to set during `zarf package deploy`. Additionally, potential future fields such as `.init.Injector.Tolerations` are impractical to set through a CLI flag. The `.components.[X].service.values` list declares the value keys used to configure the component's service. For instance, a component declaring `service.name: Registry` can list `init.registry.port` to configure `.Registry.Port`. Each listed key must be supported by the declared service.
+Services are usually accompanied by configuration during initialization. Init fields such as the registry URL are typically set during `init` by command-line flags (`--registry-url`). This makes these fields impossible to set during `zarf package deploy`. Additionally, potential future fields such as `.init.Injector.Tolerations` are impractical to set through a CLI flag. The `.components.[X].service.values` list declares the value keys used to configure the component's service. For instance, a component declaring `service.name: Registry` can list `init.registry.port` to configure `.Registry.Port`. Each listed key must be supported by the declared service.
 
 ```go
 Service Service `json:"service,omitempty"`
@@ -243,9 +243,9 @@ type Service struct {
 }
 ```
 
-CLI Flags on init will take precedence when a field exists as both a service value and `zarf init` flag. 
+CLI flags on `zarf init` will take precedence when a field exists as both a service value and a `zarf init` flag.
 
-`.init` will be a special parent value read during `zarf package deploy` and `zarf init` when the kind is `ZarfInitConfig`. If there is an unrecognized child object under `.init` then Zarf will error, and instruct the user to remove the value since it is not understood by the current version of Zarf. This will provide clear error messages when an older CLI does not have features introduced in newer init packages. For instance, if the `injector` Service added a value `.init.injector.tolerations` users would only be able to set that value on versions of the CLI that will read and act on it. Likewise, all new configuration options that depend on functionality in the init package will be configured through `.init` values instead of flags on `zarf init`. This way it is impossible for a new CLI to mistakenly expect functionality non-existent in old init packages. For instance, if Zarf introduced Git TLS functionality in the `git-server` chart, then the service would gain the values `.init.git.tls.ca`, `init.git.tls.cert`, and `init.git.tls.key` without accompanying flags in the CLI as only an updated init package could understand the values. 
+`.init` will be a special parent value read during `zarf package deploy` and `zarf init` when the kind is `ZarfInitConfig`. If there is an unrecognized child object under `.init`, then Zarf will return an error and instruct the user to remove the value since it is not understood by the current version of Zarf. This will provide clear error messages when an older CLI does not have features introduced in newer init packages. For instance, if the `injector` service added the value `.init.injector.tolerations`, users would only be able to set that value on versions of the CLI that will read and act on it. Likewise, all new configuration options that depend on functionality in the init package will be configured through `.init` values instead of flags on `zarf init`. This way, it is impossible for a new CLI to mistakenly expect functionality that does not exist in older init packages. For instance, if Zarf introduced Git TLS functionality in the `git-server` chart, then the service would gain the values `.init.git.tls.ca`, `init.git.tls.cert`, and `init.git.tls.key` without accompanying flags in the CLI as only an updated init package could understand the values.
 
 ### ZarfComponentConfig
 
