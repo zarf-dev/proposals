@@ -201,7 +201,7 @@ If a package has these fields defined, then `zarf dev upgrade-schema` will error
 
 ### New Fields
 
-- `.components.[x].service` will be introduced to avoid magic names in Init package components. See [Zarf Services](#zarf-services) for more details.
+- `.components.[x].service` will identify the service an init component provides and the versioned capabilities it requires, avoiding magic component names. See [Zarf Services](#zarf-services) for more details.
 
 ### Behavior Changes
 
@@ -213,19 +213,40 @@ There will be a behavior change in `.components[x].actions.[onAny].wait.cluster`
 
 In the v1alpha1 schema, Zarf looks at init component names to determine when to run certain logic. For instance, the injector is always run when an init component has the name "zarf-seed-registry". These magical names have caused confusion for custom init package creators, [#4528](https://github.com/zarf-dev/zarf/issues/4528), and leave little room for configurability.
 
-A new `service` key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. The field is an enum with the allowed values `registry`, `seed-registry`, `injector`, `agent`, and `git-server`.
+A new `service` key under components will make the inherent coupling between the init package and the Zarf CLI more transparent. Its required `name` field is an enum with the allowed values `registry`, `seed-registry`, `injector`, `agent`, and `git-server`. The optional `capabilities` field lists additional behavior the service requires.
 
 Only a package with `kind: ZarfInitConfig` may contain a component with a `service` key. A component config may declare a service, but the importing package must be an init package. An init package may contain no services; a niche but plausible use case is a custom init package that uses an external registry and does not deploy an agent.
 
-View the full schema in [package.go](package.go#L200).
+View the full schema in [componentConfig.go](componentConfig.go).
 
 ```yaml
 - name: zarf-registry
-  service: registry
+  service:
+    name: registry
 - name: zarf-agent
-  service: agent
+  service:
+    name: agent
   ...
 ```
+
+Some service behavior needs CLI functionality; similarly, some CLI functionality expects features in the init package. Init components will declare the behavior they need in `service.capabilities`. Each entry is a capability name with a contract understood by the Zarf CLI. Zarf maintains a minimum supported CLI version for each capability name. During package creation, Zarf finds the capabilities in the included components and adds their minimum versions and reasons to `.build.versionRequirements`. One disadvantage of this approach and minimum version requirements generally is that a deploy may be blocked on an optional component, or a component skipped by an external registry or git server. In these cases the user would have the option of running `--skip-version-check`. 
+
+During deployment, if a newer init package is used with an older Zarf CLI, the version requirements will prevent deployment. If an older init package is used by a newer CLI, Zarf will check if the capability is available and block deployment if necessary.
+
+For example, a Git server component can declare support for CLI-managed TLS:
+
+```yaml
+apiVersion: zarf.dev/v1beta1
+kind: ZarfInitConfig
+components:
+  - name: git-server
+    service:
+      name: git-server
+      capabilities:
+        - git-server-tls
+```
+
+During init, if the user requests TLS, Zarf verifies that the selected Git server component declares `git-server-tls` and fails deployment if it does not.
 
 ### ZarfComponentConfig
 

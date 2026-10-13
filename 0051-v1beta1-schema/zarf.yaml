@@ -1,4 +1,4 @@
-kind: ZarfPackageConfig
+kind: ZarfInitConfig
 apiVersion: zarf.dev/v1beta1
 metadata:
   name: everything-zarf-package
@@ -54,7 +54,10 @@ components:
       - path: ./components/a-component.yaml
     remote:
       - url: oci://ghcr.io/my-org/components/a-component:1.0.0
-  service: registry # one of: registry, seed-registry, injector, agent, git-server
+  service:
+    name: injector # one of: registry, seed-registry, injector, agent, git-server
+    capabilities:
+      - injector-tolerations
   manifests:
   - name: manifest
     namespace: manifest-ns

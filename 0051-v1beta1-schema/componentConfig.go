@@ -41,9 +41,17 @@ type ComponentSpec struct {
 	Repositories []Repository `json:"repositories,omitempty"`
 	// Custom commands to run at various stages of a package lifecycle.
 	Actions ComponentActions `json:"actions,omitempty"`
-	// The Zarf CLI service this component provides, such as the registry, injector, or agent.
-	Service Service `json:"service,omitempty" jsonschema:"enum=registry,enum=seed-registry,enum=injector,enum=agent,enum=git-server"`
+	// The Zarf CLI service this component provides and its capabilities.
+	Service Service `json:"service,omitempty"`
 }
+
+// Capability identifies a versioned Zarf behavior contract.
+type Capability string
+
+const (
+	// CapabilityInjectorTolerationsV1 applies tolerations from .injector.tolerations in Zarf values to the injector workload.
+	CapabilityInjectorTolerationsV1 Capability = "injector-tolerations/v1"
+)
 
 // ComponentMetadata holds metadata about a component config.
 type ComponentMetadata struct {
