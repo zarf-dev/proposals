@@ -54,7 +54,10 @@ components:
       - path: ./components/a-component.yaml
     remote:
       - url: oci://ghcr.io/my-org/components/a-component:1.0.0
-  service: registry # one of: registry, seed-registry, injector, agent, git-server
+  service:
+    name: Registry # one of: Registry, SeedRegistry, Injector, Agent, GitServer
+    values:
+      - init.registry.port
   manifests:
   - name: manifest
     namespace: manifest-ns
