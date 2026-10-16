@@ -313,6 +313,8 @@ type File struct {
 
 // Image defines an OCI image to include in the package.
 type Image struct {
+	// Optional ID; matching IDs let importing components replace this image.
+	ID string `json:"id,omitempty"`
 	// The image reference.
 	Name string `json:"name"`
 	// The source to pull the image from. Defaults to "registry".

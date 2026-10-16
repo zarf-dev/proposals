@@ -176,7 +176,7 @@ If a package has these fields defined, then `zarf dev upgrade-schema` will error
 - `.metadata` fields `image`, `source`, `documentation`, `url`, `authors`, and `vendor` will be removed. `zarf dev upgrade-schema` will move these fields under `.metadata.annotations`, which is a generic map of strings.
 - `.components.[x].healthChecks` will be removed and appended to `.components.[x].actions.onDeploy.onSuccess.wait.cluster`. This will be accompanied by a behavior change in `zarf tools wait-for` to perform kstatus-style readiness checks when `.wait.cluster.condition` is empty. See [wait changes](#wait-changes).
 - `.components.[x].charts` will be restructured to move fields into different sub-objects depending on the method of consuming the chart. See [Helm Chart Changes](#zarf-helm-chart-changes).
-- `.components.[x].images` will move from a list of strings to a list of objects. The `Image` object will have a required field, `name`, and an optional enum, `source`. Allowed values for `source` will be `daemon` and `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon. During component imports, the merge strategy will change from a simple append to a merge based on `name`. `source` and any future fields will favor the base component value if set, and otherwise use the imported component value. 
+- `.components.[x].images` will move from a list of strings to a list of objects with a required `name`. During component imports, images will merge by `name` unless non-empty IDs match. Other fields favor the importing component's value if set, falling back to the imported value.
 - `.components.[x].repos` will be renamed to `.components.[x].repositories` and will move from a list of strings to a list of objects. Each `Repository` object has a `url` and an optional `ref` sub-object. See [Git URL and Ref Parsing](#git-url-and-ref-parsing).
 - `.components.[x].import.name` will be removed given that components will only be importable from component config files so there is not a name to select. See [ZarfComponentConfig](#zarfcomponentconfig).
 - `.components.[x].import.path` and `.components.[x].import.url` will be changed into `.components.[x].import.local.[x].path` and `.components.[x].import.remote.[x].url`. All entries from both are combined when applying component compatibility rules. See [ZarfComponentConfig](#zarfcomponentconfig). These fields are a list of objects instead of a list of strings to enable future sibling fields. For instance, we may introduce a field `.components.[x].import.remote.[x].verify` to enable verifying the signature of signed remote components.
@@ -201,6 +201,8 @@ If a package has these fields defined, then `zarf dev upgrade-schema` will error
 
 ### New Fields
 
+- `.components.[x].images.[x].source` will be an optional enum (`daemon` or `registry`), defaulting to `registry`. Zarf will no longer fall back to pulling images from the Docker Daemon.
+- `.components.[x].images.[x].id` will be optional. During imports, matching non-empty IDs let the importing component replace the imported image, allowing custom init packages to override upstream defaults with enterprise images.
 - `.components.[x].service` will be introduced to avoid magic names in Init package components. See [Zarf Services](#zarf-services) for more details.
 
 ### Behavior Changes
