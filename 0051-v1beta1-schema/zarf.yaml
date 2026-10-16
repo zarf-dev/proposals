@@ -109,6 +109,7 @@ components:
     enableValues: false # Disable go-template processing for this file
   images:
     - name: podinfo:v1
+      id: podinfo # optional
       source: "registry" # optional - registry is the default value
   imageArchives:
   - path: podinfo.tar
