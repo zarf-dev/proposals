@@ -12,7 +12,9 @@ reviewers:
 approvers:
   - "@zarf-maintainers"
 
-see-also: []
+see-also:
+  - "/0048-schema-update-process"
+  - "/0051-v1beta1-schema"
 replaces: []
 
 # The target maturity stage in the current dev cycle for this ZEP.
