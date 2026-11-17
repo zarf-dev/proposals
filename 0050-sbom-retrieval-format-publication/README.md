@@ -165,15 +165,15 @@ During component import, manifest entries are merged by platform using the exist
 
 ### Publication and provenance
 
-Zarf's canonical package SBOM is the accepted supplier document in its declared format. The package preserves the document bytes, format, source evidence, platform, and image manifest digest as one association. Explicit export conversion must not replace the preserved supplier document.
+Zarf's canonical package SBOM is the accepted supplier document in its declared format. The package preserves the document bytes, format, source evidence, platform, and image manifest digest as one association. During package creation, Zarf records the resolved associations in `BuildData.ImageSBOMs`: authored `images[].manifests[]` entries describe intent, while build metadata records what was actually accepted and shipped. Each record includes the image manifest identity, platform, SBOM payload identity, format, and whether the document was supplier-provided or Syft-generated. Explicit export conversion must not replace the preserved supplier document.
 
 ### Registry publication
 
-For every packaged image manifest, deployment publishes the associated preserved SBOM to the target image repository. The published artifact is subject-bound to that image manifest, uses the recorded SBOM format, and is idempotent. Existing unrelated referrers must remain intact. Publication failure must fail deployment rather than silently omitting the SBOM.
+For every packaged image manifest, deployment reads the resolved association from `BuildData.ImageSBOMs` and publishes the associated preserved SBOM to the target image repository. The published artifact is subject-bound to that image manifest, uses the recorded SBOM format, and is idempotent. Existing unrelated referrers must remain intact. Publication failure must fail deployment rather than silently omitting the SBOM.
 
 ### Test Plan
 
-- Phase 1 tests cover manifest-level platform and digest mappings, local SBOM retrieval, format decoding, exact-byte preservation, Syft fallback, conflicting mappings, and rejection of cross-platform reuse.
+- Phase 1 tests cover manifest-level platform and digest mappings; recording resolved associations for aliases, fallback-generated images, and final packaged manifests; local SBOM retrieval; format decoding; exact-byte preservation; supplier-versus-generated status; conflicting mappings; and rejection of cross-platform reuse.
 - Phase 2 tests cover subject-bound publication through both the Referrers API and referrers-tag fallback, idempotent repeated publication, preservation of unrelated referrers, and deployment failure when publication cannot be confirmed.
 - Phase 3 tests cover checksummed HTTP(S) retrieval, pinned and unpinned OCI-referrer retrieval, subject mismatches, zero or multiple matches, malformed responses, and invalid digests.
 - Phase 4 tests cover direct subject evidence and verified external bindings for matching and mismatched image manifests.
