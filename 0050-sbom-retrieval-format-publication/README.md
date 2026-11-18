@@ -171,7 +171,7 @@ During component import, manifest entries are merged by platform using the exist
 
 ### Publication and provenance
 
-Zarf's package SBOM is the accepted supplier document in its declared format, or the Syft-generated document when no supplier document is declared. The package preserves the document bytes, format, source evidence, platform, and image manifest digest as one association. During package creation, Zarf records every accepted image SBOM in `BuildData.SBOMs`, including the image manifest identity, platform, SBOM payload identity, format, and whether the document was provided or generated. Explicit export conversion must not replace the preserved document.
+Zarf's package SBOM is the accepted supplier document in its declared format, or the Syft-generated document when no supplier document is declared. The package preserves the document bytes, format, source evidence, platform, and image manifest digest as one association. During package creation, Zarf records every accepted image SBOM in `BuildData.SBOMs`, including the image manifest identity, platform, SBOM payload identity, format, and whether the document was provided or generated.
 
 #### build-data records
 
@@ -219,7 +219,7 @@ This feature changes the v1beta1 package schema and depends on the platform-awar
 
 ## Drawbacks
 
-This adds schema, source-validation, format-aware package inspection, and provenance complexity to package creation. Restricting the feature to one explicit supplier source avoids unsafe merging but does not cover workflows that require multiple independently produced inventories.
+This adds schema, source-validation, format-aware package inspection, and provenance complexity to package creation.
 
 ## Alternatives
 
@@ -227,14 +227,13 @@ This adds schema, source-validation, format-aware package inspection, and proven
 
 Syft remains the fallback, but exclusive generation discards an application producer's authoritative inventory and cannot reliably infer every primary application identity.
 
-### Add CPEs to discovered packages
+### Augment SBOMs to discovered packages
 
-Appending a declared CPE to a dependency or Go-module component conflates product identity with dependency identity and is not a reliable scanner interoperability model.
+Appending a declared identity to a dependency or Go-module component conflates product identity with dependency identity and is not a reliable scanner interoperability model.
 
 ### Merge multiple SBOMs
 
-Zarf accepts only one supplier SBOM for a manifest. No general component identity or relationship merge is safe across independent SBOM producers; a merge can create false inventory or scanner findings.
-
+Zarf accepts only one supplier SBOM for a manifest. No general component identity or relationship merge is safe across independent SBOM producers.
 
 ### Publish SBOMs as unrelated files or tags
 
