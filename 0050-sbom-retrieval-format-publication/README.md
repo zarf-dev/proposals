@@ -233,6 +233,14 @@ Zarf accepts only one supplier SBOM for a manifest. No general component identit
 
 Publishing a sidecar file or a tag-derived SBOM without a manifest subject loses the required artifact binding. OCI referrers, with the standard referrers-tag fallback, retain that binding on compatible and older registries.
 
+### Store image SBOMs in the package OCI layout
+
+An alternative is to store every accepted image SBOM as an OCI artifact in the package's OCI layout instead of preserving the payload in the `sboms/` directory. Each SBOM artifact would be subject-bound to the final platform-specific image manifest, with its payload media type and format represented by the artifact metadata. `BuildData.SBOMs` could remain as an index of the stored artifacts and their provenance, while the OCI layout would become the canonical payload and association store.
+
+This would provide a native OCI relationship inside the package, allow OCI-aware tooling to traverse image-to-SBOM associations, and reduce the need to construct the artifact wrapper during registry publication. It would also require changes to package image retrieval and inspection so they distinguish image manifests from SBOM artifacts, preserve referrer relationships when copying or extracting layouts, and remain compatible with older packages and clients that expect the layout to contain only image content. Package assembly, archive accounting, garbage collection, and migration would also need to account for the additional OCI artifacts.
+
+The current proposal does not select this alternative. It retains SBOM payloads in the existing `sboms/` representation and materializes a subject-bound OCI referrer during publication, avoiding changes to current OCI image storage and retrieval behavior. OCI-layout storage remains a possible future direction if Zarf adopts an OCI artifact graph as the canonical package representation.
+
 ## Infrastructure Needed
 
 No new permanent infrastructure is required. OCI-referrer coverage needs test registries with and without the OCI Distribution Spec 1.1 Referrers API.
