@@ -146,7 +146,7 @@ Allow each platform-specific image manifest entry to provide an SBOM through `sb
 
 #### Phase 2: Retrieve SBOMs from OCI sources
 
-Support OCI-native SBOM retrieval, reading SBOM artifacts from registry referrers. Retrieved documents continue to be preserved in the package's existing `sboms/` representation; this phase does not require changing package storage. Pinned referrers must identify the selected image manifest. Unpinned discovery must find exactly one matching referrer for that manifest. Registry discovery uses the OCI Referrers API when available and the standard referrers-tag fallback otherwise.
+Support OCI-native SBOM retrieval from registry referrers. `ociReferrer` is one logical SBOM source: Zarf uses the OCI Referrers API when available and the standard referrers-tag mechanism as the discovery fallback. Retrieved documents continue to be preserved in the package's existing `sboms/` representation; this phase does not require changing package storage. Pinned referrers must identify the selected image manifest. Unpinned discovery must find exactly one matching referrer for that manifest.
 
 #### Phase 3: Publish SBOMs with images
 
@@ -160,13 +160,12 @@ Format-specific decoding is required before a supplier document is accepted. Dec
 
 #### Image SBOM sources
 
-Each `images[].manifests[]` entry contains a required `platform`, an optional image manifest `digest`, and an optional `sbom`. When present, `digest` pins the platform-specific image manifest; when omitted, Zarf resolves it during package creation. The `sbom` contains a supported `format` and exactly one source:
+Each `images[].manifests[]` entry contains a required `platform`, an optional image manifest `digest`, and an optional `sbom`. When present, `digest` pins the platform-specific image manifest. When omitted, Zarf resolves it during package creation. The `sbom` contains a supported `format` and exactly one source:
 
 - `local.path` for a local SBOM document.
-- `remote.url` with `remote.checksum` for a checksummed HTTP(S) SBOM document.
-- `ociReferrer.digest` for an optionally pinned SBOM referrer in the image repository.
+- `ociReferrer.digest` for an optionally pinned SBOM referrer in the image repository. The referrer source uses the OCI Referrers API when available and the standard referrers-tag mechanism as a fallback; these are discovery mechanisms for one source, not separate source types.
 
-For an OCI referrer, Zarf requires the artifact's `subject` to match the resolved image manifest digest. Without a pinned referrer digest, Zarf accepts exactly one matching referrer and fails on zero or multiple matches. A manifest entry without `sbom` uses Syft unless the existing SBOM-skip option is enabled. One entry's SBOM must not implicitly apply to another platform.
+For an OCI referrer, Zarf requires the artifact's `subject` to match the resolved image manifest digest. Without a pinned referrer digest, Zarf accepts exactly one matching referrer and fails on zero or multiple matches, regardless of whether it was discovered through the Referrers API or the referrers-tag fallback. A manifest entry without `sbom` uses Syft unless the existing SBOM-skip option is enabled. One entry's SBOM must not implicitly apply to another platform.
 
 During component import, manifest entries are merged by platform using the existing image merge behavior. Conflicting entries for the same platform fail rather than being selected by component order.
 
